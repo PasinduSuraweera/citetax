@@ -1,0 +1,223 @@
+Citetax
+Sri Lanka Tax Filing Copilot
+Every number, cited.
+IT3041 · Mid Evaluation
+
+-- 1 of 10 --
+
+Why Tax
+3 versions of the same IRD circular in one week,
+August 2026
+Issued Revised
+6 Aug
+Revised again
+12 Aug
+A normal chatbot cites whichever copy it happened to index, with
+no date and full confidence.
+Who needs it
+Salaried employees
+Does APIT already cover me, or must I still file?
+Freelancers
+Have I crossed the threshold? Nobody withholds for me.
+Mixed income
+How do salary, interest and freelance income add up?
+Four different jobs: find the law for the right date, compute, check deadlines, refuse safely. That needs agents, not one prompt.
+
+-- 2 of 10 --
+
+What the System Is
+Personal income tax, two years of assessment. Anything else is refused, not guessed.
+Ask
+A question or
+a payslip
+›
+Retrieve
+Only law in force
+for that year
+›
+Compute
+Deterministic engine,
+8 steps
+›
+Check
+Every figure cited
+or not released
+›
+Answer
+Figure, steps,
+citations, deadline
+What a user can ask
+1 Do I need to file?
+Threshold and obligation, with the rule behind it
+2 What do I owe?
+Eight steps, each with the rule it applied
+3 What changed this year?
+Both years compared, and the amendment that did it
+4 Out of scope questions
+Refused with a reason, such as VAT or company tax
+
+-- 3 of 10 --
+
+The Stack
+Interface Next.js, TypeScript, Tailwind
+Services FastAPI, LangGraph orchestrator, agents over HTTP, MCP tools
+Models Groq gpt-oss-120b for language, BGE-M3 embeddings, BGE reranker, spaCy NER
+Data PostgreSQL 16 with pgvector, BM25 index, versioned rules table, Redis
+Run Docker Compose, Caddy TLS, GitHub Actions, single VPS
+No LLM in the
+computation path
+The model reads the question and
+writes the explanation. Rates come
+from a verified table and the
+arithmetic is plain Python.
+
+-- 4 of 10 --
+
+Agent Flow
+Orchestrator
+Reads the question, fills missing facts, calls the others, builds the
+answer
+Typed messages over HTTP, not free text
+Retrieval
+Hybrid BM25 and dense search,
+filtered to the right year
+Owns: Superseded law
+Computation
+Deterministic engine over the
+verified rules table
+Owns: Untraceable numbers
+Compliance
+Must you file, by when, at what
+penalty
+Owns: Missed deadlines
+Guardrail
+Checks scope, citations and
+personal data before release
+Owns: Uncited claims
+Why five services and not one agent with tools: each one is tested on its own, so when a number is wrong we know which stage produced it. Every hop is
+logged.
+
+-- 5 of 10 --
+
+Implementation Journey: Build Order
+From trusted rules to integrated services, up to Mid Evaluation
+MID EVAL
+1
+Rules
+Structured + verified
+›
+2
+Calculation
+Deterministic engine
+›
+3
+Change Analysis
+Year-to-year comparison
+›
+4
+Compliance
+Deadlines + requirements
+›
+5
+Services + MCP
+Structured integration
+Implementation logic
+Each phase creates a reliable input for the next: verified rules → deterministic computation → comparison → compliance → integration.
+
+-- 6 of 10 --
+
+Next Implementation Phases
+How we move from a working core to a robust deployable system
+01
+NLP
+Payslip NER + query
+expansion
+02
+Compliance
+Penalties + instalments
+03
+Security
+Auth + encryption +
+injection defence + PII
+masking
+04
+Evaluation
+Larger corpus + golden-set
+expansion
+05
+Deployment
+Production + smoke tests
+W H Y T H ES E P H A S ES ?
+NLP
+Understand realistic user
+inputs better.
+Compliance
+Cover more filing and
+payment requirements.
+Security
+Protect taxpayer data and
+strengthen defenses.
+Evaluation
+Measure reliability with
+broader test coverage.
+Deployment
+Prove the system works
+reliably in production.
+Goal: move from a working core → evaluated → secure → deployable system
+
+-- 7 of 10 --
+
+Up Next
+
+-- 8 of 10 --
+
+Responsible AI
+A privacy layer in front of everything
+A local model checks anything a user sends before it goes further. It strips personal details such as TIN, NIC and employer name, and
+blocks wrong or sensitive content from reaching the hosted model. Nothing private leaves the machine.
+No made up figures
+The model never touches the arithmetic. Every step has a rule behind it.
+No outdated law
+Retrieval is filtered by year, and the citation shows the dates it applied.
+No advice
+Out of scope and advisory questions are refused with a reason.
+Nothing hidden
+The user can open every step and every source, and check the answer.
+
+-- 9 of 10 --
+
+Pricing
+Free
+LKR 0
+always
+Anyone checking if they must file
+Obligation check
+One estimate per year
+Deadline reminders
+Individual
+LKR 1,500
+per filing season
+Salaried filers and freelancers
+Unlimited computations
+Payslip upload
+Year on year comparison
+Full computation export
+Practice
+LKR 7,500
+per seat, per month
+Small accounting practices
+Multi client workspace
+Bulk checking
+Branded exports
+Full audit trail
+Market
+Individual filers and freelancers, plus small
+accounting practices
+Deployment
+Web first, containerised, one small VPS, so a low
+price still works
+Why they pay
+A practice cannot bill for an answer it cannot check
+
+-- 10 of 10 --
+

@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: #E9EDF6; -webkit-font-smoothing: antialiased; }
+  a { color: #2B44C7; text-decoration: none; }
+  a:hover { color: #1B2FA0; text-decoration: underline; }
+</style>
+</helmet>
+<div style="padding:72px 80px 120px;display:flex;flex-direction:column;gap:76px;font-family:'Instrument Sans',sans-serif;background:#E9EDF6;min-height:100vh">
+
+  <div style="max-width:960px;display:flex;flex-direction:column;gap:14px">
+    <div style="font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.2em;color:#2B44C7">CITETAX · IT3041 · UI SET</div>
+    <div style="font:600 46px/1.05 'Instrument Sans',sans-serif;letter-spacing:-.035em;color:#0E1430;text-wrap:pretty">Twelve desktop screens and five mobile screens for the Sri Lanka tax filing copilot.</div>
+    <div style="font:400 16.5px/1.6 'Instrument Sans',sans-serif;color:#5C6683;max-width:720px;text-wrap:pretty">Refined from your reference mock: same navy-and-citation identity, tighter type, mono figures, and the provenance layer pushed to the front — inline markers on every figure, in-force date bars on every source, expandable rule text, and a guardrail verdict above the answer. All figures use the real 2025/26 bands under Inland Revenue (Amendment) Act No. 2 of 2025.</div>
+  </div>
+
+  <div data-screen-label="01 Sign in" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">01</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Sign in</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 860</span></div>
+    </sc-if>
+    <div style="width:1440px;height:860px;background:#fff;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <div style="width:600px;flex:none;background:#0E1430;padding:56px 52px;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font:700 26px/1 'Instrument Sans',sans-serif;letter-spacing:-.025em;color:#fff">Citetax</div>
+          <div style="font:400 13px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45);margin-top:6px">Every number, cited.</div>
+        </div>
+        <div>
+          <div style="font:600 38px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.03em;color:#fff;text-wrap:pretty;max-width:440px">Three versions of the same circular were issued in one week.</div>
+          <div style="font:400 16px/1.65 'Instrument Sans',sans-serif;color:rgba(255,255,255,.52);margin-top:20px;max-width:430px;text-wrap:pretty">Citetax answers only from the law in force for your year of assessment, and shows you the dates it applied. If a figure cannot be traced to a rule, it is not released.</div>
+          <div style="display:flex;gap:10px;margin-top:30px;flex-wrap:wrap">
+            <div style="border:1px solid rgba(255,255,255,.16);border-radius:100px;padding:7px 13px;font:500 12px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.7)">No LLM in the arithmetic</div>
+            <div style="border:1px solid rgba(255,255,255,.16);border-radius:100px;padding:7px 13px;font:500 12px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.7)">PII stripped locally</div>
+          </div>
+        </div>
+        <div style="font:400 12px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.3)">Personal income tax only · Y/A 2024/25 and 2025/26 · Not tax advice</div>
+      </div>
+      <div style="flex:1;padding:56px 84px;display:flex;flex-direction:column;justify-content:center;background:#F7F9FD">
+        <div style="max-width:392px;width:100%">
+          <div style="font:600 30px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.028em;color:#0E1430">Sign in</div>
+          <div style="font:400 14.5px/1.55 'Instrument Sans',sans-serif;color:#5C6683;margin-top:9px">Your TIN is never stored. Computations are kept for 90 days so you can re-check them.</div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-top:30px">
+            <div>
+              <div style="font:500 11.5px 'Instrument Sans',sans-serif;color:#5C6683;margin-bottom:7px">Email</div>
+              <div style="background:#fff;border:1px solid #D8DFF0;border-radius:9px;padding:12px 13px;font:400 14.5px 'Instrument Sans',sans-serif;color:#0E1430">nuwan.perera@gmail.com</div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span style="font:500 11.5px 'Instrument Sans',sans-serif;color:#5C6683">Password</span><span style="font:500 11.5px 'Instrument Sans',sans-serif;color:#2B44C7">Forgot?</span></div>
+              <div style="background:#fff;border:1.5px solid #2B44C7;border-radius:9px;padding:12px 13px;font:400 15px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:.22em;box-shadow:0 0 0 3px rgba(43,68,199,.11)">••••••••••</div>
+            </div>
+          </div>
+          <div style="background:#2B44C7;border-radius:9px;padding:13px;text-align:center;font:600 14.5px 'Instrument Sans',sans-serif;color:#fff;margin-top:22px">Continue</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:22px 0"><div style="flex:1;height:1px;background:#DFE5F2"></div><span style="font:500 11px 'IBM Plex Mono',monospace;color:#9BA4BC;letter-spacing:.1em">OR</span><div style="flex:1;height:1px;background:#DFE5F2"></div></div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="background:#fff;border:1px solid #D8DFF0;border-radius:9px;padding:12px;text-align:center;font:500 14px 'Instrument Sans',sans-serif;color:#0E1430">Continue with Google</div>
+            <div style="background:#fff;border:1px solid #D8DFF0;border-radius:9px;padding:12px;text-align:center;font:500 14px 'Instrument Sans',sans-serif;color:#0E1430">Continue as guest — obligation check only</div>
+          </div>
+          <div style="display:flex;gap:9px;align-items:flex-start;margin-top:26px;background:#EDF1FC;border-radius:9px;padding:12px 13px">
+            <span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;margin-top:1px">i</span>
+            <span style="font:400 12.5px/1.5 'Instrument Sans',sans-serif;color:#41496B">Citetax covers personal income tax for two years of assessment. VAT, company tax and advisory questions are refused with a reason.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="02 Profile setup" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">02</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Onboarding — profile setup</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 860</span></div>
+    </sc-if>
+    <div style="width:1440px;height:860px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -34px rgba(14,20,48,.42);display:flex;flex-direction:column">
+      <div style="height:62px;flex:none;background:#fff;border-bottom:1px solid #E4E9F5;display:flex;align-items:center;justify-content:space-between;padding:0 32px">
+        <div style="font:700 19px 'Instrument Sans',sans-serif;letter-spacing:-.025em;color:#0E1430">Citetax</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <sc-for list="{{ onboardSteps }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:19px;height:19px;border-radius:50%;background:{{ s.bg }};color:{{ s.fg }};font:600 10.5px 'IBM Plex Mono',monospace;display:flex;align-items:center;justify-content:center;flex:none">{{ s.n }}</span>
+              <span style="font:500 12.5px 'Instrument Sans',sans-serif;color:{{ s.label }}">{{ s.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font:500 13px 'Instrument Sans',sans-serif;color:#8A93AC">Skip for now</div>
+      </div>
+      <div style="flex:1;display:flex;padding:44px 0;overflow:hidden">
+        <div style="flex:1;padding:0 56px;max-width:760px">
+          <div style="font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#8A93AC">STEP 2 OF 3</div>
+          <div style="font:600 33px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.03em;color:#0E1430;margin-top:12px">Where does your income come from?</div>
+          <div style="font:400 15px/1.6 'Instrument Sans',sans-serif;color:#5C6683;margin-top:11px;max-width:560px;text-wrap:pretty">This decides which sections the retrieval agent is allowed to search. You can change it per question later.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:28px">
+            <sc-for list="{{ incomeTypes }}" as="t" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid {{ t.border }};border-radius:11px;padding:16px 18px;display:flex;align-items:flex-start;gap:14px;box-shadow:{{ t.shadow }}">
+                <span style="width:18px;height:18px;border-radius:5px;border:1.5px solid {{ t.box }};background:{{ t.boxFill }};flex:none;margin-top:2px;display:flex;align-items:center;justify-content:center;font:700 10px 'Instrument Sans',sans-serif;color:#fff">{{ t.tick }}</span>
+                <div style="flex:1">
+                  <div style="font:600 15px 'Instrument Sans',sans-serif;color:#0E1430">{{ t.name }}</div>
+                  <div style="font:400 13px/1.5 'Instrument Sans',sans-serif;color:#6A7490;margin-top:3px">{{ t.desc }}</div>
+                </div>
+                <span style="font:500 11px 'IBM Plex Mono',monospace;color:#8A93AC;background:#F2F5FC;border-radius:5px;padding:4px 7px;flex:none">{{ t.rule }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:30px">
+            <div style="background:#2B44C7;border-radius:9px;padding:12px 26px;font:600 14.5px 'Instrument Sans',sans-serif;color:#fff">Continue</div>
+            <div style="border:1px solid #D8DFF0;background:#fff;border-radius:9px;padding:12px 22px;font:500 14.5px 'Instrument Sans',sans-serif;color:#41496B">Back</div>
+          </div>
+        </div>
+        <div style="width:392px;flex:none;padding:0 44px 0 0">
+          <div style="background:#0E1430;border-radius:13px;padding:24px">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(255,255,255,.4)">WHAT WE NEVER STORE</div>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+              <sc-for list="{{ neverStore }}" as="n" hint-placeholder-count="4">
+                <div style="display:flex;align-items:flex-start;gap:10px">
+                  <span style="font:600 11px 'IBM Plex Mono',monospace;color:#F5A9A2;margin-top:2px">✕</span>
+                  <div>
+                    <div style="font:600 13.5px 'Instrument Sans',sans-serif;color:#fff">{{ n.what }}</div>
+                    <div style="font:400 12px/1.45 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45);margin-top:2px">{{ n.how }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border-top:1px solid rgba(255,255,255,.12);margin-top:18px;padding-top:14px;font:400 12px/1.55 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">A local model masks these before anything reaches the hosted model. Masking happens on the machine, not in the cloud.</div>
+          </div>
+          <div style="background:#fff;border:1px solid #E4E9F5;border-radius:13px;padding:22px;margin-top:14px">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#8A93AC">SCOPE</div>
+            <div style="font:400 13.5px/1.6 'Instrument Sans',sans-serif;color:#41496B;margin-top:11px">Personal income tax, Y/A 2024/25 and 2025/26. Everything else is refused, not guessed.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="03 Ask" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">03</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Ask — new question with payslip upload</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 900</span></div>
+    </sc-if>
+    <div style="width:1440px;height:900px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="Ask" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:36px 44px;overflow:hidden">
+        <div style="max-width:780px">
+          <div style="font:600 32px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.03em;color:#0E1430">What would you like checked?</div>
+          <div style="font:400 15px/1.6 'Instrument Sans',sans-serif;color:#5C6683;margin-top:10px">Ask in English or Sinhala. Attach a payslip and the figures are read out of it — no retyping.</div>
+        </div>
+        <div style="background:#fff;border:1.5px solid #2B44C7;border-radius:13px;margin-top:24px;box-shadow:0 0 0 4px rgba(43,68,199,.09)">
+          <div style="padding:20px 22px 6px;font:400 17px/1.5 'Instrument Sans',sans-serif;color:#0E1430">What do I owe for 2025/2026? I earn LKR 300,000 a month and invoiced about 1.2 million for freelance design work.<span style="display:inline-block;width:1.5px;height:19px;background:#2B44C7;vertical-align:-3px;margin-left:2px"></span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 14px 22px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <div style="display:flex;align-items:center;gap:7px;border:1px solid #D8DFF0;border-radius:8px;padding:7px 11px">
+                <span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7">↑</span>
+                <span style="font:500 12.5px 'Instrument Sans',sans-serif;color:#41496B">Attach payslip</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;border:1px solid #D8DFF0;border-radius:8px;padding:7px 11px">
+                <span style="font:500 12.5px 'Instrument Sans',sans-serif;color:#41496B">Y/A 2025 / 2026</span>
+                <span style="font:600 9px 'IBM Plex Mono',monospace;color:#8A93AC">▾</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC">Sinhala / English</span>
+              <div style="background:#2B44C7;border-radius:8px;padding:9px 18px;font:600 13.5px 'Instrument Sans',sans-serif;color:#fff">Ask</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:16px;margin-top:16px">
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:18px 20px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="width:30px;height:36px;border-radius:5px;background:#EDF1FC;display:flex;align-items:center;justify-content:center;font:600 9px 'IBM Plex Mono',monospace;color:#2B44C7;flex:none">PDF</span>
+                <div>
+                  <div style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430">payslip_july_2026.pdf</div>
+                  <div style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC;margin-top:2px">218 KB · read locally · 6 fields found</div>
+                </div>
+              </div>
+              <span style="font:500 11px 'IBM Plex Mono',monospace;color:#0B6B57;background:#E2F2EE;border-radius:100px;padding:5px 10px">MASKED ✓</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;margin-top:16px;border-top:1px solid #EEF1F8;padding-top:6px">
+              <sc-for list="{{ payslipFields }}" as="f" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F4F6FC">
+                  <span style="font:400 13px 'Instrument Sans',sans-serif;color:#5C6683">{{ f.k }}</span>
+                  <span style="font:500 13px 'IBM Plex Mono',monospace;color:{{ f.color }};letter-spacing:-.01em">{{ f.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font:400 11.5px/1.5 'Instrument Sans',sans-serif;color:#8A93AC;margin-top:12px">Employer name, TIN and NIC were stripped by the local masker before the question was sent.</div>
+          </div>
+          <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:12px">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#8A93AC">TRY ONE OF THESE</div>
+            <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #E4E9F5;border-radius:10px;padding:13px 15px">
+                <div style="font:500 13.5px/1.45 'Instrument Sans',sans-serif;color:#0E1430;text-wrap:pretty">{{ s.q }}</div>
+                <div style="font:400 11px 'IBM Plex Mono',monospace;color:{{ s.tagColor }};margin-top:7px;letter-spacing:.04em">{{ s.tag }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="04 Computation answer" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">04</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Computation answer — the core screen</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 1340</span></div>
+    </sc-if>
+    <div style="width:1440px;height:1340px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="Ask" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:26px 30px;gap:14px;overflow:hidden">
+
+        <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:16px 18px;display:flex;align-items:flex-start;gap:14px">
+          <span style="width:26px;height:26px;border-radius:50%;background:#0E1430;color:#fff;font:600 11px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none">NP</span>
+          <div style="flex:1">
+            <div style="font:400 16px/1.5 'Instrument Sans',sans-serif;color:#0E1430;text-wrap:pretty">What do I owe for 2025/2026? I earn LKR 300,000 a month and invoiced about 1.2 million for freelance design work.</div>
+            <div style="display:flex;gap:7px;margin-top:11px;flex-wrap:wrap">
+              <sc-for list="{{ resolvedFacts }}" as="f" hint-placeholder-count="4">
+                <span style="border:1px solid #DFE5F2;background:#F7F9FD;border-radius:100px;padding:4px 10px;font:500 11.5px 'IBM Plex Mono',monospace;color:#41496B">{{ f }}</span>
+              </sc-for>
+              <span style="border:1px dashed #C4CDE4;border-radius:100px;padding:4px 10px;font:500 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">edit facts</span>
+            </div>
+          </div>
+          <span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC;flex:none">18 Aug 2026 · 14:02</span>
+        </div>
+
+        <sc-if value="{{ guardrailBanner }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#E2F2EE;border:1px solid #B9DED3;border-radius:11px;padding:13px 17px;display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:22px;height:22px;border-radius:50%;background:#0B6B57;color:#fff;font:700 12px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none">✓</span>
+              <div>
+                <span style="font:600 14px 'Instrument Sans',sans-serif;color:#08483B">Released by guardrail</span>
+                <span style="font:400 14px 'Instrument Sans',sans-serif;color:#2C6659"> — 8 of 8 figures traced to law in force for 2025/2026.</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:16px">
+              <sc-for list="{{ guardChecks }}" as="g" hint-placeholder-count="4">
+                <span style="font:500 11px 'IBM Plex Mono',monospace;color:#2C6659;letter-spacing:.03em">{{ g }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="flex:1;display:flex;gap:14px;overflow:hidden">
+          <div style="flex:1;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:22px 24px">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between">
+                <div style="flex:1;padding-right:24px">
+                  <div style="font:500 10.5px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">BALANCE PAYABLE · YEAR OF ASSESSMENT 2025/2026</div>
+                  <div style="display:flex;align-items:flex-start;gap:4px;margin-top:9px">
+                    <span style="font:600 54px/1 'IBM Plex Mono',monospace;letter-spacing:-.045em;color:#0E1430">LKR 378,000</span>
+                    <span style="font:600 12px 'IBM Plex Mono',monospace;color:#2B44C7;background:#E8ECFC;border-radius:4px;padding:2px 5px;margin-top:4px">5</span>
+                  </div>
+                  <div style="font:400 14.5px/1.6 'Instrument Sans',sans-serif;color:#5C6683;margin-top:12px;max-width:520px">Eight steps, each traced to a rule in force on 1 April 2025. Return due <strong style="color:#0E1430;font-weight:600">30 November 2026</strong>; the balance is payable by 30 September 2026.</div>
+                  <div style="display:flex;align-items:stretch;gap:12px;margin-top:16px;max-width:520px">
+                    <div style="width:20px;flex:none;display:flex;flex-direction:column;align-items:center;padding-top:8px">
+                      <span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7">↳</span>
+                    </div>
+                    <div style="flex:1;background:#0E1430;border-radius:10px;padding:14px 15px">
+                      <div style="display:flex;align-items:center;justify-content:space-between">
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <span style="font:600 10px 'IBM Plex Mono',monospace;color:#0E1430;background:#8FA5FF;border-radius:3px;padding:2px 5px">5</span>
+                          <span style="font:600 12.5px 'Instrument Sans',sans-serif;color:#fff">First Schedule, Part I</span>
+                        </div>
+                        <span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.35)">HOVER STATE</span>
+                      </div>
+                      <div style="font:400 12.5px/1.55 'Instrument Sans',sans-serif;color:rgba(255,255,255,.72);margin-top:9px">Progressive bands on taxable income: 6% on the first 1,000,000, then 18%, 24% and 30% on each next 500,000, and 36% on the balance.</div>
+                      <div style="display:flex;align-items:center;gap:8px;margin-top:11px">
+                        <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8FE3CE">IN FORCE 1 APR 2025 →</span>
+                        <span style="font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.4)">as amended by Act 2 of 2025</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style="width:236px;flex:none;background:#F7F9FD;border:1px solid #E4E9F5;border-radius:10px;padding:14px">
+                  <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">EFFECTIVE RATE</div>
+                  <div style="font:600 26px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.03em;margin-top:6px">12.5%</div>
+                  <div style="font:400 12px/1.45 'Instrument Sans',sans-serif;color:#6A7490;margin-top:5px">of LKR 4,800,000 assessable. Marginal band 36%.</div>
+                  <div style="height:1px;background:#E4E9F5;margin:12px 0"></div>
+                  <div style="font:400 12px/1.45 'Instrument Sans',sans-serif;color:#0B6B57">LKR 246,000 lower than the same income would have paid in 2024/25.</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:3px;background:#EDF1F9;border:1px solid #E4E9F5;border-radius:10px;padding:3px;flex:none">
+              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+                <div style="flex:1;text-align:center;padding:9px;border-radius:7px;background:{{ t.bg }};box-shadow:{{ t.shadow }};font:{{ t.font }};color:{{ t.color }}">{{ t.name }}</div>
+              </sc-for>
+            </div>
+
+            <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:4px 24px 20px;overflow:hidden;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;padding:14px 0 10px;border-bottom:1px solid #EEF1F8;font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">
+                <span style="width:44px;flex:none">STEP</span>
+                <span style="flex:1">WHAT IT DOES</span>
+                <span style="width:190px;flex:none">RULE APPLIED</span>
+                <span style="width:150px;flex:none;text-align:right">VALUE, LKR</span>
+              </div>
+              <sc-for list="{{ compRows }}" as="r" hint-placeholder-count="7">
+                <div style="display:flex;align-items:center;padding:11px 0;border-bottom:1px solid #F4F6FC">
+                  <span style="width:44px;flex:none;font:500 13px 'IBM Plex Mono',monospace;color:#9BA4BC">{{ r.n }}</span>
+                  <div style="flex:1;padding-right:12px">
+                    <span style="font:{{ r.weight }} 14.5px 'Instrument Sans',sans-serif;color:#0E1430">{{ r.what }}</span>
+                    <div style="font:400 12px 'Instrument Sans',sans-serif;color:#8A93AC;margin-top:2px">{{ r.sub }}</div>
+                  </div>
+                  <div style="width:190px;flex:none;display:flex;align-items:center;gap:6px">
+                    <span style="font:500 12px 'IBM Plex Mono',monospace;color:#41496B;background:#F2F5FC;border-radius:5px;padding:3px 7px">{{ r.rule }}</span>
+                    <span style="font:600 10px 'IBM Plex Mono',monospace;color:#2B44C7;background:#E8ECFC;border-radius:3px;padding:2px 4px">{{ r.cite }}</span>
+                  </div>
+                  <span style="width:150px;flex:none;text-align:right;font:{{ r.weight }} 15px 'IBM Plex Mono',monospace;color:{{ r.valColor }};letter-spacing:-.015em">{{ r.val }}</span>
+                </div>
+              </sc-for>
+              <div style="background:#0E1430;border-radius:9px;padding:14px 18px;margin-top:12px;display:flex;align-items:center">
+                <span style="width:44px;flex:none;font:500 13px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.45)">8</span>
+                <span style="flex:1;font:600 15.5px 'Instrument Sans',sans-serif;color:#fff">Balance payable</span>
+                <span style="width:190px;flex:none;font:500 12px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.55)">s.146 assessment</span>
+                <span style="width:150px;flex:none;text-align:right;font:600 19px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-.02em">378,000</span>
+              </div>
+              <div style="border:1px solid #DFE5F2;background:#F7F9FD;border-radius:10px;padding:14px 16px;margin-top:14px">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <span style="font:600 12.5px 'Instrument Sans',sans-serif;color:#0E1430">Step 6 expanded — band walk on taxable income of 3,000,000</span>
+                  <span style="font:500 11px 'IBM Plex Mono',monospace;color:#2B44C7">collapse ▴</span>
+                </div>
+                <div style="display:flex;gap:0;margin-top:12px">
+                  <sc-for list="{{ bandWalk }}" as="b" hint-placeholder-count="5">
+                    <div style="flex:{{ b.flex }};border-right:1px solid #E4E9F5;padding:0 12px">
+                      <div style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8A93AC">{{ b.slice }}</div>
+                      <div style="font:600 15px 'IBM Plex Mono',monospace;color:#0E1430;margin-top:4px;letter-spacing:-.02em">{{ b.rate }}</div>
+                      <div style="font:500 13px 'IBM Plex Mono',monospace;color:#41496B;margin-top:3px">{{ b.tax }}</div>
+                      <div style="height:3px;border-radius:2px;background:{{ b.bar }};margin-top:8px"></div>
+                    </div>
+                  </sc-for>
+                  <div style="width:120px;flex:none;padding-left:14px">
+                    <div style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8A93AC">GROSS TAX</div>
+                    <div style="font:600 15px 'IBM Plex Mono',monospace;color:#0E1430;margin-top:4px;letter-spacing:-.02em">600,000</div>
+                    <div style="font:400 11px 'Instrument Sans',sans-serif;color:#8A93AC;margin-top:3px">plain Python</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:318px;flex:none;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:16px 16px 8px;flex:1;overflow:hidden;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">CITATIONS · 6 USED</span>
+                <span style="font:500 11px 'IBM Plex Mono',monospace;color:#2B44C7">export</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:13px">
+                <sc-for list="{{ cites }}" as="c" hint-placeholder-count="6">
+                  <div style="border:1px solid #E9EDF7;border-radius:9px;padding:11px 12px">
+                    <div style="display:flex;align-items:flex-start;gap:8px">
+                      <span style="font:600 10px 'IBM Plex Mono',monospace;color:#2B44C7;background:#E8ECFC;border-radius:3px;padding:2px 4px;flex:none;margin-top:1px">{{ c.n }}</span>
+                      <div style="flex:1">
+                        <div style="font:600 13px/1.35 'Instrument Sans',sans-serif;color:#0E1430;text-wrap:pretty">{{ c.title }}</div>
+                        <div style="font:400 11.5px/1.4 'Instrument Sans',sans-serif;color:#6A7490;margin-top:3px">{{ c.sub }}</div>
+                      </div>
+                    </div>
+                    <div style="margin-top:10px">
+                      <div style="position:relative;height:5px;background:#EFF2F9;border-radius:3px">
+                        <div style="position:absolute;top:0;bottom:0;left:{{ c.x }};width:{{ c.w }};background:#2B44C7;border-radius:3px"></div>
+                        <div style="position:absolute;top:-3px;bottom:-3px;left:64%;width:11%;border:1px dashed #0B6B57;border-radius:3px"></div>
+                      </div>
+                      <div style="display:flex;justify-content:space-between;margin-top:5px">
+                        <span style="font:400 10px 'IBM Plex Mono',monospace;color:#8A93AC">{{ c.from }}</span>
+                        <span style="font:400 10px 'IBM Plex Mono',monospace;color:#8A93AC">{{ c.to }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid #EEF1F8">
+                <span style="width:9px;height:5px;border:1px dashed #0B6B57;border-radius:2px;flex:none"></span>
+                <span style="font:400 10.5px/1.4 'IBM Plex Mono',monospace;color:#6A7490">dashed window = Y/A 2025/26</span>
+              </div>
+            </div>
+            <sc-if value="{{ showExcluded }}" hint-placeholder-val="{{ true }}">
+              <div style="background:#FBE9E7;border:1px solid #F1CFCA;border-radius:12px;padding:14px 15px;flex:none">
+                <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#A22B23">EXCLUDED BY YEAR FILTER · 12</div>
+                <div style="font:600 13px/1.35 'Instrument Sans',sans-serif;color:#7A2018;margin-top:9px;text-decoration:line-through">First Schedule as at Y/A 2024/25</div>
+                <div style="font:400 11.5px/1.45 'Instrument Sans',sans-serif;color:#8C3D33;margin-top:4px">Ceased 31 Mar 2025 — outside the year asked about. Retrieval dropped it before the model saw it.</div>
+                <div style="font:500 11px 'IBM Plex Mono',monospace;color:#A22B23;margin-top:10px">see all 12 →</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="05 Agent trace" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">05</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Agent trace — which stage produced the number</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 900</span></div>
+    </sc-if>
+    <div style="width:1440px;height:900px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="Ask" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:28px 32px;gap:14px;overflow:hidden">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between">
+          <div>
+            <div style="font:600 26px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.028em;color:#0E1430">Agent trace</div>
+            <div style="font:400 14px/1.55 'Instrument Sans',sans-serif;color:#5C6683;margin-top:7px">Five services, typed messages over HTTP. Each hop is logged, so when a figure is wrong we know which stage produced it.</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:9px;padding:10px 14px">
+              <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.13em;color:#8A93AC">TOTAL</div>
+              <div style="font:600 17px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.02em;margin-top:3px">530 ms</div>
+            </div>
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:9px;padding:10px 14px">
+              <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.13em;color:#8A93AC">MODEL CALLS</div>
+              <div style="font:600 17px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.02em;margin-top:3px">2</div>
+            </div>
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:9px;padding:10px 14px">
+              <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.13em;color:#8A93AC">IN ARITHMETIC</div>
+              <div style="font:600 17px 'IBM Plex Mono',monospace;color:#0B6B57;letter-spacing:-.02em;margin-top:3px">0</div>
+            </div>
+            <div style="border:1px solid #D8DFF0;background:#fff;border-radius:9px;padding:10px 14px;display:flex;align-items:center;font:500 13px 'Instrument Sans',sans-serif;color:#41496B">Download log (JSON)</div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:9px;overflow:hidden">
+          <sc-for list="{{ trace }}" as="t" hint-placeholder-count="5">
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:16px 20px;display:flex;gap:18px;align-items:flex-start">
+              <div style="width:132px;flex:none">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:20px;height:20px;border-radius:50%;background:{{ t.color }};color:#fff;font:600 10.5px 'IBM Plex Mono',monospace;display:flex;align-items:center;justify-content:center;flex:none">{{ t.n }}</span>
+                  <span style="font:600 14.5px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">{{ t.name }}</span>
+                </div>
+                <div style="font:500 12px 'IBM Plex Mono',monospace;color:#8A93AC;margin-top:7px;padding-left:28px">{{ t.ms }}</div>
+              </div>
+              <div style="flex:1;border-left:1px solid #EEF1F8;padding-left:18px">
+                <div style="font:400 13.5px/1.6 'Instrument Sans',sans-serif;color:#41496B;text-wrap:pretty">{{ t.detail }}</div>
+                <div style="font:400 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC;margin-top:8px">{{ t.io }}</div>
+              </div>
+              <div style="width:250px;flex:none">
+                <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.13em;color:#8A93AC">FAILURE THIS STAGE OWNS</div>
+                <div style="font:500 13px/1.4 'Instrument Sans',sans-serif;color:#0E1430;margin-top:6px">{{ t.owns }}</div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="background:#0E1430;border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex:none">
+            <div style="font:400 13.5px/1.55 'Instrument Sans',sans-serif;color:rgba(255,255,255,.7);max-width:820px">Five services rather than one agent with tools: each is tested on its own, so a wrong figure has one owner. Retrieval cannot invent a number and computation cannot choose a rule.</div>
+            <div style="display:flex;gap:8px">
+              <span style="border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:6px 12px;font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.7)">LangGraph</span>
+              <span style="border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:6px 12px;font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.7)">MCP tools</span>
+              <span style="border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:6px 12px;font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.7)">FastAPI</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="06 Year-on-year comparison" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">06</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Year-on-year comparison</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 960</span></div>
+    </sc-if>
+    <div style="width:1440px;height:960px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="Comparison" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:28px 32px;gap:14px;overflow:hidden">
+        <div>
+          <div style="font:600 26px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.028em;color:#0E1430">What changed this year?</div>
+          <div style="font:400 14px/1.55 'Instrument Sans',sans-serif;color:#5C6683;margin-top:7px">Same income of LKR 4,800,000, both years computed from the rules in force at the time, and the amendment that moved each line.</div>
+        </div>
+
+        <div style="display:flex;gap:14px;flex:none">
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:20px 22px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font:500 10.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">Y/A 2024 / 2025 · CLOSED</span>
+              <span style="font:500 10px 'IBM Plex Mono',monospace;color:#8A93AC;background:#F2F5FC;border-radius:100px;padding:4px 9px">6 BANDS</span>
+            </div>
+            <div style="font:600 40px/1 'IBM Plex Mono',monospace;letter-spacing:-.04em;color:#6A7490;margin-top:12px">LKR 846,000</div>
+            <div style="font:400 13px 'Instrument Sans',sans-serif;color:#8A93AC;margin-top:8px">gross tax · relief 1,200,000 · effective 17.6%</div>
+          </div>
+          <div style="width:52px;flex:none;display:flex;align-items:center;justify-content:center;font:400 22px 'IBM Plex Mono',monospace;color:#C4CDE4">→</div>
+          <div style="flex:1;background:#fff;border:1.5px solid #2B44C7;border-radius:12px;padding:20px 22px;box-shadow:0 0 0 4px rgba(43,68,199,.08)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font:500 10.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#2B44C7">Y/A 2025 / 2026 · CURRENT</span>
+              <span style="font:500 10px 'IBM Plex Mono',monospace;color:#2B44C7;background:#E8ECFC;border-radius:100px;padding:4px 9px">5 BANDS</span>
+            </div>
+            <div style="font:600 40px/1 'IBM Plex Mono',monospace;letter-spacing:-.04em;color:#0E1430;margin-top:12px">LKR 600,000</div>
+            <div style="font:400 13px 'Instrument Sans',sans-serif;color:#5C6683;margin-top:8px">gross tax · relief 1,800,000 · effective 12.5%</div>
+          </div>
+          <div style="width:250px;flex:none;background:#E2F2EE;border:1px solid #B9DED3;border-radius:12px;padding:20px">
+            <div style="font:500 10.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#0B6B57">DIFFERENCE</div>
+            <div style="font:600 32px/1 'IBM Plex Mono',monospace;letter-spacing:-.035em;color:#08483B;margin-top:12px">−246,000</div>
+            <div style="font:400 13px/1.45 'Instrument Sans',sans-serif;color:#2C6659;margin-top:8px">29.1% less on identical income</div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;gap:14px;overflow:hidden">
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:4px 22px 18px;display:flex;flex-direction:column;overflow:hidden">
+            <div style="display:flex;align-items:center;padding:16px 0 10px;border-bottom:1px solid #EEF1F8;font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">
+              <span style="flex:1">LINE</span>
+              <span style="width:130px;flex:none;text-align:right">2024 / 2025</span>
+              <span style="width:130px;flex:none;text-align:right">2025 / 2026</span>
+              <span style="width:150px;flex:none;text-align:right">CHANGE</span>
+              <span style="width:180px;flex:none;text-align:right">MOVED BY</span>
+            </div>
+            <sc-for list="{{ cmpRows }}" as="c" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;padding:13px 0;border-bottom:1px solid #F4F6FC">
+                <span style="flex:1;font:500 14.5px 'Instrument Sans',sans-serif;color:#0E1430">{{ c.what }}</span>
+                <span style="width:130px;flex:none;text-align:right;font:500 14.5px 'IBM Plex Mono',monospace;color:#8A93AC;letter-spacing:-.015em">{{ c.a }}</span>
+                <span style="width:130px;flex:none;text-align:right;font:500 14.5px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.015em">{{ c.b }}</span>
+                <span style="width:150px;flex:none;text-align:right;font:500 13.5px 'IBM Plex Mono',monospace;color:{{ c.dColor }}">{{ c.d }}</span>
+                <span style="width:180px;flex:none;text-align:right;font:500 11.5px 'IBM Plex Mono',monospace;color:#41496B">{{ c.rule }}</span>
+              </div>
+            </sc-for>
+            <div style="margin-top:16px;border:1px solid #DFE5F2;background:#F7F9FD;border-radius:10px;padding:15px 17px">
+              <div style="font:600 12.5px 'Instrument Sans',sans-serif;color:#0E1430">Where the 246,000 went — computed by re-running 2024/25 with one change at a time</div>
+              <div style="display:flex;flex-direction:column;gap:9px;margin-top:13px">
+                <sc-for list="{{ attrib }}" as="a" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:14px">
+                    <span style="width:196px;flex:none;font:500 13px 'Instrument Sans',sans-serif;color:#0E1430">{{ a.label }}</span>
+                    <div style="flex:1;height:22px;background:#EFF2F9;border-radius:4px;position:relative;overflow:hidden">
+                      <div style="position:absolute;left:0;top:0;bottom:0;width:{{ a.bar }};background:{{ a.color }};border-radius:4px"></div>
+                    </div>
+                    <span style="width:88px;flex:none;text-align:right;font:600 13.5px 'IBM Plex Mono',monospace;color:{{ a.color }};letter-spacing:-.015em">{{ a.val }}</span>
+                    <span style="width:280px;flex:none;font:400 11.5px/1.4 'Instrument Sans',sans-serif;color:#6A7490">{{ a.note }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:300px;flex:none;display:flex;flex-direction:column;gap:12px">
+            <div style="background:#0E1430;border-radius:12px;padding:18px">
+              <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:rgba(255,255,255,.4)">THE AMENDMENT</div>
+              <div style="font:600 16px/1.35 'Instrument Sans',sans-serif;color:#fff;margin-top:10px;text-wrap:pretty">Inland Revenue (Amendment) Act No. 2 of 2025</div>
+              <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+                <div style="display:flex;justify-content:space-between"><span style="font:400 12px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">Certified</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#fff">20 Mar 2025</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="font:400 12px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">In force from</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#8FE3CE">1 Apr 2025</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="font:400 12px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">Notice</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#fff">PN/IT/2025-01</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="font:400 12px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">Sections touched</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#fff">s.52 · Sch 1 Pt I</span></div>
+              </div>
+              <div style="border-top:1px solid rgba(255,255,255,.12);margin-top:15px;padding-top:13px;font:400 12px/1.55 'Instrument Sans',sans-serif;color:rgba(255,255,255,.55)">Both years are held as separate versions in the rules table. Neither answer was produced by asking a model what the rate is.</div>
+            </div>
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:16px;flex:1">
+              <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">BAND STRUCTURE</div>
+              <div style="display:flex;gap:14px;margin-top:14px">
+                <div style="flex:1">
+                  <div style="font:500 11px 'IBM Plex Mono',monospace;color:#8A93AC;margin-bottom:8px">2024/25</div>
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    <div style="background:#EFF2F9;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#6A7490">0% · 1.20M</div>
+                    <div style="background:#EFF2F9;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#6A7490">6% · 0.50M</div>
+                    <div style="background:#FBE9E7;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#A22B23;text-decoration:line-through">12% · 0.50M</div>
+                    <div style="background:#EFF2F9;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#6A7490">18% · 0.50M</div>
+                    <div style="background:#EFF2F9;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#6A7490">24% · 0.50M</div>
+                    <div style="background:#EFF2F9;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#6A7490">30% · 0.50M</div>
+                    <div style="background:#EFF2F9;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#6A7490">36% · rest</div>
+                  </div>
+                </div>
+                <div style="flex:1">
+                  <div style="font:500 11px 'IBM Plex Mono',monospace;color:#2B44C7;margin-bottom:8px">2025/26</div>
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    <div style="background:#E2F2EE;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#0B6B57">0% · 1.80M</div>
+                    <div style="background:#E8ECFC;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#2B44C7">6% · 1.00M</div>
+                    <div style="background:#E8ECFC;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#2B44C7">18% · 0.50M</div>
+                    <div style="background:#E8ECFC;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#2B44C7">24% · 0.50M</div>
+                    <div style="background:#E8ECFC;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#2B44C7">30% · 0.50M</div>
+                    <div style="background:#E8ECFC;border-radius:4px;padding:5px 8px;font:500 11.5px 'IBM Plex Mono',monospace;color:#2B44C7">36% · rest</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="07 Obligation check" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">07</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Obligation check — do I need to file?</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 880</span></div>
+    </sc-if>
+    <div style="width:1440px;height:880px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="Ask" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:28px 32px;gap:14px;overflow:hidden">
+        <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:15px 18px;display:flex;align-items:center;gap:13px">
+          <span style="width:26px;height:26px;border-radius:50%;background:#0E1430;color:#fff;font:600 11px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none">NP</span>
+          <span style="flex:1;font:400 16px 'Instrument Sans',sans-serif;color:#0E1430">Do I actually need to file this year, or does APIT already cover me?</span>
+          <span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC">Y/A 2025 / 2026</span>
+        </div>
+
+        <div style="display:flex;gap:14px;flex:none">
+          <div style="flex:1;background:#0E1430;border-radius:12px;padding:26px 28px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font:500 10.5px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:rgba(255,255,255,.45)">OBLIGATION FOR Y/A 2025/2026</div>
+              <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px">
+                <span style="font:600 44px/1 'Instrument Sans',sans-serif;letter-spacing:-.035em;color:#fff">Yes — you must file</span>
+                <span style="font:600 12px 'IBM Plex Mono',monospace;color:#0E1430;background:#8FA5FF;border-radius:4px;padding:2px 5px">3</span>
+              </div>
+              <div style="font:400 14.5px/1.55 'Instrument Sans',sans-serif;color:rgba(255,255,255,.6);margin-top:11px;max-width:560px">APIT does not settle your liability, because part of your income had nothing withheld at source. A return is due by 30 November 2026.</div>
+            </div>
+            <div style="width:210px;flex:none;border-left:1px solid rgba(255,255,255,.14);padding-left:24px">
+              <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(255,255,255,.4)">THRESHOLD</div>
+              <div style="font:600 21px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-.025em;margin-top:6px">1,800,000</div>
+              <div style="font:400 12px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45);margin-top:3px">per year, or 150,000 a month</div>
+              <div style="height:1px;background:rgba(255,255,255,.14);margin:14px 0"></div>
+              <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(255,255,255,.4)">YOUR ASSESSABLE</div>
+              <div style="font:600 21px 'IBM Plex Mono',monospace;color:#8FE3CE;letter-spacing:-.025em;margin-top:6px">4,800,000</div>
+              <div style="font:400 12px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45);margin-top:3px">2.7× the threshold</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;gap:14px;overflow:hidden">
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:20px 22px;overflow:hidden">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">TESTS THE COMPLIANCE AGENT RAN</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+              <sc-for list="{{ oblReasons }}" as="r" hint-placeholder-count="4">
+                <div style="border:1px solid #E9EDF7;border-radius:10px;padding:14px 16px;display:flex;gap:13px;align-items:flex-start">
+                  <span style="width:20px;height:20px;border-radius:5px;background:{{ r.chipBg }};color:{{ r.chipFg }};font:700 11px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px">{{ r.mark }}</span>
+                  <div style="flex:1">
+                    <div style="font:600 14.5px 'Instrument Sans',sans-serif;color:#0E1430">{{ r.t }}</div>
+                    <div style="font:400 13px/1.55 'Instrument Sans',sans-serif;color:#5C6683;margin-top:4px;text-wrap:pretty">{{ r.d }}</div>
+                  </div>
+                  <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#41496B;background:#F2F5FC;border-radius:5px;padding:4px 8px;flex:none">{{ r.rule }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width:320px;flex:none;display:flex;flex-direction:column;gap:12px">
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:18px">
+              <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">NEXT</div>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-top:13px">
+                <div style="background:#2B44C7;border-radius:9px;padding:12px;text-align:center;font:600 13.5px 'Instrument Sans',sans-serif;color:#fff">Compute what I owe</div>
+                <div style="border:1px solid #D8DFF0;border-radius:9px;padding:12px;text-align:center;font:500 13.5px 'Instrument Sans',sans-serif;color:#41496B">Add my deadlines to a calendar</div>
+                <div style="border:1px solid #D8DFF0;border-radius:9px;padding:12px;text-align:center;font:500 13.5px 'Instrument Sans',sans-serif;color:#41496B">Export this check as PDF</div>
+              </div>
+            </div>
+            <div style="background:#FBF0DE;border:1px solid #EDD9B0;border-radius:12px;padding:16px 17px;flex:1">
+              <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A5200">NOT ADVICE</div>
+              <div style="font:400 13px/1.6 'Instrument Sans',sans-serif;color:#6B4300;margin-top:10px;text-wrap:pretty">This is an obligation check against the law in force, not a professional opinion. Citetax will not tell you whether to file, only what the Act requires and by when. Advisory questions are refused with a reason.</div>
+              <div style="font:500 11px 'IBM Plex Mono',monospace;color:#8A5200;margin-top:12px">read the scope policy →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="08 Deadlines and penalties" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">08</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Deadlines and penalties</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 900</span></div>
+    </sc-if>
+    <div style="width:1440px;height:900px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="Deadlines" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:28px 32px;gap:14px;overflow:hidden">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between">
+          <div>
+            <div style="font:600 26px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.028em;color:#0E1430">Deadlines for Y/A 2025 / 2026</div>
+            <div style="font:400 14px/1.55 'Instrument Sans',sans-serif;color:#5C6683;margin-top:7px">Dates come from the Act, not from a calendar template. Each one carries the section that sets it.</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div style="background:#FBE9E7;border:1px solid #F1CFCA;border-radius:9px;padding:10px 15px">
+              <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.13em;color:#A22B23">MISSED</div>
+              <div style="font:600 15px 'Instrument Sans',sans-serif;color:#7A2018;margin-top:3px">1 instalment</div>
+            </div>
+            <div style="background:#FBF0DE;border:1px solid #EDD9B0;border-radius:9px;padding:10px 15px">
+              <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.13em;color:#8A5200">NEXT DUE</div>
+              <div style="font:600 15px 'Instrument Sans',sans-serif;color:#6B4300;margin-top:3px">30 Sep 2026 · 43 days</div>
+            </div>
+            <div style="border:1px solid #D8DFF0;background:#fff;border-radius:9px;padding:10px 15px;display:flex;align-items:center;font:500 13px 'Instrument Sans',sans-serif;color:#41496B">Add all to calendar</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:4px 24px 20px;flex:none">
+          <div style="display:flex;align-items:center;padding:16px 0 10px;border-bottom:1px solid #EEF1F8;font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">
+            <span style="width:130px;flex:none">DATE</span>
+            <span style="flex:1">OBLIGATION</span>
+            <span style="width:150px;flex:none;text-align:right">AMOUNT, LKR</span>
+            <span style="width:170px;flex:none;text-align:right">STATUS</span>
+            <span style="width:120px;flex:none;text-align:right">SET BY</span>
+          </div>
+          <sc-for list="{{ timeline }}" as="d" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;padding:13px 0;border-bottom:1px solid #F4F6FC">
+              <span style="width:130px;flex:none;font:500 13.5px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.01em">{{ d.date }}</span>
+              <span style="flex:1;font:500 14.5px 'Instrument Sans',sans-serif;color:#0E1430">{{ d.name }}</span>
+              <span style="width:150px;flex:none;text-align:right;font:500 14.5px 'IBM Plex Mono',monospace;color:#41496B;letter-spacing:-.015em">{{ d.amt }}</span>
+              <span style="width:170px;flex:none;text-align:right"><span style="font:500 10.5px 'IBM Plex Mono',monospace;color:{{ d.color }};background:{{ d.bg }};border-radius:100px;padding:5px 10px;letter-spacing:.05em">{{ d.state }}</span></span>
+              <span style="width:120px;flex:none;text-align:right;font:500 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">{{ d.rule }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="flex:1;display:flex;gap:14px;overflow:hidden">
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:20px 22px">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">IF YOU MISS THEM — COMPUTED, NOT ESTIMATED</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+              <sc-for list="{{ penalties }}" as="p" hint-placeholder-count="3">
+                <div style="border:1px solid #E9EDF7;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+                  <div style="flex:1">
+                    <div style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430">{{ p.what }}</div>
+                    <div style="font:400 12.5px 'Instrument Sans',sans-serif;color:#6A7490;margin-top:4px">{{ p.calc }}</div>
+                  </div>
+                  <span style="font:600 14px 'IBM Plex Mono',monospace;color:#A22B23;flex:none;letter-spacing:-.015em">{{ p.amt }}</span>
+                  <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#41496B;background:#F2F5FC;border-radius:5px;padding:4px 8px;flex:none;width:78px;text-align:center">{{ p.rule }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width:300px;flex:none;background:#0E1430;border-radius:12px;padding:20px">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:rgba(255,255,255,.4)">REMINDERS</div>
+            <div style="font:400 13.5px/1.6 'Instrument Sans',sans-serif;color:rgba(255,255,255,.65);margin-top:12px;text-wrap:pretty">Free on every plan. We email 30, 7 and 1 day before each date, and again if the IRD moves it.</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.07);border-radius:8px;padding:10px 12px"><span style="font:500 12.5px 'Instrument Sans',sans-serif;color:#fff">Email</span><span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8FE3CE">ON</span></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.07);border-radius:8px;padding:10px 12px"><span style="font:500 12.5px 'Instrument Sans',sans-serif;color:#fff">SMS</span><span style="font:500 10.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.35)">OFF</span></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.07);border-radius:8px;padding:10px 12px"><span style="font:500 12.5px 'Instrument Sans',sans-serif;color:#fff">Calendar feed (ICS)</span><span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8FE3CE">ON</span></div>
+            </div>
+            <div style="border-top:1px solid rgba(255,255,255,.12);margin-top:16px;padding-top:13px;font:400 12px/1.55 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45)">Penalty figures are what the sections state applied to your balance. Waivers and audit outcomes are outside scope.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="09 Refusal" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">09</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Refusal — out of scope, with a reason</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 880</span></div>
+    </sc-if>
+    <div style="width:1440px;height:880px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="Ask" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:28px 32px;gap:14px;overflow:hidden">
+        <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:15px 18px;display:flex;align-items:center;gap:13px">
+          <span style="width:26px;height:26px;border-radius:50%;background:#0E1430;color:#fff;font:600 11px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none">NP</span>
+          <span style="flex:1;font:400 16px 'Instrument Sans',sans-serif;color:#0E1430">How much VAT do I charge on my consulting invoices?</span>
+          <span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC">18 Aug 2026 · 13:48</span>
+        </div>
+
+        <div style="background:#FBE9E7;border:1px solid #F1CFCA;border-radius:11px;padding:13px 17px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:22px;height:22px;border-radius:50%;background:#A22B23;color:#fff;font:700 12px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none">!</span>
+            <div>
+              <span style="font:600 14px 'Instrument Sans',sans-serif;color:#7A2018">Held by guardrail</span>
+              <span style="font:400 14px 'Instrument Sans',sans-serif;color:#8C3D33"> — the question is outside the scope Citetax can cite. Nothing was guessed.</span>
+            </div>
+          </div>
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:#A22B23;letter-spacing:.04em">STOPPED AT STAGE 1 OF 5 · 38 ms</span>
+        </div>
+
+        <div style="flex:1;display:flex;gap:14px;overflow:hidden">
+          <div style="flex:1;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:24px 26px">
+              <div style="font:500 10.5px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">WHY IT WAS REFUSED</div>
+              <div style="font:600 27px/1.25 'Instrument Sans',sans-serif;letter-spacing:-.026em;color:#0E1430;margin-top:11px;max-width:640px;text-wrap:pretty">Citetax holds personal income tax rules only. It has no VAT corpus, so any rate it gave you would be uncited.</div>
+              <div style="font:400 14.5px/1.65 'Instrument Sans',sans-serif;color:#5C6683;margin-top:13px;max-width:660px;text-wrap:pretty">A general chatbot would answer this — usually with a rate from whichever copy of the VAT Act it happened to index, with no date and full confidence. The whole point of the guardrail is that an answer with no source is worse than no answer.</div>
+              <div style="display:flex;gap:10px;margin-top:20px">
+                <div style="background:#2B44C7;border-radius:9px;padding:11px 18px;font:600 13.5px 'Instrument Sans',sans-serif;color:#fff">Ask about income tax instead</div>
+                <div style="border:1px solid #D8DFF0;border-radius:9px;padding:11px 18px;font:500 13.5px 'Instrument Sans',sans-serif;color:#41496B">Take me to the IRD VAT page</div>
+              </div>
+            </div>
+            <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:20px 22px">
+              <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">GUARDRAIL CHECKS</div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:13px">
+                <sc-for list="{{ refusalChecks }}" as="c" hint-placeholder-count="4">
+                  <div style="border:1px solid #E9EDF7;border-radius:10px;padding:13px 15px;display:flex;align-items:center;gap:14px">
+                    <span style="width:112px;flex:none;font:600 13.5px 'Instrument Sans',sans-serif;color:#0E1430">{{ c.t }}</span>
+                    <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:{{ c.color }};background:{{ c.bg }};border-radius:100px;padding:5px 10px;flex:none;width:104px;text-align:center;letter-spacing:.04em">{{ c.v }}</span>
+                    <span style="flex:1;font:400 13px/1.5 'Instrument Sans',sans-serif;color:#5C6683">{{ c.d }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="width:330px;flex:none;background:#0E1430;border-radius:12px;padding:20px;overflow:hidden">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:rgba(255,255,255,.4)">WHAT IS AND IS NOT IN SCOPE</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+              <sc-for list="{{ inScope }}" as="s" hint-placeholder-count="6">
+                <div style="display:flex;gap:10px;align-items:flex-start">
+                  <span style="font:600 11px 'IBM Plex Mono',monospace;color:{{ s.mark }};margin-top:2px;flex:none">{{ s.glyph }}</span>
+                  <div>
+                    <div style="font:600 13.5px 'Instrument Sans',sans-serif;color:{{ s.titleColor }}">{{ s.t }}</div>
+                    <div style="font:400 12px/1.45 'Instrument Sans',sans-serif;color:rgba(255,255,255,.42);margin-top:2px">{{ s.d }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border-top:1px solid rgba(255,255,255,.12);margin-top:16px;padding-top:13px;font:400 12px/1.55 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">Scope is enforced by a service, not by a prompt. Widening it means adding a corpus and a rules table, not changing wording.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="10 History" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">10</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">History</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 840</span></div>
+    </sc-if>
+    <div style="width:1440px;height:840px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <dc-import name="Shell" active="History" hint-size="252px,100%"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;padding:28px 32px;gap:14px;overflow:hidden">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between">
+          <div>
+            <div style="font:600 26px/1.15 'Instrument Sans',sans-serif;letter-spacing:-.028em;color:#0E1430">History</div>
+            <div style="font:400 14px/1.55 'Instrument Sans',sans-serif;color:#5C6683;margin-top:7px">Every answer is re-openable with its citations and trace intact, so you can check a figure months later. Kept 90 days.</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <div style="background:#fff;border:1px solid #D8DFF0;border-radius:8px;padding:9px 14px;font:500 12.5px 'Instrument Sans',sans-serif;color:#0E1430">All 7</div>
+            <div style="border:1px solid transparent;border-radius:8px;padding:9px 14px;font:500 12.5px 'Instrument Sans',sans-serif;color:#6A7490">Released 5</div>
+            <div style="border:1px solid transparent;border-radius:8px;padding:9px 14px;font:500 12.5px 'Instrument Sans',sans-serif;color:#6A7490">Refused 2</div>
+            <div style="background:#fff;border:1px solid #D8DFF0;border-radius:8px;padding:9px 14px;font:400 12.5px 'IBM Plex Mono',monospace;color:#9BA4BC;margin-left:6px">search…</div>
+          </div>
+        </div>
+        <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:4px 24px 20px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;padding:16px 0 10px;border-bottom:1px solid #EEF1F8;font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">
+            <span style="flex:1">QUESTION</span>
+            <span style="width:96px;flex:none;text-align:right">Y/A</span>
+            <span style="width:170px;flex:none;text-align:right">ANSWER</span>
+            <span style="width:130px;flex:none;text-align:right">SOURCES</span>
+            <span style="width:120px;flex:none;text-align:right">VERDICT</span>
+          </div>
+          <sc-for list="{{ history }}" as="h" hint-placeholder-count="7">
+            <div style="display:flex;align-items:center;padding:14px 0;border-bottom:1px solid #F4F6FC">
+              <div style="flex:1;padding-right:20px">
+                <div style="font:500 14.5px/1.4 'Instrument Sans',sans-serif;color:#0E1430;text-wrap:pretty">{{ h.q }}</div>
+                <div style="font:400 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC;margin-top:4px">{{ h.when }}</div>
+              </div>
+              <span style="width:96px;flex:none;text-align:right;font:500 12.5px 'IBM Plex Mono',monospace;color:#6A7490">{{ h.ya }}</span>
+              <span style="width:170px;flex:none;text-align:right;font:500 14px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.015em">{{ h.figure }}</span>
+              <span style="width:130px;flex:none;text-align:right;font:400 12px 'IBM Plex Mono',monospace;color:#8A93AC">{{ h.cites }}</span>
+              <span style="width:120px;flex:none;text-align:right"><span style="font:500 10.5px 'IBM Plex Mono',monospace;color:{{ h.vColor }};background:{{ h.vBg }};border-radius:100px;padding:5px 10px;letter-spacing:.05em">{{ h.verdict }}</span></span>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
+            <span style="font:400 12px 'Instrument Sans',sans-serif;color:#8A93AC">Two of these were refused. Both refusals name the reason and cite nothing, by design.</span>
+            <span style="font:500 12.5px 'Instrument Sans',sans-serif;color:#2B44C7">Export all as CSV</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="11 Practice workspace" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">11</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Practice — multi-client workspace</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 880</span></div>
+    </sc-if>
+    <div style="width:1440px;height:880px;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <div style="height:60px;flex:none;background:#0E1430;display:flex;align-items:center;justify-content:space-between;padding:0 28px">
+        <div style="display:flex;align-items:center;gap:22px">
+          <span style="font:700 19px 'Instrument Sans',sans-serif;letter-spacing:-.025em;color:#fff">Citetax</span>
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:4px 10px">PRACTICE · 3 SEATS</span>
+          <div style="display:flex;gap:18px;margin-left:8px">
+            <span style="font:600 13px 'Instrument Sans',sans-serif;color:#fff">Clients</span>
+            <span style="font:500 13px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">Bulk check</span>
+            <span style="font:500 13px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">Audit trail</span>
+            <span style="font:500 13px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.5)">Exports</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font:400 11.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.4)">corpus 18 Aug 2026</span>
+          <span style="width:26px;height:26px;border-radius:50%;background:#2B44C7;color:#fff;font:600 10.5px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center">RJ</span>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;padding:26px 30px;gap:14px;overflow:hidden">
+        <div style="display:flex;gap:12px;flex:none">
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:11px;padding:16px 18px">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">CLIENTS, Y/A 2025/26</div>
+            <div style="font:600 26px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.03em;margin-top:6px">142</div>
+          </div>
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:11px;padding:16px 18px">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">READY TO FILE</div>
+            <div style="font:600 26px 'IBM Plex Mono',monospace;color:#0B6B57;letter-spacing:-.03em;margin-top:6px">98</div>
+          </div>
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:11px;padding:16px 18px">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">WAITING ON DOCUMENTS</div>
+            <div style="font:600 26px 'IBM Plex Mono',monospace;color:#8A5200;letter-spacing:-.03em;margin-top:6px">31</div>
+          </div>
+          <div style="flex:1;background:#FBE9E7;border:1px solid #F1CFCA;border-radius:11px;padding:16px 18px">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#A22B23">UNCITED FIGURES QUEUE</div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px">
+              <span style="font:600 26px 'IBM Plex Mono',monospace;color:#7A2018;letter-spacing:-.03em">13</span>
+              <span style="font:400 12px 'Instrument Sans',sans-serif;color:#8C3D33">across 4 clients — never auto-released</span>
+            </div>
+          </div>
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:11px;padding:16px 18px">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">NEXT DEADLINE</div>
+            <div style="font:600 15px 'Instrument Sans',sans-serif;color:#0E1430;margin-top:8px">30 Sep 2026</div>
+            <div style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC;margin-top:3px">balance of tax · 43 days</div>
+          </div>
+        </div>
+        <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:4px 24px 20px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 0 12px">
+            <span style="font:600 15px 'Instrument Sans',sans-serif;color:#0E1430">Clients</span>
+            <div style="display:flex;gap:8px">
+              <span style="border:1px solid #D8DFF0;border-radius:8px;padding:8px 13px;font:500 12.5px 'Instrument Sans',sans-serif;color:#41496B">Bulk obligation check</span>
+              <span style="background:#2B44C7;border-radius:8px;padding:8px 13px;font:600 12.5px 'Instrument Sans',sans-serif;color:#fff">Add client</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;padding:0 0 10px;border-bottom:1px solid #EEF1F8;font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">
+            <span style="width:210px;flex:none">CLIENT</span>
+            <span style="width:110px;flex:none">Y/A</span>
+            <span style="flex:1">INCOME TYPE</span>
+            <span style="width:150px;flex:none;text-align:right">ASSESSABLE</span>
+            <span style="width:140px;flex:none;text-align:right">TAX, LKR</span>
+            <span style="width:210px;flex:none;text-align:right">STATE</span>
+          </div>
+          <sc-for list="{{ clients }}" as="c" hint-placeholder-count="7">
+            <div style="display:flex;align-items:center;padding:13px 0;border-bottom:1px solid #F4F6FC">
+              <div style="width:210px;flex:none">
+                <div style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430">{{ c.name }}</div>
+                <div style="font:400 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC;margin-top:2px">{{ c.ref }}</div>
+              </div>
+              <span style="width:110px;flex:none;font:500 12.5px 'IBM Plex Mono',monospace;color:#6A7490">{{ c.ya }}</span>
+              <span style="flex:1;font:400 13.5px 'Instrument Sans',sans-serif;color:#41496B">{{ c.kind }}</span>
+              <span style="width:150px;flex:none;text-align:right;font:500 14px 'IBM Plex Mono',monospace;color:#6A7490;letter-spacing:-.015em">{{ c.assessable }}</span>
+              <span style="width:140px;flex:none;text-align:right;font:600 14px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.015em">{{ c.tax }}</span>
+              <div style="width:210px;flex:none;text-align:right">
+                <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:{{ c.color }};background:{{ c.bg }};border-radius:100px;padding:5px 10px;letter-spacing:.04em">{{ c.state }}</span>
+                <div style="font:400 11px 'IBM Plex Mono',monospace;color:#A22B23;margin-top:4px">{{ c.flag }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="12 Pricing" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">12</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Pricing</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">1440 × 900</span></div>
+    </sc-if>
+    <div style="width:1440px;height:900px;background:#fff;border:1px solid #D8DFF0;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 70px -34px rgba(14,20,48,.42)">
+      <div style="height:62px;flex:none;border-bottom:1px solid #E4E9F5;display:flex;align-items:center;justify-content:space-between;padding:0 40px">
+        <span style="font:700 19px 'Instrument Sans',sans-serif;letter-spacing:-.025em;color:#0E1430">Citetax</span>
+        <div style="display:flex;align-items:center;gap:24px">
+          <span style="font:500 13.5px 'Instrument Sans',sans-serif;color:#6A7490">How it works</span>
+          <span style="font:500 13.5px 'Instrument Sans',sans-serif;color:#6A7490">Scope</span>
+          <span style="font:600 13.5px 'Instrument Sans',sans-serif;color:#0E1430">Pricing</span>
+          <span style="background:#2B44C7;border-radius:8px;padding:9px 16px;font:600 13px 'Instrument Sans',sans-serif;color:#fff">Check for free</span>
+        </div>
+      </div>
+      <div style="flex:1;padding:44px 40px 0;display:flex;flex-direction:column;overflow:hidden">
+        <div style="text-align:center;max-width:640px;margin:0 auto">
+          <div style="font:600 40px/1.1 'Instrument Sans',sans-serif;letter-spacing:-.034em;color:#0E1430;text-wrap:pretty">A practice cannot bill for an answer it cannot check.</div>
+          <div style="font:400 16px/1.6 'Instrument Sans',sans-serif;color:#5C6683;margin-top:14px">Web first, containerised, one small VPS — which is why a citation-backed answer can cost this little.</div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:38px;align-items:flex-start">
+          <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+            <div style="flex:1;border:1.5px solid {{ p.border }};background:{{ p.bg }};border-radius:14px;padding:26px;box-shadow:{{ p.shadow }}">
+              <div style="display:flex;align-items:center;justify-content:space-between;height:22px">
+                <span style="font:600 17px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.015em">{{ p.name }}</span>
+                <span style="font:500 9.5px 'IBM Plex Mono',monospace;color:{{ p.tagFg }};background:{{ p.tagBg }};border-radius:100px;padding:4px 9px;letter-spacing:.1em">{{ p.tag }}</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-top:16px">
+                <span style="font:600 32px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.035em">{{ p.price }}</span>
+                <span style="font:400 12.5px 'Instrument Sans',sans-serif;color:#8A93AC">{{ p.unit }}</span>
+              </div>
+              <div style="font:400 13.5px/1.5 'Instrument Sans',sans-serif;color:#5C6683;margin-top:10px;height:40px">{{ p.who }}</div>
+              <div style="border-radius:9px;padding:12px;text-align:center;background:{{ p.ctaBg }};color:{{ p.ctaFg }};border:{{ p.ctaBorder }};font:600 13.5px 'Instrument Sans',sans-serif;margin-top:6px">{{ p.cta }}</div>
+              <div style="height:1px;background:#EEF1F8;margin:20px 0"></div>
+              <div style="display:flex;flex-direction:column;gap:11px">
+                <sc-for list="{{ p.feats }}" as="f" hint-placeholder-count="4">
+                  <div style="display:flex;gap:10px;align-items:flex-start">
+                    <span style="font:600 11px 'IBM Plex Mono',monospace;color:#0B6B57;margin-top:2px;flex:none">✓</span>
+                    <span style="font:400 13.5px/1.45 'Instrument Sans',sans-serif;color:#41496B">{{ f }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:auto;border-top:1px solid #EEF1F8;padding:22px 0 26px">
+          <div style="flex:1">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">MARKET</div>
+            <div style="font:400 14px/1.6 'Instrument Sans',sans-serif;color:#41496B;margin-top:8px">Individual filers and freelancers, plus small accounting practices who bill for accuracy.</div>
+          </div>
+          <div style="flex:1">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">DEPLOYMENT</div>
+            <div style="font:400 14px/1.6 'Instrument Sans',sans-serif;color:#41496B;margin-top:8px">Docker Compose behind Caddy on a single VPS, so a low price still covers the cost of running it.</div>
+          </div>
+          <div style="flex:1">
+            <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC">SCOPE, ON EVERY PLAN</div>
+            <div style="font:400 14px/1.6 'Instrument Sans',sans-serif;color:#41496B;margin-top:8px">Personal income tax, two years of assessment. Not advice. Anything else is refused with a reason.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-screen-label="13 Mobile" style="display:flex;flex-direction:column;gap:11px">
+    <sc-if value="{{ showFrameLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2B44C7;letter-spacing:.1em">13</span><span style="font:600 14px 'Instrument Sans',sans-serif;color:#0E1430;letter-spacing:-.01em">Mobile — ask, answer, sources, refusal, deadlines</span><span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#8A93AC">390 × 844 each</span></div>
+    </sc-if>
+    <div style="display:flex;gap:20px">
+
+      <div style="width:390px;height:844px;flex:none;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 50px -26px rgba(14,20,48,.4)">
+        <div style="height:44px;flex:none;background:#0E1430;display:flex;align-items:center;justify-content:space-between;padding:0 20px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#fff">9:41</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">▪▪▪ ⌁ ▮</span></div>
+        <div style="background:#0E1430;padding:14px 20px 20px;flex:none">
+          <div style="font:700 20px 'Instrument Sans',sans-serif;letter-spacing:-.025em;color:#fff">Citetax</div>
+          <div style="font:400 11.5px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45);margin-top:4px">Every number, cited.</div>
+        </div>
+        <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+          <div style="font:600 22px/1.2 'Instrument Sans',sans-serif;letter-spacing:-.028em;color:#0E1430">What would you like checked?</div>
+          <div style="background:#fff;border:1.5px solid #2B44C7;border-radius:12px;padding:14px;box-shadow:0 0 0 3px rgba(43,68,199,.09)">
+            <div style="font:400 15px/1.5 'Instrument Sans',sans-serif;color:#0E1430">What do I owe for 2025/2026 on 300,000 a month plus freelance work?</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+              <span style="border:1px solid #D8DFF0;border-radius:8px;padding:8px 11px;font:500 12px 'Instrument Sans',sans-serif;color:#41496B">↑ Payslip</span>
+              <span style="background:#2B44C7;border-radius:8px;padding:10px 20px;font:600 13px 'Instrument Sans',sans-serif;color:#fff;min-height:44px;display:flex;align-items:center">Ask</span>
+            </div>
+          </div>
+          <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#8A93AC;margin-top:4px">Y/A 2025 / 2026 · CURRENT</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #E4E9F5;border-radius:11px;padding:14px;min-height:44px">
+                <div style="font:500 13.5px/1.4 'Instrument Sans',sans-serif;color:#0E1430;text-wrap:pretty">{{ s.q }}</div>
+                <div style="font:400 10.5px 'IBM Plex Mono',monospace;color:{{ s.tagColor }};margin-top:7px;letter-spacing:.04em">{{ s.tag }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:390px;height:844px;flex:none;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 50px -26px rgba(14,20,48,.4)">
+        <div style="height:44px;flex:none;background:#0E1430;display:flex;align-items:center;justify-content:space-between;padding:0 20px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#fff">9:41</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">▪▪▪ ⌁ ▮</span></div>
+        <div style="background:#0E1430;padding:12px 20px 16px;flex:none;display:flex;align-items:center;gap:12px">
+          <span style="font:500 15px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">←</span>
+          <div style="flex:1;font:400 13px/1.4 'Instrument Sans',sans-serif;color:rgba(255,255,255,.8)">What do I owe for 2025/2026 on 300,000 a month plus freelance work?</div>
+        </div>
+        <div style="flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:11px;overflow:hidden">
+          <div style="background:#E2F2EE;border:1px solid #B9DED3;border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:10px;flex:none">
+            <span style="width:19px;height:19px;border-radius:50%;background:#0B6B57;color:#fff;font:700 11px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none">✓</span>
+            <span style="font:500 12px/1.4 'Instrument Sans',sans-serif;color:#08483B">Released — 8 of 8 figures traced to law in force</span>
+          </div>
+          <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:14px;flex:none">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">BALANCE PAYABLE · 2025/2026</div>
+            <div style="display:flex;align-items:flex-start;gap:3px;margin-top:7px">
+              <span style="font:600 30px/1 'IBM Plex Mono',monospace;letter-spacing:-.04em;color:#0E1430">LKR 378,000</span>
+              <span style="font:600 10px 'IBM Plex Mono',monospace;color:#2B44C7;background:#E8ECFC;border-radius:3px;padding:1px 4px;margin-top:2px">5</span>
+            </div>
+            <div style="font:400 12.5px/1.5 'Instrument Sans',sans-serif;color:#5C6683;margin-top:8px">Return due 30 Nov 2026. Balance payable by 30 Sep 2026.</div>
+          </div>
+          <div style="display:flex;gap:2px;background:#EDF1F9;border:1px solid #E4E9F5;border-radius:9px;padding:3px;flex:none">
+            <div style="flex:1;text-align:center;padding:8px;border-radius:6px;background:#fff;box-shadow:0 1px 3px rgba(14,20,48,.1);font:600 12px 'Instrument Sans',sans-serif;color:#0E1430;min-height:36px">Steps</div>
+            <div style="flex:1;text-align:center;padding:8px;font:500 12px 'Instrument Sans',sans-serif;color:#6A7490;min-height:36px">Sources</div>
+            <div style="flex:1;text-align:center;padding:8px;font:500 12px 'Instrument Sans',sans-serif;color:#6A7490;min-height:36px">Trace</div>
+          </div>
+          <div style="flex:1;min-height:0;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:4px 14px 10px;overflow:hidden;display:flex;flex-direction:column">
+            <sc-for list="{{ compRows }}" as="r" hint-placeholder-count="7">
+              <div style="padding:6px 0;border-bottom:1px solid #F4F6FC;display:flex;align-items:center;gap:10px;flex:none">
+                <span style="width:16px;flex:none;font:500 11.5px 'IBM Plex Mono',monospace;color:#9BA4BC">{{ r.n }}</span>
+                <div style="flex:1">
+                  <div style="font:500 13px/1.3 'Instrument Sans',sans-serif;color:#0E1430">{{ r.what }}</div>
+                  <div style="display:flex;align-items:center;gap:5px;margin-top:4px">
+                    <span style="font:500 10px 'IBM Plex Mono',monospace;color:#41496B;background:#F2F5FC;border-radius:4px;padding:2px 5px">{{ r.rule }}</span>
+                    <span style="font:600 9px 'IBM Plex Mono',monospace;color:#2B44C7;background:#E8ECFC;border-radius:3px;padding:1px 3px">{{ r.cite }}</span>
+                  </div>
+                </div>
+                <span style="font:500 13px 'IBM Plex Mono',monospace;color:{{ r.valColor }};letter-spacing:-.015em;flex:none">{{ r.val }}</span>
+              </div>
+            </sc-for>
+            <div style="background:#0E1430;border-radius:8px;padding:10px 13px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex:none">
+              <span style="font:600 13px 'Instrument Sans',sans-serif;color:#fff">Balance payable</span>
+              <span style="font:600 15px/1.2 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-.02em">378,000</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:390px;height:844px;flex:none;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 50px -26px rgba(14,20,48,.4)">
+        <div style="height:44px;flex:none;background:#0E1430;display:flex;align-items:center;justify-content:space-between;padding:0 20px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#fff">9:41</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">▪▪▪ ⌁ ▮</span></div>
+        <div style="background:#0E1430;padding:12px 20px 16px;flex:none;display:flex;align-items:center;gap:12px">
+          <span style="font:500 15px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">←</span>
+          <div style="flex:1;font:600 14px 'Instrument Sans',sans-serif;color:#fff">Sources · 6 used, 12 excluded</div>
+        </div>
+        <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:9px;overflow:hidden">
+          <sc-for list="{{ cites }}" as="c" hint-placeholder-count="6">
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:11px;padding:13px">
+              <div style="display:flex;align-items:flex-start;gap:9px">
+                <span style="font:600 10px 'IBM Plex Mono',monospace;color:#2B44C7;background:#E8ECFC;border-radius:3px;padding:2px 4px;flex:none;margin-top:1px">{{ c.n }}</span>
+                <div style="flex:1">
+                  <div style="font:600 13px/1.35 'Instrument Sans',sans-serif;color:#0E1430;text-wrap:pretty">{{ c.title }}</div>
+                  <div style="font:400 11.5px/1.4 'Instrument Sans',sans-serif;color:#6A7490;margin-top:3px">{{ c.sub }}</div>
+                </div>
+              </div>
+              <div style="margin-top:10px;position:relative;height:5px;background:#EFF2F9;border-radius:3px">
+                <div style="position:absolute;top:0;bottom:0;left:{{ c.x }};width:{{ c.w }};background:#2B44C7;border-radius:3px"></div>
+                <div style="position:absolute;top:-3px;bottom:-3px;left:64%;width:11%;border:1px dashed #0B6B57;border-radius:3px"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:5px">
+                <span style="font:400 10px 'IBM Plex Mono',monospace;color:#8A93AC">{{ c.from }}</span>
+                <span style="font:400 10px 'IBM Plex Mono',monospace;color:#8A93AC">{{ c.to }}</span>
+              </div>
+            </div>
+          </sc-for>
+          <div style="background:#FBE9E7;border:1px solid #F1CFCA;border-radius:11px;padding:13px">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#A22B23">EXCLUDED BY YEAR FILTER · 12</div>
+            <div style="font:600 12.5px 'Instrument Sans',sans-serif;color:#7A2018;margin-top:7px;text-decoration:line-through">First Schedule as at Y/A 2024/25</div>
+            <div style="font:400 11.5px/1.45 'Instrument Sans',sans-serif;color:#8C3D33;margin-top:4px">Ceased 31 Mar 2025 — dropped before the model saw it.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:390px;height:844px;flex:none;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 50px -26px rgba(14,20,48,.4)">
+        <div style="height:44px;flex:none;background:#0E1430;display:flex;align-items:center;justify-content:space-between;padding:0 20px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#fff">9:41</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">▪▪▪ ⌁ ▮</span></div>
+        <div style="background:#0E1430;padding:12px 20px 16px;flex:none;display:flex;align-items:center;gap:12px">
+          <span style="font:500 15px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">←</span>
+          <div style="flex:1;font:400 13px/1.4 'Instrument Sans',sans-serif;color:rgba(255,255,255,.8)">How much VAT do I charge on my consulting invoices?</div>
+        </div>
+        <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+          <div style="background:#FBE9E7;border:1px solid #F1CFCA;border-radius:11px;padding:13px;display:flex;align-items:center;gap:10px">
+            <span style="width:20px;height:20px;border-radius:50%;background:#A22B23;color:#fff;font:700 11px 'Instrument Sans',sans-serif;display:flex;align-items:center;justify-content:center;flex:none">!</span>
+            <span style="font:600 12.5px/1.4 'Instrument Sans',sans-serif;color:#7A2018">Held by guardrail — out of scope</span>
+          </div>
+          <div style="background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:18px">
+            <div style="font:600 20px/1.3 'Instrument Sans',sans-serif;letter-spacing:-.024em;color:#0E1430;text-wrap:pretty">Citetax holds personal income tax rules only. It has no VAT corpus, so any rate it gave you would be uncited.</div>
+            <div style="font:400 13.5px/1.6 'Instrument Sans',sans-serif;color:#5C6683;margin-top:11px">An answer with no source is worse than no answer. Nothing was guessed and nothing was retrieved.</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+              <div style="background:#2B44C7;border-radius:9px;padding:13px;text-align:center;font:600 13.5px 'Instrument Sans',sans-serif;color:#fff;min-height:44px">Ask about income tax instead</div>
+              <div style="border:1px solid #D8DFF0;border-radius:9px;padding:13px;text-align:center;font:500 13.5px 'Instrument Sans',sans-serif;color:#41496B;min-height:44px">Take me to the IRD VAT page</div>
+            </div>
+          </div>
+          <div style="flex:1;background:#fff;border:1px solid #E4E9F5;border-radius:12px;padding:16px;overflow:hidden">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A93AC">GUARDRAIL CHECKS</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:12px">
+              <sc-for list="{{ refusalChecks }}" as="c" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="flex:1;font:500 13px 'Instrument Sans',sans-serif;color:#0E1430">{{ c.t }}</span>
+                  <span style="font:500 9.5px 'IBM Plex Mono',monospace;color:{{ c.color }};background:{{ c.bg }};border-radius:100px;padding:4px 9px;flex:none;letter-spacing:.04em">{{ c.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:390px;height:844px;flex:none;background:#F5F7FC;border:1px solid #D8DFF0;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 50px -26px rgba(14,20,48,.4)">
+        <div style="height:44px;flex:none;background:#0E1430;display:flex;align-items:center;justify-content:space-between;padding:0 20px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#fff">9:41</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.6)">▪▪▪ ⌁ ▮</span></div>
+        <div style="background:#0E1430;padding:12px 20px 16px;flex:none">
+          <div style="font:600 17px 'Instrument Sans',sans-serif;color:#fff;letter-spacing:-.02em">Deadlines</div>
+          <div style="font:400 11.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.45);margin-top:4px">Y/A 2025 / 2026</div>
+        </div>
+        <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+          <div style="background:#FBF0DE;border:1px solid #EDD9B0;border-radius:11px;padding:14px">
+            <div style="font:500 9.5px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#8A5200">NEXT DUE</div>
+            <div style="font:600 20px 'Instrument Sans',sans-serif;color:#6B4300;margin-top:6px;letter-spacing:-.02em">30 Sep 2026 · in 43 days</div>
+            <div style="font:400 12.5px 'Instrument Sans',sans-serif;color:#8A5200;margin-top:4px">Balance of tax payable — LKR 378,000 · s.92</div>
+          </div>
+          <sc-for list="{{ timeline }}" as="d" hint-placeholder-count="6">
+            <div style="background:#fff;border:1px solid #E4E9F5;border-radius:11px;padding:13px;display:flex;align-items:center;gap:12px">
+              <div style="width:74px;flex:none">
+                <div style="font:500 12.5px 'IBM Plex Mono',monospace;color:#0E1430;letter-spacing:-.01em">{{ d.date }}</div>
+                <div style="font:400 10px 'IBM Plex Mono',monospace;color:#9BA4BC;margin-top:3px">{{ d.rule }}</div>
+              </div>
+              <div style="flex:1">
+                <div style="font:500 13px 'Instrument Sans',sans-serif;color:#0E1430">{{ d.name }}</div>
+                <span style="font:500 9.5px 'IBM Plex Mono',monospace;color:{{ d.color }};background:{{ d.bg }};border-radius:100px;padding:3px 8px;letter-spacing:.04em;display:inline-block;margin-top:5px">{{ d.state }}</span>
+              </div>
+              <span style="font:500 13px 'IBM Plex Mono',monospace;color:#41496B;letter-spacing:-.015em;flex:none">{{ d.amt }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="end"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showFrameLabels&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Presentation&quot;},&quot;guardrailBanner&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Provenance layer&quot;},&quot;showExcludedSources&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Provenance layer&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mono = "500 13px 'IBM Plex Mono',monospace";
+    return {
+      showFrameLabels: this.props.showFrameLabels ?? true,
+      guardrailBanner: this.props.guardrailBanner ?? true,
+      showExcluded: this.props.showExcludedSources ?? true,
+
+      trace: [
+        { n: '1', name: 'Orchestrator', ms: '42 ms', owns: 'Reads the question, fills missing facts, builds the answer', detail: 'Resolved “2025/2026” to Y/A 2025/26. Two facts missing: filing status, whether APIT was withheld. Both filled from the attached payslip rather than assumed.', io: 'in: 1 question, 1 file  ·  out: 4 typed calls', color: '#2B44C7' },
+        { n: '2', name: 'Retrieval', ms: '310 ms', owns: 'Superseded law', detail: 'Hybrid BM25 + BGE-M3 dense search over the versioned rules table, reranked. 41 candidates → 6 passages. Year filter dropped 12 passages whose in-force window does not cover 2025/26, including the pre-April-2025 First Schedule.', io: '41 candidates → 6 passages  ·  12 dropped', color: '#2B44C7' },
+        { n: '3', name: 'Computation', ms: '18 ms', owns: 'Untraceable numbers', detail: 'Eight steps over the verified rules table. Rates read from the table, arithmetic in plain Python. No model in this path — the same inputs give the same figure every time.', io: '8 steps  ·  8 rule references  ·  0 model calls', color: '#0B6B57' },
+        { n: '4', name: 'Compliance', ms: '64 ms', owns: 'Missed deadlines', detail: 'Obligation: must file — assessable income exceeds the LKR 1,800,000 threshold and there is business income. Return due 30 Nov 2026, balance due 30 Sep 2026, next instalment 15 Nov 2026.', io: '1 obligation  ·  3 dates  ·  2 penalty rules', color: '#2B44C7' },
+        { n: '5', name: 'Guardrail', ms: '96 ms', owns: 'Uncited claims', detail: 'Scope: in. Citations: 8 of 8 figures carry a rule reference in force for the year. PII: TIN, NIC and employer name masked before release. No advisory language emitted.', io: '5 checks  ·  5 passed  ·  released', color: '#0B6B57' }
+      ],
+
+      cmpRows: [
+        { what: 'Assessable income', a: '4,800,000', b: '4,800,000', d: 'no change', dColor: '#8A93AC', rule: 'IRA s.3' },
+        { what: 'Personal relief', a: '1,200,000', b: '1,800,000', d: '+600,000', dColor: '#0B6B57', rule: 's.52 · Act 2 of 2025' },
+        { what: 'Taxable income', a: '3,600,000', b: '3,000,000', d: '−600,000', dColor: '#0B6B57', rule: 'IRA s.3(1)' },
+        { what: 'Number of rate bands', a: '6', b: '5', d: '12% slab removed', dColor: '#0B6B57', rule: 'First Schedule Pt I' },
+        { what: 'Gross income tax', a: '846,000', b: '600,000', d: '−246,000', dColor: '#0B6B57', rule: 'First Schedule Pt I' },
+        { what: 'Effective rate on assessable', a: '17.6%', b: '12.5%', d: '−5.1 pts', dColor: '#0B6B57', rule: 'derived' }
+      ],
+
+      attrib: [
+        { label: 'Gross tax, 2024/25 rules', val: '846,000', bar: '100%', color: '#0E1430', note: 'relief 1,200,000 · 6 bands from 6% to 36%', cite: 'First Schedule as at 2024/25' },
+        { label: 'Band structure reshaped', val: '−30,000', bar: '3.5%', color: '#5670DA', note: '12% slab removed, first band widened 500,000 → 1,000,000', cite: 'First Schedule Pt I, Act 2 of 2025' },
+        { label: 'Personal relief raised', val: '−216,000', bar: '25.5%', color: '#2B44C7', note: '1,200,000 → 1,800,000, certified 20 Mar 2025', cite: 's.52, Act 2 of 2025' },
+        { label: 'Gross tax, 2025/26 rules', val: '600,000', bar: '71%', color: '#0B6B57', note: 'relief 1,800,000 · 5 bands from 6% to 36%', cite: 'First Schedule Pt I, in force 1 Apr 2025' }
+      ],
+
+      oblReasons: [
+        { mark: '✓', chipBg: '#0B6B57', chipFg: '#fff', t: 'Assessable income above the threshold', d: 'LKR 4,800,000 exceeds the LKR 1,800,000 personal relief threshold for Y/A 2025/26.', rule: 's.52 · Act 2 of 2025' },
+        { mark: '✓', chipBg: '#0B6B57', chipFg: '#fff', t: 'Income not covered by withholding', d: 'LKR 1,200,000 of business income had nothing withheld at source, so APIT does not settle your liability.', rule: 'IRA s.6' },
+        { mark: '✓', chipBg: '#0B6B57', chipFg: '#fff', t: 'Return required of a person with business income', d: 'A person carrying on a business must furnish a return regardless of the amount withheld elsewhere.', rule: 'IRA s.93' },
+        { mark: '✕', chipBg: '#EFF2F9', chipFg: '#8A93AC', t: 'APIT alone would have been enough', d: 'Not met. This would only hold if employment were your sole source and your employer withheld the full amount.', rule: 'APIT Table 01' }
+      ],
+
+      refusalChecks: [
+        { t: 'Scope', v: 'FAILED', d: 'Value Added Tax is not personal income tax. No VAT rules are held in the corpus, so there is nothing to cite.', color: '#A22B23', bg: '#FBE9E7' },
+        { t: 'Year filter', v: 'NOT REACHED', d: 'Retrieval was never called — the question was stopped before it could search.', color: '#8A93AC', bg: '#F2F5FC' },
+        { t: 'Citations', v: 'NOT REACHED', d: 'No figure was computed, so there is no figure to trace.', color: '#8A93AC', bg: '#F2F5FC' },
+        { t: 'PII masking', v: 'PASSED', d: 'The question carried no personal identifiers. Nothing needed stripping.', color: '#0B6B57', bg: '#E2F2EE' }
+      ],
+
+      inScope: [
+        { t: 'Personal income tax', d: 'Employment, business, investment and foreign income for a resident individual', glyph: '✓', mark: '#8FE3CE', titleColor: '#ffffff' },
+        { t: 'Y/A 2024/25 and 2025/26', d: 'Both years held as separate rule versions', glyph: '✓', mark: '#8FE3CE', titleColor: '#ffffff' },
+        { t: 'Filing obligation and deadlines', d: 'Thresholds, instalments, return dates, penalty sections', glyph: '✓', mark: '#8FE3CE', titleColor: '#ffffff' },
+        { t: 'VAT, NBT, SSCL', d: 'Indirect taxes — no corpus, no citations', glyph: '✕', mark: '#F5A9A2', titleColor: 'rgba(255,255,255,.6)' },
+        { t: 'Company and partnership tax', d: 'Different Act parts, not indexed', glyph: '✕', mark: '#F5A9A2', titleColor: 'rgba(255,255,255,.6)' },
+        { t: 'Advice on what you should do', d: 'Refused by policy, not by capability', glyph: '✕', mark: '#F5A9A2', titleColor: 'rgba(255,255,255,.6)' }
+      ],
+
+      history: [
+        { q: 'What do I owe for 2025/2026? I earn LKR 300,000 a month and invoiced about 1.2 million for freelance design work.', when: '18 Aug 2026 · 14:02', ya: '2025/26', verdict: 'RELEASED', vColor: '#0B6B57', vBg: '#E2F2EE', figure: 'LKR 378,000', cites: '6 sources' },
+        { q: 'How much VAT do I charge on my consulting invoices?', when: '18 Aug 2026 · 13:48', ya: '—', verdict: 'REFUSED', vColor: '#A22B23', vBg: '#FBE9E7', figure: 'out of scope', cites: 'no sources' },
+        { q: 'What changed between 2024/25 and 2025/26 for the same income?', when: '16 Aug 2026 · 09:31', ya: 'both', verdict: 'RELEASED', vColor: '#0B6B57', vBg: '#E2F2EE', figure: '−LKR 246,000', cites: '5 sources' },
+        { q: 'Do I actually need to file this year, or does APIT already cover me?', when: '16 Aug 2026 · 09:12', ya: '2025/26', verdict: 'RELEASED', vColor: '#0B6B57', vBg: '#E2F2EE', figure: 'Yes — must file', cites: '4 sources' },
+        { q: 'Should I register as a sole proprietor to pay less tax?', when: '12 Aug 2026 · 18:55', ya: '—', verdict: 'REFUSED', vColor: '#A22B23', vBg: '#FBE9E7', figure: 'advisory', cites: 'no sources' },
+        { q: 'What is my tax on 4,200,000 for 2024/2025?', when: '02 Aug 2026 · 11:20', ya: '2024/25', verdict: 'RELEASED', vColor: '#0B6B57', vBg: '#E2F2EE', figure: 'LKR 594,000', cites: '4 sources' },
+        { q: 'Is bank interest already taxed before it reaches me?', when: '29 Jul 2026 · 16:04', ya: '2025/26', verdict: 'RELEASED', vColor: '#0B6B57', vBg: '#E2F2EE', figure: 'WHT 5%', cites: '3 sources' }
+      ],
+
+      clients: [
+        { name: 'A. Fernando', ref: 'CL-0142', ya: '2025/26', kind: 'Salaried', assessable: '3,600,000', tax: '222,000', state: 'READY TO FILE', color: '#0B6B57', bg: '#E2F2EE', flag: '' },
+        { name: 'N. Perera', ref: 'CL-0143', ya: '2025/26', kind: 'Salary + business', assessable: '4,800,000', tax: '378,000', state: 'BALANCE DUE', color: '#8A5200', bg: '#FBF0DE', flag: 'instalment missed' },
+        { name: 'S. Jayasuriya', ref: 'CL-0151', ya: '2025/26', kind: 'Freelance', assessable: '2,150,000', tax: '21,000', state: 'READY TO FILE', color: '#0B6B57', bg: '#E2F2EE', flag: '' },
+        { name: 'M. Wickrama', ref: 'CL-0158', ya: '2025/26', kind: 'Mixed + foreign', assessable: '9,400,000', tax: '1,908,000', state: 'NEEDS REVIEW', color: '#A22B23', bg: '#FBE9E7', flag: '2 figures uncited' },
+        { name: 'D. Ranasinghe', ref: 'CL-0160', ya: '2025/26', kind: 'Salaried', assessable: '1,740,000', tax: '0', state: 'BELOW THRESHOLD', color: '#41496B', bg: '#F2F5FC', flag: '' },
+        { name: 'T. Alwis', ref: 'CL-0166', ya: '2024/25', kind: 'Freelance', assessable: '3,000,000', tax: '426,000', state: 'FILED', color: '#41496B', bg: '#F2F5FC', flag: '' },
+        { name: 'K. Silva', ref: 'CL-0171', ya: '2025/26', kind: 'Salary + interest', assessable: '5,250,000', tax: '540,000', state: 'AWAITING PAYSLIP', color: '#8A5200', bg: '#FBF0DE', flag: '' }
+      ],
+
+      plans: [
+        { name: 'Free', price: 'LKR 0', unit: 'always', who: 'Anyone checking whether they must file', cta: 'Current plan', ctaBg: '#F2F5FC', ctaFg: '#41496B', ctaBorder: '1px solid #D8DFF0', border: '#E4E9F5', bg: '#fff', shadow: 'none', tag: '', tagBg: '', tagFg: '',
+          feats: ['Obligation check', 'One estimate per year of assessment', 'Deadline reminders', 'Citations on every answer'] },
+        { name: 'Individual', price: 'LKR 1,500', unit: 'per filing season', who: 'Salaried filers and freelancers', cta: 'Upgrade', ctaBg: '#2B44C7', ctaFg: '#fff', ctaBorder: 'none', border: '#2B44C7', bg: '#fff', shadow: '0 0 0 4px rgba(43,68,199,.09)', tag: 'MOST FILERS', tagBg: '#E8ECFC', tagFg: '#2B44C7',
+          feats: ['Unlimited computations', 'Payslip upload and field extraction', 'Year-on-year comparison', 'Full computation export as PDF', 'Agent trace on every answer'] },
+        { name: 'Practice', price: 'LKR 7,500', unit: 'per seat, per month', who: 'Small accounting practices', cta: 'Talk to us', ctaBg: '#0E1430', ctaFg: '#fff', ctaBorder: 'none', border: '#E4E9F5', bg: '#fff', shadow: 'none', tag: '', tagBg: '', tagFg: '',
+          feats: ['Multi-client workspace', 'Bulk obligation checking', 'Branded exports', 'Full audit trail per client', 'Uncited-figure queue'] }
+      ],
+
+      timeline: [
+        { date: '15 Aug 2025', name: 'First instalment', amt: '94,500', state: 'PAID', color: '#0B6B57', bg: '#E2F2EE', rule: 's.90(1)' },
+        { date: '15 Nov 2025', name: 'Second instalment', amt: '94,500', state: 'PAID', color: '#0B6B57', bg: '#E2F2EE', rule: 's.90(1)' },
+        { date: '15 Feb 2026', name: 'Third instalment', amt: '94,500', state: 'PAID', color: '#0B6B57', bg: '#E2F2EE', rule: 's.90(1)' },
+        { date: '15 May 2026', name: 'Fourth instalment', amt: '94,500', state: 'MISSED', color: '#A22B23', bg: '#FBE9E7', rule: 's.90(1)' },
+        { date: '30 Sep 2026', name: 'Balance of tax payable', amt: '378,000', state: 'DUE IN 43 DAYS', color: '#8A5200', bg: '#FBF0DE', rule: 's.92' },
+        { date: '30 Nov 2026', name: 'Return of income due', amt: '—', state: 'DUE IN 104 DAYS', color: '#41496B', bg: '#F2F5FC', rule: 's.93(1)' }
+      ],
+
+      penalties: [
+        { what: 'Failure to furnish the return by 30 Nov 2026', calc: '5% of tax owing, plus 1% for each month or part month', amt: '18,900 + 3,780 / month', rule: 'IRA s.178' },
+        { what: 'Failure to pay the balance by 30 Sep 2026', calc: '20% of the amount not paid', amt: '75,600', rule: 'IRA s.179' },
+        { what: 'Fourth instalment paid late', calc: 'interest on the unpaid instalment from 16 May 2026', amt: 'accruing — 3 months', rule: 'IRA s.159' }
+      ],
+
+      onboardSteps: [
+        { n: '✓', name: 'Account', bg: '#0B6B57', fg: '#fff', label: '#41496B' },
+        { n: '2', name: 'Income', bg: '#2B44C7', fg: '#fff', label: '#0E1430' },
+        { n: '3', name: 'Year', bg: '#E4E9F5', fg: '#8A93AC', label: '#9BA4BC' }
+      ],
+
+      incomeTypes: [
+        { name: 'Employment, with APIT withheld', desc: 'Salary from one or more employers. We reconcile what was already withheld.', rule: 's.5', tick: '✓', border: '#2B44C7', box: '#2B44C7', boxFill: '#2B44C7', shadow: '0 0 0 3px rgba(43,68,199,.09)' },
+        { name: 'Freelance or business income', desc: 'Invoiced work with nothing withheld at source. Quarterly instalments may apply.', rule: 's.6', tick: '✓', border: '#2B44C7', box: '#2B44C7', boxFill: '#2B44C7', shadow: '0 0 0 3px rgba(43,68,199,.09)' },
+        { name: 'Investment income', desc: 'Bank interest, dividends, rent. Some of it is already taxed at source.', rule: 's.7', tick: '', border: '#E4E9F5', box: '#C4CDE4', boxFill: 'transparent', shadow: 'none' },
+        { name: 'Foreign income remitted to Sri Lanka', desc: 'Residents are assessed on worldwide income.', rule: 's.6(2)', tick: '', border: '#E4E9F5', box: '#C4CDE4', boxFill: 'transparent', shadow: 'none' }
+      ],
+
+      neverStore: [
+        { what: 'TIN', how: 'Detected by local NER, replaced with a token' },
+        { what: 'NIC number', how: 'Never sent to the hosted model' },
+        { what: 'Employer name', how: 'Masked before retrieval' },
+        { what: 'Payslip file', how: 'Parsed on the machine, then discarded' }
+      ],
+
+      payslipFields: [
+        { k: 'Gross monthly remuneration', v: '300,000', color: '#0E1430' },
+        { k: 'Annualised employment income', v: '3,600,000', color: '#0E1430' },
+        { k: 'APIT withheld, month', v: '18,500', color: '#0E1430' },
+        { k: 'APIT withheld, year to date', v: '222,000', color: '#0E1430' },
+        { k: 'EPF employee, 8%', v: '24,000', color: '#0E1430' },
+        { k: 'Employer name', v: '[MASKED]', color: '#A22B23' }
+      ],
+
+      suggestions: [
+        { q: 'Do I need to file at all this year?', tag: 'OBLIGATION · s.93', tagColor: '#2B44C7' },
+        { q: 'What changed between 2024/25 and 2025/26?', tag: 'COMPARISON · ACT 2 OF 2025', tagColor: '#2B44C7' },
+        { q: 'When is my next instalment due and what happens if I miss it?', tag: 'COMPLIANCE · s.90, s.178', tagColor: '#2B44C7' },
+        { q: 'How much VAT do I charge on my invoices?', tag: 'OUT OF SCOPE · WILL BE REFUSED', tagColor: '#A22B23' }
+      ],
+
+      resolvedFacts: ['Y/A 2025 / 2026', 'resident individual', 'employment + business', 'payslip attached'],
+      guardChecks: ['SCOPE ✓', 'CITATIONS 8/8 ✓', 'YEAR FILTER ✓', 'PII MASKED ✓', 'NO ADVICE ✓'],
+
+      tabs: [
+        { name: 'Computation', bg: '#fff', shadow: '0 1px 3px rgba(14,20,48,.1)', font: "600 13.5px 'Instrument Sans',sans-serif", color: '#0E1430' },
+        { name: 'Citations', bg: 'transparent', shadow: 'none', font: "500 13.5px 'Instrument Sans',sans-serif", color: '#6A7490' },
+        { name: 'Agent trace', bg: 'transparent', shadow: 'none', font: "500 13.5px 'Instrument Sans',sans-serif", color: '#6A7490' },
+        { name: 'Explain this rule', bg: 'transparent', shadow: 'none', font: "500 13.5px 'Instrument Sans',sans-serif", color: '#6A7490' }
+      ],
+
+      compRows: [
+        { n: '1', what: 'Employment income', sub: 'LKR 300,000 × 12, read from payslip', rule: 'IRA s.5', cite: '1', val: '3,600,000', weight: '500', valColor: '#0E1430' },
+        { n: '2', what: 'Business income — freelance design', sub: 'Self-declared, 4 invoices', rule: 'IRA s.6', cite: '2', val: '1,200,000', weight: '500', valColor: '#0E1430' },
+        { n: '3', what: 'Assessable income', sub: 'Sum of steps 1 and 2', rule: 'IRA s.3', cite: '3', val: '4,800,000', weight: '600', valColor: '#0E1430' },
+        { n: '4', what: 'Less personal relief', sub: 'Raised from 1,200,000 on 1 Apr 2025', rule: 's.52 · Act 2 of 2025', cite: '4', val: '(1,800,000)', weight: '500', valColor: '#0B6B57' },
+        { n: '5', what: 'Taxable income', sub: 'Step 3 less step 4', rule: 'IRA s.3(1)', cite: '3', val: '3,000,000', weight: '600', valColor: '#0E1430' },
+        { n: '6', what: 'Gross income tax across bands', sub: '5 bands applied — expanded below', rule: 'First Schedule Pt I', cite: '5', val: '600,000', weight: '500', valColor: '#0E1430' },
+        { n: '7', what: 'Less APIT already withheld', sub: 'Verified against payslip year to date', rule: 'APIT Table 01', cite: '6', val: '(222,000)', weight: '500', valColor: '#0B6B57' }
+      ],
+
+      bandWalk: [
+        { slice: 'FIRST 1,000,000', rate: '6%', tax: '60,000', flex: '2', bar: '#C8D2F5' },
+        { slice: 'NEXT 500,000', rate: '18%', tax: '90,000', flex: '1', bar: '#A9B8F0' },
+        { slice: 'NEXT 500,000', rate: '24%', tax: '120,000', flex: '1', bar: '#8398E8' },
+        { slice: 'NEXT 500,000', rate: '30%', tax: '150,000', flex: '1', bar: '#5670DA' },
+        { slice: 'BALANCE 500,000', rate: '36%', tax: '180,000', flex: '1', bar: '#2B44C7' }
+      ],
+
+      cites: [
+        { n: '1', title: 'Inland Revenue Act No. 24 of 2017, s.5', sub: 'Gains and profits from employment', from: '1 Apr 2018', to: 'in force', x: '10%', w: '90%' },
+        { n: '2', title: 'IRA No. 24 of 2017, s.6', sub: 'Gains and profits from business', from: '1 Apr 2018', to: 'in force', x: '10%', w: '90%' },
+        { n: '3', title: 'IRA No. 24 of 2017, s.3', sub: 'Charge and computation of taxable income', from: '1 Apr 2018', to: 'in force', x: '10%', w: '90%' },
+        { n: '4', title: 'Amendment Act No. 2 of 2025, s.52', sub: 'Personal relief raised to LKR 1,800,000', from: '1 Apr 2025', to: 'in force', x: '64%', w: '36%' },
+        { n: '5', title: 'First Schedule, Part I, as amended', sub: '6% / 18% / 24% / 30% / 36% bands; 12% slab removed', from: '1 Apr 2025', to: 'in force', x: '64%', w: '36%' },
+        { n: '6', title: 'IRD APIT Table 01, PN/IT/2025-01', sub: 'Monthly tax on regular profits, Y/A 2025/26', from: '1 Apr 2025', to: '31 Mar 2026', x: '64%', w: '11%' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

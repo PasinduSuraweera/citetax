@@ -1,0 +1,37 @@
+# --- Secrets, never commit -------------------------------------------------
+# Real keys live in api/.env and web/.env.local. The .example files are the
+# ones that get committed.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*-service-account.json
+*credentials*.json
+
+# --- Python ----------------------------------------------------------------
+api/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Node ------------------------------------------------------------------
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# --- Local tooling ---------------------------------------------------------
+# Playwright browser binaries, never in the repo
+test-results/
+playwright-report/
+
+# --- OS and editor ---------------------------------------------------------
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/

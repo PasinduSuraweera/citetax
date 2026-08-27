@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</helmet>
+<div style="width:252px;flex:none;height:100%;background:#0E1430;display:flex;flex-direction:column;padding:24px 18px;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;overflow:hidden">
+  <div style="font:700 24px/1 'Instrument Sans',sans-serif;letter-spacing:-.025em;color:#fff">Citetax</div>
+  <div style="font:400 12px/1.4 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45);margin-top:5px;letter-spacing:.01em">Every number, cited.</div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#2B44C7;border-radius:9px;padding:10px 12px;margin-top:24px">
+    <span style="font:600 13.5px 'Instrument Sans',sans-serif;color:#fff">New question</span>
+    <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.55)">⌘K</span>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:1px;margin-top:18px">
+    <sc-for list="{{ nav }}" as="i" hint-placeholder-count="5">
+      <div style="display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:8px;background:{{ i.bg }}">
+        <span style="width:4px;height:4px;border-radius:50%;background:{{ i.dot }};flex:none"></span>
+        <span style="font:500 13.5px 'Instrument Sans',sans-serif;color:{{ i.fg }}">{{ i.label }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(255,255,255,.32);margin-top:26px;margin-bottom:9px">YEAR OF ASSESSMENT</div>
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.13);border-radius:8px;padding:9px 11px">
+      <span style="font:600 13.5px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:-.01em">2025 / 2026</span>
+      <span style="font:500 9.5px 'IBM Plex Mono',monospace;color:#8FE3CE;letter-spacing:.08em">CURRENT</span>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:9px 11px">
+      <span style="font:500 13.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.42)">2024 / 2025</span>
+      <span style="font:500 9.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.28);letter-spacing:.08em">CLOSED</span>
+    </div>
+  </div>
+
+  <div style="flex:1"></div>
+
+  <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:14px">
+    <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(255,255,255,.3)">CORPUS SNAPSHOT</div>
+    <div style="font:500 13px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.8);margin-top:6px">18 August 2026</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:9px">
+      <span style="width:5px;height:5px;border-radius:50%;background:#3CCF9E;flex:none"></span>
+      <span style="font:400 11.5px 'Instrument Sans',sans-serif;color:rgba(255,255,255,.45)">41 rule versions indexed</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:252,&quot;height&quot;:900},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Ask&quot;,&quot;History&quot;,&quot;Comparison&quot;,&quot;Deadlines&quot;,&quot;My profile&quot;],&quot;default&quot;:&quot;Ask&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'Ask';
+    const items = ['Ask', 'History', 'Comparison', 'Deadlines', 'My profile'];
+    return {
+      nav: items.map(label => {
+        const on = label === active;
+        return {
+          label,
+          bg: on ? 'rgba(255,255,255,.08)' : 'transparent',
+          fg: on ? '#ffffff' : 'rgba(255,255,255,.5)',
+          dot: on ? '#3CCF9E' : 'rgba(255,255,255,.18)'
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

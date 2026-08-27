@@ -1,0 +1,309 @@
+﻿/**
+ * Client for citetax-api.
+ *
+ * Money crosses the wire as a string and stays a string until it is formatted
+ * for display. Parsing it into a JS number would reintroduce exactly the
+ * float imprecision the Decimal engine exists to avoid.
+ */
+
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
+
+export type Badge = "all_cited" | "partial" | "cannot_answer";
+
+export interface LedgerStep {
+  step_no: number;
+  label: string;
+  rule_key: string;
+  rule_version_id: string | null;
+  citation_label: string | null;
+  value: string;
+  is_zero: boolean;
+  detail: Record<string, unknown> | null;
+}
+
+export interface BandRow {
+  from: string;
+  to: string;
+  rate: string;
+  amount: string;
+  tax: string;
+}
+
+export interface Citation {
+  rule_key: string;
+  rule_version_id: string;
+  label: string | null;
+  revision_no: number;
+  effective_from: string;
+  effective_to: string | null;
+  supersedes_version_id: string | null;
+  quoted_text: string | null;
+}
+
+export interface TraceEntry {
+  node: string;
+  status: "ok" | "refused" | "skipped" | "failed";
+  detail: string | null;
+  ms: number;
+}
+
+export interface Compliance {
+  must_file: boolean;
+  reason: string;
+  return_due: string | null;
+  instalments: string[];
+  rule_version_id: string | null;
+  citation_label: string | null;
+}
+
+export interface VerifyResult {
+  badge: Badge;
+  ok: boolean;
+  unmatched_numbers: string[];
+  pii_classes: string[];
+  prose_released: boolean;
+  note: string | null;
+}
+
+export interface Snapshot {
+  id: string;
+  label: string;
+  changelog: string | null;
+  created_at?: string | null;
+}
+
+export interface AnswerResponse {
+  kind: "answer" | "refusal" | "clarify";
+  badge: Badge;
+  ya: string | null;
+  snapshot: Snapshot | null;
+  trace: TraceEntry[];
+  latency_ms: number;
+  run_id?: string | null;
+  computation?: {
+    steps: LedgerStep[];
+    balance_payable: string;
+    taxable_income: string;
+    gross_tax: string;
+    is_refund: boolean;
+    step_count: number;
+  };
+  compliance?: Compliance;
+  explanation?: string | null;
+  verify?: VerifyResult | null;
+  citations?: Citation[];
+  refusal?: { reason: string; pointer: string | null };
+  clarify?: { question: string };
+}
+
+export interface ComputeResponse {
+  ya: string;
+  steps: LedgerStep[];
+  balance_payable: string;
+  taxable_income: string;
+  gross_tax: string;
+  is_refund: boolean;
+  compliance: Compliance;
+  corpus_snapshot_id: string;
+}
+
+export interface CompareResponse {
+  from_ya: string;
+  to_ya: string;
+  changed_count: number;
+  changes: Array<{
+    rule_key: string;
+    changed: boolean;
+    from: { value: unknown; rule_version_id: string; citation_label: string | null };
+    to: { value: unknown; rule_version_id: string; citation_label: string | null };
+  }>;
+  corpus_snapshot_id: string;
+}
+
+export interface DeadlinesResponse {
+  ya: string;
+  return_due: string | null;
+  days_remaining: number | null;
+  instalments: string[];
+  citation: {
+    label: string | null;
+    rule_version_id: string;
+    effective_from: string;
+    quoted_text: string | null;
+  };
+}
+
+export interface ObligationResponse extends Compliance {
+  ya: string;
+  taxable_income: string;
+  corpus_snapshot_id: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly detail?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+/**
+ * Bearer token cache.
+ *
+ * /api/token mints a one hour token from the session cookie. Caching it avoids
+ * a round trip per API call; it is refreshed a minute before expiry so a call
+ * never goes out with a token that expires in flight.
+ */
+let tokenCache: { value: string; expiresAt: number } | null = null;
+
+export async function getToken(): Promise<string | null> {
+  if (tokenCache && Date.now() < tokenCache.expiresAt) return tokenCache.value;
+  try {
+    const res = await fetch("/api/token", { cache: "no-store" });
+    if (!res.ok) {
+      tokenCache = null;
+      return null;
+    }
+    const { token } = (await res.json()) as { token: string | null };
+    if (!token) return null;
+    tokenCache = { value: token, expiresAt: Date.now() + 59 * 60 * 1000 };
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+export function clearToken(): void {
+  tokenCache = null;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string>),
+  };
+
+  // Server components have no /api/token to call and no cookie jar here, so
+  // token attachment is a browser-only concern.
+  if (typeof window !== "undefined") {
+    const token = await getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(
+      `Cannot reach the Citetax API at ${API_BASE}. Is it running?`,
+      0,
+    );
+  }
+
+  if (!res.ok) {
+    let detail: string | undefined;
+    try {
+      const body = await res.json();
+      detail = typeof body?.detail === "string" ? body.detail : undefined;
+    } catch {
+      /* body was not JSON; the status alone has to carry the message */
+    }
+    throw new ApiError(detail ?? `Request failed (${res.status})`, res.status, detail);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+export const api = {
+  ask: (question: string, ya?: string) =>
+    request<AnswerResponse>("/v1/ask", {
+      method: "POST",
+      body: JSON.stringify({ question, ya: ya ?? null }),
+    }),
+
+  compute: (body: Record<string, string>) =>
+    request<ComputeResponse>("/v1/compute", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  snapshot: () => request<Snapshot>("/v1/snapshot/current"),
+
+  history: () =>
+    request<{
+      runs: Array<{
+        id: string;
+        ya: string;
+        balance_payable: string | null;
+        taxable_income: string | null;
+        step_count: number | null;
+        is_refund: boolean | null;
+        latency_ms: number | null;
+        created_at: string | null;
+        snapshot_label: string | null;
+        badge: string | null;
+      }>;
+      count: number;
+    }>("/v1/history"),
+
+  deadlines: (ya: string) =>
+    request<DeadlinesResponse>(`/v1/deadlines?ya=${encodeURIComponent(ya)}`),
+
+  obligation: (ya: string, income: string, apit = "0") =>
+    request<ObligationResponse>(
+      `/v1/obligation?ya=${encodeURIComponent(ya)}&income=${income}&apit=${apit}`,
+    ),
+
+  compare: (from: string, to: string) =>
+    request<CompareResponse>(
+      `/v1/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ),
+
+  rule: (ruleKey: string, ya: string) =>
+    request<Record<string, unknown>>(
+      `/v1/rules/${encodeURIComponent(ruleKey)}?ya=${encodeURIComponent(ya)}`,
+    ),
+
+  flag: (runId: string, body: Record<string, unknown>) =>
+    request<{ escalation_id: string; status: string }>(
+      `/v1/runs/${runId}/flag`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+};
+
+/* ---------- formatting ---------- */
+
+/** Format a decimal string as money without ever going through a float. */
+export function money(value: string, opts: { decimals?: boolean } = {}): string {
+  const negative = value.startsWith("-");
+  const raw = negative ? value.slice(1) : value;
+  const [whole, frac = ""] = raw.split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const showDecimals = opts.decimals ?? frac.replace(/0+$/, "") !== "";
+  const out = showDecimals ? `${grouped}.${frac.padEnd(2, "0").slice(0, 2)}` : grouped;
+  return negative ? `-${out}` : out;
+}
+
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export function percent(rate: string): string {
+  const n = Number(rate) * 100;
+  return `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
+}
