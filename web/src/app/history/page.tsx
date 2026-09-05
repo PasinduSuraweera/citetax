@@ -94,8 +94,11 @@ export default function HistoryPage() {
 
           {runs.length > 0 && (
             <div className="mt-7 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_440px]">
-              <div className="overflow-hidden rounded-xl border border-line bg-white">
-                <div className="flex items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+              {/* Container queries, not viewport ones: this list sits beside a
+                  440px detail pane on a wide screen and full width on a phone,
+                  so it has to lay out by its own width. */}
+              <div className="@container overflow-hidden rounded-xl border border-line bg-white">
+                <div className="hidden items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300 @2xl:flex">
                   <span className="w-[120px] flex-none">WHEN</span>
                   <span className="w-[110px] flex-none">KIND</span>
                   <span className="flex-1">QUESTION</span>
@@ -106,24 +109,24 @@ export default function HistoryPage() {
                     key={r.id}
                     type="button"
                     onClick={() => show(r.id)}
-                    className={`flex w-full items-center border-b border-line-faint px-5 py-[12px] text-left transition-colors last:border-b-0 hover:bg-panel ${open?.id === r.id ? "bg-brand-050" : ""}`}
+                    className={`flex w-full flex-wrap items-center gap-y-1 border-b border-line-faint px-5 py-[12px] text-left transition-colors last:border-b-0 hover:bg-panel @2xl:flex-nowrap @2xl:gap-y-0 ${open?.id === r.id ? "bg-brand-050" : ""}`}
                   >
-                    <span className="w-[120px] flex-none font-mono text-[11px] text-ink-500">
+                    <span className="order-2 flex-none font-mono text-[11px] text-ink-500 @2xl:order-none @2xl:w-[120px]">
                       {r.created_at ? new Date(r.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-"}
                     </span>
-                    <span className="w-[110px] flex-none">
+                    <span className="order-3 ml-2 flex-none @2xl:order-none @2xl:ml-0 @2xl:w-[110px]">
                       <span className="rounded-full bg-brand-100 px-2 py-[2px] font-mono text-[9.5px] font-semibold uppercase tracking-[0.05em] text-brand-600">
                         {INTENT_LABEL[r.intent ?? ""] ?? r.intent ?? "answer"}
                       </span>
                     </span>
-                    <span className="min-w-0 flex-1 pr-3">
+                    <span className="order-1 min-w-0 basis-full pr-3 @2xl:order-none @2xl:basis-auto @2xl:flex-1">
                       <span className="block truncate text-[13px] text-ink-900">{r.question ?? "(question not recorded)"}</span>
-                      <span className="block font-mono text-[10px] text-ink-300">
+                      <span className="block truncate font-mono text-[10px] text-ink-300 @2xl:block">
                         Y/A {r.ya}{r.snapshot_label ? ` · snapshot ${r.snapshot_label}` : ""}
                         {r.badge && r.badge !== "all_cited" ? ` · ${r.badge.replace("_", " ")}` : ""}
                       </span>
                     </span>
-                    <span className="tnum w-[130px] flex-none text-right font-mono text-[13.5px] font-medium text-ink-900">
+                    <span className="tnum order-4 ml-auto flex-none text-right font-mono text-[13.5px] font-medium text-ink-900 @2xl:order-none @2xl:ml-0 @2xl:w-[130px]">
                       {r.balance_payable ? `LKR ${money(r.balance_payable)}` : "-"}
                     </span>
                   </button>

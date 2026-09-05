@@ -175,7 +175,7 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
               horizontally instead of shrinking each label to nothing. */}
           <div
             role="tablist"
-            className="flex flex-none gap-[3px] overflow-x-auto rounded-[10px] border border-line bg-[#EDF1F9] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="@container flex flex-none gap-[3px] overflow-x-auto rounded-[10px] border border-line bg-[#EDF1F9] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {tabs.map(([key, label]) => (
               <button
@@ -183,7 +183,7 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
                 role="tab"
                 aria-selected={tab === key}
                 onClick={() => setTab(key)}
-                className={`flex-none whitespace-nowrap rounded-[7px] px-4 py-[9px] text-center text-[13.5px] transition-all sm:flex-1 sm:px-2 ${
+                className={`flex-none whitespace-nowrap rounded-[7px] px-4 py-[9px] text-center text-[13.5px] transition-all @2xl:flex-1 @2xl:px-2 ${
                   tab === key
                     ? "bg-white font-semibold text-ink-900 shadow-[0_1px_2px_rgba(14,20,48,0.08)]"
                     : "font-medium text-ink-400 hover:text-ink-700"
@@ -333,8 +333,8 @@ function Headline({ answer }: { answer: AnswerResponse }) {
     const balance = c.balance_payable;
     const negative = balance.startsWith("-");
     return (
-      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
-        <div className="flex flex-col items-start justify-between gap-5 lg:flex-row lg:gap-6">
+      <div className="@container rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
+        <div className="flex flex-col items-start justify-between gap-5 @2xl:flex-row @2xl:gap-6">
           <div className="min-w-0 flex-1">
             <div className="eyebrow">
               {intent === "obligation"
@@ -344,7 +344,7 @@ function Headline({ answer }: { answer: AnswerResponse }) {
             </div>
             {intent === "obligation" && compliance ? (
               <>
-                <div aria-live="polite" className="mt-[9px] text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[33px] lg:text-[40px] lg:leading-[1.1] lg:tracking-[-0.035em]">
+                <div aria-live="polite" className="mt-[9px] text-[23px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 @sm:text-[29px] @2xl:text-[40px] @2xl:leading-[1.1] @2xl:tracking-[-0.035em]">
                   {compliance.must_file ? "You must file a return" : "No return required"}
                 </div>
                 <p className="mt-3 max-w-[560px] text-[14.5px] leading-[1.6] text-ink-500">
@@ -356,8 +356,17 @@ function Headline({ answer }: { answer: AnswerResponse }) {
               </>
             ) : (
               <>
-                <div aria-live="polite" className="tnum mt-[9px] break-words font-mono text-[34px] font-semibold leading-none tracking-[-0.04em] text-ink-900 sm:text-[44px] lg:text-[54px] lg:tracking-[-0.045em]">
-                  LKR {money(negative ? balance.slice(1) : balance)}
+                {/* A figure must never break mid-number: "57,6 / 00" reads as
+                    a different amount. The unit sits on its own line when the
+                    space is tight, and the figure scales with the container. */}
+                <div
+                  aria-live="polite"
+                  className="mt-[9px] flex flex-wrap items-baseline gap-x-2 font-mono font-semibold leading-none tracking-[-0.04em] text-ink-900"
+                >
+                  <span className="text-[20px] text-ink-300 @sm:text-[24px] @2xl:text-[30px]">LKR</span>
+                  <span className="tnum whitespace-nowrap text-[30px] @sm:text-[38px] @2xl:text-[50px] @2xl:tracking-[-0.045em]">
+                    {money(negative ? balance.slice(1) : balance)}
+                  </span>
                 </div>
                 <p className="mt-3 max-w-[520px] text-[14.5px] leading-[1.6] text-ink-500">
                   {c.step_count} steps, each traced to a rule in force for {ya}.
@@ -369,7 +378,7 @@ function Headline({ answer }: { answer: AnswerResponse }) {
             )}
           </div>
 
-          <div className="w-full flex-none rounded-[10px] border border-line bg-panel p-[14px] lg:w-[236px]">
+          <div className="w-full flex-none rounded-[10px] border border-line bg-panel p-[14px] @2xl:w-[236px]">
             <div className="eyebrow">EFFECTIVE RATE</div>
             <div className="tnum mt-[6px] font-mono text-[26px] font-semibold tracking-[-0.03em] text-ink-900">
               {rate(c.gross_tax, c.steps[0]?.value)}
@@ -396,11 +405,11 @@ function Headline({ answer }: { answer: AnswerResponse }) {
   if (intent === "deadline" && compliance) {
     const days = compliance.days_remaining;
     return (
-      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
-        <div className="flex flex-col items-start justify-between gap-5 lg:flex-row lg:gap-6">
+      <div className="@container rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
+        <div className="flex flex-col items-start justify-between gap-5 @2xl:flex-row @2xl:gap-6">
           <div className="min-w-0 flex-1">
             <div className="eyebrow">RETURN DUE · YEAR OF ASSESSMENT {ya}</div>
-            <div aria-live="polite" className="tnum mt-[9px] font-mono text-[30px] font-semibold leading-none tracking-[-0.035em] text-ink-900 sm:text-[38px] lg:text-[46px] lg:tracking-[-0.04em]">
+            <div aria-live="polite" className="tnum mt-[9px] whitespace-nowrap font-mono text-[26px] font-semibold leading-none tracking-[-0.035em] text-ink-900 @sm:text-[34px] @2xl:text-[46px] @2xl:tracking-[-0.04em]">
               {formatDate(compliance.return_due)}
             </div>
             <p className="mt-3 max-w-[520px] text-[14.5px] leading-[1.6] text-ink-500">
@@ -437,9 +446,9 @@ function Headline({ answer }: { answer: AnswerResponse }) {
 
   if (intent === "compare" && compare) {
     return (
-      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
+      <div className="@container rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
         <div className="eyebrow">WHAT CHANGED · {compare.from_ya} TO {compare.to_ya}</div>
-        <div aria-live="polite" className="mt-[9px] text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[33px] lg:text-[40px] lg:leading-[1.1] lg:tracking-[-0.035em]">
+        <div aria-live="polite" className="mt-[9px] text-[23px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 @sm:text-[29px] @2xl:text-[40px] @2xl:leading-[1.1] @2xl:tracking-[-0.035em]">
           {compare.changed_count === 0
             ? "Nothing changed"
             : `${compare.changed_count} of ${compare.changes.length} rules changed`}
@@ -460,9 +469,9 @@ function Headline({ answer }: { answer: AnswerResponse }) {
   if ((intent === "rule_lookup" || intent === "general") && lookup && lookup.length) {
     const first = lookup[0];
     return (
-      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
+      <div className="@container rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
         <div className="eyebrow">{first.label ?? first.rule_key} · IN FORCE FOR {ya}</div>
-        <div aria-live="polite" className="tnum mt-[9px] break-words font-mono text-[27px] font-semibold leading-tight tracking-[-0.035em] text-ink-900 sm:text-[33px] lg:text-[40px] lg:leading-none lg:tracking-[-0.04em]">
+        <div aria-live="polite" className="tnum mt-[9px] font-mono text-[23px] font-semibold leading-tight tracking-[-0.035em] text-ink-900 @sm:text-[29px] @2xl:text-[40px] @2xl:leading-none @2xl:tracking-[-0.04em]">
           {describeValue(first.value ?? {}, "headline")}
         </div>
         <p className="mt-3 max-w-[600px] text-[14.5px] leading-[1.6] text-ink-500">

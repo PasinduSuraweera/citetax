@@ -11,6 +11,15 @@
 
 import type { Badge, VerifyResult } from "@/lib/api";
 
+function Tick() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 6.5l2.5 2.5L10 3" />
+    </svg>
+  );
+}
+
 interface Props {
   badge: Badge;
   ya: string | null;
@@ -34,33 +43,37 @@ export function GuardrailBanner({
     return (
       <div
         role="status"
-        className="fade-up flex items-center justify-between rounded-[11px] border border-good-300 bg-good-100 px-[17px] py-[13px]"
+        className="@container fade-up rounded-[11px] border border-good-300 bg-good-100 px-[17px] py-[13px]"
       >
-        <div className="flex items-center gap-3">
-          <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-good-600 text-xs font-bold text-white">
-            ✓
-          </span>
-          <div className="text-sm">
-            <span className="font-semibold text-good-700">Released by guardrail</span>
-            <span className="text-good-500">
-              {stepCount != null
-                ? `. All ${stepCount} ledger steps cite a rule in force for ${ya ?? "this year"}.`
-                : `. Every figure traced to a rule in force for ${ya ?? "this year"}.`}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-start gap-3 @sm:items-center">
+            <span className="mt-[1px] flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-good-600 text-xs font-bold text-white @sm:mt-0">
+              <Tick />
             </span>
-          </div>
-        </div>
-        {checks && checks.length > 0 && (
-          <div className="hidden gap-4 lg:flex">
-            {checks.map((c) => (
-              <span
-                key={c}
-                className="font-mono text-[11px] font-medium tracking-[0.03em] text-good-500"
-              >
-                {c}
+            <div className="text-sm">
+              <span className="font-semibold text-good-700">Released by guardrail</span>
+              <span className="text-good-500">
+                {stepCount != null
+                  ? `. All ${stepCount} ledger steps cite a rule in force for ${ya ?? "this year"}.`
+                  : `. Every figure traced to a rule in force for ${ya ?? "this year"}.`}
               </span>
-            ))}
+            </div>
           </div>
-        )}
+          {/* The checklist is reassurance, not information: it is the first
+              thing to drop when the banner is narrow. */}
+          {checks && checks.length > 0 && (
+            <div className="hidden flex-none gap-4 @4xl:flex">
+              {checks.map((c) => (
+                <span
+                  key={c}
+                  className="font-mono text-[11px] font-medium tracking-[0.03em] text-good-500"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }

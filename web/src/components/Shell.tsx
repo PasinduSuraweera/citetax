@@ -151,8 +151,8 @@ function RailContent({
 
   return (
     <>
-      <div className="flex items-start justify-between">
-        <Link href="/" className="block" onClick={onNavigate}>
+      <div className="flex items-start justify-between gap-2">
+        <Link href="/" className="block min-w-0" onClick={onNavigate}>
           <div className="text-2xl font-bold leading-none tracking-[-0.025em] text-white">
             Citetax
           </div>
@@ -164,7 +164,7 @@ function RailContent({
           type="button"
           onClick={onNavigate}
           aria-label="Close menu"
-          className="-mr-1 flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white lg:hidden"
+          className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white lg:hidden"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
             <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
