@@ -27,11 +27,11 @@ export default function ComparePage() {
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
       <Shell ya={ya} onYaChange={setYa} snapshot={snapshot} />
-      <main className="flex-1 overflow-y-auto px-11 py-9">
+      <main className="flex-1 overflow-y-auto px-4 pb-10 pt-[72px] sm:px-6 lg:px-11 lg:pb-9 lg:pt-9">
         <div className="max-w-[1060px]">
-          <div className="flex items-start justify-between gap-6">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:gap-6">
             <div>
-              <h1 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900">
+              <h1 className="text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[32px]">
                 What changed between the two years
               </h1>
               <p className="mt-[10px] max-w-[640px] text-[15px] leading-[1.6] text-ink-500">

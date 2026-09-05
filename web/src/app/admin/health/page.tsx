@@ -33,7 +33,7 @@ export default function HealthPage() {
 
   return (
     <AdminShell me={me} snapshotLabel={data?.snapshot?.label}>
-      <div className="px-9 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
         <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
           Corpus health
         </h1>
@@ -57,7 +57,7 @@ export default function HealthPage() {
               <Stat label="REJECTED" value={data.totals.rejected} />
             </div>
 
-            <div className="mt-6 overflow-hidden rounded-xl border border-line bg-white">
+            <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
               <div className="border-b border-line px-5 py-3">
                 <div className="eyebrow">COVERAGE MATRIX</div>
                 <p className="mt-1 text-[12px] text-ink-400">
@@ -65,7 +65,7 @@ export default function HealthPage() {
                   uncovered. You cannot publish a corpus with a gap.
                 </p>
               </div>
-              <div className="flex items-center bg-panel px-5 py-2 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+              <div className="flex min-w-[720px] items-center bg-panel px-5 py-2 font-mono text-[10px] tracking-[0.14em] text-ink-300">
                 <span className="flex-1">RULE KEY</span>
                 {years.map((y) => (
                   <span key={y} className="w-[190px] flex-none">
@@ -76,7 +76,7 @@ export default function HealthPage() {
               {data.coverage.map((row) => (
                 <div
                   key={row.rule_key}
-                  className="flex items-center border-t border-line-faint px-5 py-[11px]"
+                  className="flex min-w-[720px] items-center border-t border-line-faint px-5 py-[11px]"
                 >
                   <span className="flex-1 font-mono text-[12.5px] text-ink-700">
                     {row.rule_key}

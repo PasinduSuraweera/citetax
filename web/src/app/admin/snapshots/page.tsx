@@ -88,7 +88,7 @@ export default function SnapshotsPage() {
 
   return (
     <AdminShell me={me} snapshotLabel={current?.label}>
-      <div className="px-9 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
         <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
           Snapshots
         </h1>
@@ -160,8 +160,8 @@ export default function SnapshotsPage() {
           )}
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-line bg-white">
-          <div className="flex items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
+          <div className="flex min-w-[820px] items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
             <span className="flex-1">SNAPSHOT</span>
             <span className="w-[110px] flex-none">RULES</span>
             <span className="w-[170px] flex-none">CREATED BY</span>
@@ -170,7 +170,7 @@ export default function SnapshotsPage() {
           {snapshots.map((s) => (
             <div
               key={s.id}
-              className={`flex items-center border-b border-line-faint px-5 py-[13px] last:border-b-0 ${
+              className={`flex min-w-[820px] items-center border-b border-line-faint px-5 py-[13px] last:border-b-0 ${
                 s.is_current ? "bg-brand-050" : ""
               }`}
             >

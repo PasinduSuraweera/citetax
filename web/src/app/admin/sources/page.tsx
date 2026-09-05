@@ -89,7 +89,7 @@ export default function SourcesPage() {
 
   return (
     <AdminShell me={me}>
-      <div className="px-9 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
         <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
           Sources
         </h1>
@@ -134,8 +134,8 @@ export default function SourcesPage() {
           </div>
         )}
 
-        <div className="mt-6 overflow-hidden rounded-xl border border-line bg-white">
-          <div className="flex items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+        <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
+          <div className="flex min-w-[820px] items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
             <span className="flex-1">SOURCE</span>
             <span className="w-[90px] flex-none">PRIORITY</span>
             <span className="w-[90px] flex-none">DOCS</span>
@@ -146,7 +146,7 @@ export default function SourcesPage() {
           {sources.map((s) => (
             <div
               key={s.source_id}
-              className="flex items-center border-b border-line-faint px-5 py-[13px] last:border-b-0"
+              className="flex min-w-[820px] items-center border-b border-line-faint px-5 py-[13px] last:border-b-0"
             >
               <div className="min-w-0 flex-1 pr-4">
                 <div className="flex items-center gap-2">

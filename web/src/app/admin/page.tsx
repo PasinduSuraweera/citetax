@@ -44,7 +44,7 @@ export default function ReviewInboxPage() {
 
   return (
     <AdminShell me={me} snapshotLabel={snapshot} urgentCount={urgent}>
-      <div className="px-9 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
@@ -105,8 +105,8 @@ export default function ReviewInboxPage() {
             </Link>
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-xl border border-line bg-white">
-            <div className="flex items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+          <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
+            <div className="flex min-w-[820px] items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
               <span className="w-[150px] flex-none">PRIORITY</span>
               <span className="flex-1">DOCUMENT</span>
               <span className="w-[150px] flex-none">RULE KEY</span>
@@ -119,7 +119,7 @@ export default function ReviewInboxPage() {
               <Link
                 key={r.id}
                 href={`/admin/proposals/${r.id}`}
-                className="flex items-center border-b border-line-faint px-5 py-[13px] transition-colors last:border-b-0 hover:bg-panel"
+                className="flex min-w-[820px] items-center border-b border-line-faint px-5 py-[13px] transition-colors last:border-b-0 hover:bg-panel"
               >
                 <span className="w-[150px] flex-none">
                   <PriorityBadge priority={r.priority} />

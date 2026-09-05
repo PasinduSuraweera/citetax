@@ -76,7 +76,7 @@ export default function AgentPage() {
 
   return (
     <AdminShell me={me}>
-      <div className="px-9 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
         <div className="flex items-start justify-between gap-6">
           <div>
             <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">Corpus agent</h1>
@@ -127,7 +127,7 @@ export default function AgentPage() {
               <Stat
                 label="PASSAGES INDEXED"
                 value={String(status.index.chunks)}
-                sub={`${status.index.embedded} with embeddings · ${status.index.rule_chunks} from rules`}
+                sub={`${status.index.embedded} with embeddings Â· ${status.index.rule_chunks} from rules`}
               />
               <Stat
                 label="AWAITING EXTRACTION"
@@ -142,8 +142,8 @@ export default function AgentPage() {
               />
             </div>
 
-            <div className="mt-6 overflow-hidden rounded-xl border border-line bg-white">
-              <div className="flex items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+            <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
+              <div className="flex min-w-[820px] items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
                 <span className="w-[150px] flex-none">WHEN</span>
                 <span className="w-[110px] flex-none">TRIGGER</span>
                 <span className="w-[80px] flex-none text-right">NEW</span>
@@ -159,7 +159,7 @@ export default function AgentPage() {
                 </div>
               )}
               {status.cycles.map((c) => (
-                <div key={c.id} className="flex items-start border-b border-line-faint px-5 py-[11px] last:border-b-0">
+                <div key={c.id} className="flex min-w-[820px] items-start border-b border-line-faint px-5 py-[11px] last:border-b-0">
                   <span className="w-[150px] flex-none font-mono text-[11.5px] text-ink-500">
                     {c.started_at ? new Date(c.started_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-"}
                   </span>

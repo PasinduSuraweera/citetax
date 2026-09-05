@@ -7,6 +7,7 @@ import { AnswerView } from "@/components/AnswerView";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
 import { SnapshotPanel } from "@/components/SnapshotPanel";
 import { api, ApiError, type AnswerResponse, type Snapshot } from "@/lib/api";
+import { onNewQuestion } from "@/lib/ask-store";
 
 const EXAMPLES = [
   "What do I owe for 2026/2027 on a salary of LKR 250,000 a month, with EPF deducted?",
@@ -86,6 +87,21 @@ function AskPageInner() {
     }
   }, [params, ask]);
 
+  const reset = useCallback(() => {
+    setAsked(null);
+    setAnswer(null);
+    setQuestion("");
+    setError(null);
+    handedOff.current = true;
+    window.history.replaceState(null, "", "/");
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
+  // "New question" in the sidebar is a link to "/", so on this page Next.js
+  // sees no route change and nothing resets. The sidebar publishes an intent
+  // instead and we clear the answer here.
+  useEffect(() => onNewQuestion(reset), [reset]);
+
   const showComposer = !asked && !busy;
 
   return (
@@ -97,11 +113,11 @@ function AskPageInner() {
         onSnapshotClick={() => setSnapshotOpen(true)}
       />
 
-      <main className="flex flex-1 flex-col overflow-y-auto px-11 py-9">
+      <main className="flex flex-1 flex-col overflow-y-auto px-4 pb-10 pt-[72px] sm:px-6 lg:px-11 lg:pb-9 lg:pt-9">
         {showComposer && (
           <div className="mx-auto w-full max-w-[1000px]">
             <div className="max-w-[780px]">
-              <h1 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900">
+              <h1 className="text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[32px]">
                 What would you like checked?
               </h1>
               <p className="mt-[10px] text-[15px] leading-[1.6] text-ink-500">
@@ -131,9 +147,9 @@ function AskPageInner() {
                 rows={3}
                 autoFocus
                 placeholder="What do I owe for 2026/2027 on a salary of LKR 250,000 a month?"
-                className="w-full resize-none bg-transparent px-[22px] pb-[6px] pt-5 text-[17px] leading-[1.5] text-ink-900 outline-none placeholder:text-ink-200"
+                className="w-full resize-none bg-transparent px-4 pb-[6px] pt-5 text-[16px] leading-[1.5] text-ink-900 outline-none placeholder:text-ink-200 sm:px-[22px] sm:text-[17px]"
               />
-              <div className="flex items-center justify-between px-4 pb-[14px] pl-[22px] pt-3">
+              <div className="flex items-center justify-between px-3 pb-[14px] pl-4 pt-3 sm:px-4 sm:pl-[22px]">
                 <div className="flex items-center gap-2">
                   <span className="rounded-lg border border-line-strong px-[11px] py-[7px] text-[12.5px] font-medium text-ink-700">
                     Y/A {ya.replace("/", " / ")}
@@ -215,7 +231,7 @@ function AskPageInner() {
         )}
 
         {answer && asked && !busy && (
-          <div className="mx-auto w-full max-w-[1400px]">
+          <div className="mx-auto w-full max-w-[1440px]">
             <AnswerView question={asked} answer={answer} onClarifyAnswer={(t) => ask(`${asked} ${t}`)} />
             <div className="mt-5 flex items-center gap-3">
               <button

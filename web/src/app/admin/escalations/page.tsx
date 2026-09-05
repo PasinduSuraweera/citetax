@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /** User escalations (spec section 5.1 G). */
 
@@ -47,7 +47,7 @@ export default function EscalationsPage() {
 
   return (
     <AdminShell me={me}>
-      <div className="px-9 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
         <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
           Escalations
         </h1>

@@ -32,8 +32,10 @@ export function ComputationTable({
   const [expanded, setExpanded] = useState<number | null>(null);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-line bg-white px-6 pb-5 pt-1">
-      <div className="flex items-center border-b border-[#EEF1F8] pb-[10px] pt-[14px] font-mono text-[10px] font-medium tracking-[0.14em] text-ink-300">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-line bg-white px-4 pb-5 pt-1 sm:px-6">
+      {/* Column headers only make sense once the rows are laid out in columns,
+          which is md up. Below that each step is a stacked card. */}
+      <div className="hidden items-center border-b border-[#EEF1F8] pb-[10px] pt-[14px] font-mono text-[10px] font-medium tracking-[0.14em] text-ink-300 md:flex">
         <span className="w-11 flex-none">STEP</span>
         <span className="flex-1">WHAT IT DOES</span>
         <span className="w-[190px] flex-none">RULE APPLIED</span>
@@ -51,16 +53,16 @@ export function ComputationTable({
         return (
           <div key={step.step_no}>
             <div
-              className={`group flex items-center border-b border-line-faint py-[11px] ${
+              className={`group flex flex-wrap items-center border-b border-line-faint py-[11px] md:flex-nowrap ${
                 canExpand ? "cursor-pointer" : ""
               }`}
               onClick={canExpand ? () => setExpanded(isOpen ? null : step.step_no) : undefined}
             >
-              <span className="tnum w-11 flex-none font-mono text-[13px] font-medium text-ink-200">
+              <span className="tnum w-8 flex-none font-mono text-[13px] font-medium text-ink-200 md:w-11">
                 {step.step_no}
               </span>
 
-              <div className="flex-1 pr-3">
+              <div className="min-w-0 flex-1 pr-3">
                 <div className="flex items-baseline gap-2">
                   <span
                     className={`text-[14.5px] ${
@@ -84,27 +86,29 @@ export function ComputationTable({
                 )}
               </div>
 
-              <div className="flex w-[190px] flex-none items-center gap-[6px]">
+              {/* On a phone the rule chip and the value share a row below the
+                  label, so a long citation never squeezes the figure. */}
+              <div className="order-3 mt-2 flex w-full items-center gap-[6px] pl-8 md:order-none md:mt-0 md:w-[190px] md:flex-none md:pl-0">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRuleClick?.(step.rule_key);
                   }}
-                  className="rounded-[5px] bg-[#F2F5FC] px-[7px] py-[3px] font-mono text-xs font-medium text-ink-700 transition-colors hover:bg-brand-100 hover:text-brand-600"
+                  className="max-w-full truncate rounded-[5px] bg-[#F2F5FC] px-[7px] py-[3px] font-mono text-xs font-medium text-ink-700 transition-colors hover:bg-brand-100 hover:text-brand-600"
                   title={`${step.rule_key}, open citation`}
                 >
                   {step.citation_label ?? step.rule_key}
                 </button>
                 {citeNo != null && (
-                  <span className="rounded-[3px] bg-brand-100 px-1 py-[2px] font-mono text-[10px] font-semibold text-brand-600">
+                  <span className="flex-none rounded-[3px] bg-brand-100 px-1 py-[2px] font-mono text-[10px] font-semibold text-brand-600">
                     {citeNo}
                   </span>
                 )}
               </div>
 
               <span
-                className={`tnum w-[150px] flex-none text-right font-mono text-[15px] tracking-[-0.015em] ${
+                className={`tnum flex-none text-right font-mono text-[15px] tracking-[-0.015em] md:w-[150px] ${
                   step.is_zero ? "text-ink-200" : "font-medium text-ink-900"
                 }`}
               >
@@ -173,16 +177,16 @@ export function ComputationTable({
 
       {/* The balance is derived, not a ninth step, so it carries no number. */}
       <div className="mt-3 flex items-center rounded-[9px] bg-ink-900 px-[18px] py-[14px]">
-        <span className="w-11 flex-none font-mono text-[13px] font-medium text-white/30">
+        <span className="w-8 flex-none font-mono text-[13px] font-medium text-white/30 md:w-11">
           =
         </span>
         <span className="flex-1 text-[15.5px] font-semibold text-white">
           {isRefund ? "Refund due" : "Balance payable"}
         </span>
-        <span className="w-[190px] flex-none font-mono text-xs font-medium text-white/55">
+        <span className="hidden font-mono text-xs font-medium text-white/55 md:block md:w-[190px] md:flex-none">
           derived
         </span>
-        <span className="tnum w-[150px] flex-none text-right font-mono text-[19px] font-semibold tracking-[-0.02em] text-white">
+        <span className="tnum flex-none text-right font-mono text-[19px] font-semibold tracking-[-0.02em] text-white md:w-[150px]">
           {money(isRefund ? balance.replace("-", "") : balance)}
         </span>
       </div>

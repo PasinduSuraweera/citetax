@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { Me } from "@/lib/admin";
 import { useSession } from "@/lib/session";
 
@@ -41,10 +42,53 @@ interface Props {
 
 export function AdminShell({ me, snapshotLabel, urgentCount, children }: Props) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => setOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <aside className="flex w-[236px] flex-none flex-col overflow-hidden bg-ink-900 px-[18px] py-6">
+      {/* Mobile header */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-ink-900 px-4 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+          className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-white/15 text-white/80 hover:bg-white/10"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M1 3h14M1 8h14M1 13h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+        <span className="text-[17px] font-bold tracking-[-0.025em] text-white">Citetax</span>
+        <span className="font-mono text-[10px] tracking-[0.16em] text-good-mintsoft">ADMIN</span>
+        {urgentCount ? (
+          <span className="ml-auto rounded-full bg-warn-600 px-[7px] py-[2px] font-mono text-[10px] font-semibold text-white">
+            {urgentCount}
+          </span>
+        ) : null}
+      </header>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-ink-900/50 lg:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[264px] flex-col overflow-y-auto bg-ink-900 px-[18px] py-6 transition-transform duration-200 lg:visible lg:static lg:z-auto lg:w-[236px] lg:flex-none lg:translate-x-0 lg:overflow-hidden ${
+          open ? "translate-x-0" : "invisible -translate-x-full"
+        }`}
+      >
         <Link href="/admin">
           <div className="text-[20px] font-bold leading-none tracking-[-0.025em] text-white">
             Citetax
@@ -115,7 +159,7 @@ export function AdminShell({ me, snapshotLabel, urgentCount, children }: Props) 
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto pt-14 lg:pt-0">{children}</main>
     </div>
   );
 }

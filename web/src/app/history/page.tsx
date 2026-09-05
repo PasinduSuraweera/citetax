@@ -52,9 +52,9 @@ export default function HistoryPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
       <Shell ya={ya} onYaChange={setYa} snapshot={snapshot} />
-      <main className="flex-1 overflow-y-auto px-11 py-9">
+      <main className="flex-1 overflow-y-auto px-4 pb-10 pt-[72px] sm:px-6 lg:px-11 lg:pb-9 lg:pt-9">
         <div className="max-w-[1100px]">
-          <h1 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900">History</h1>
+          <h1 className="text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[32px]">History</h1>
           <p className="mt-[10px] max-w-[620px] text-[15px] leading-[1.6] text-ink-500">
             Every question is stored with the corpus snapshot it ran against, so an
             answer can be re-derived exactly as the law stood that day. Only the

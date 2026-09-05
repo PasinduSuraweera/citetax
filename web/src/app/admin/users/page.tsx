@@ -64,7 +64,7 @@ export default function UsersPage() {
 
   return (
     <AdminShell me={me}>
-      <div className="px-9 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
         <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
           Users
         </h1>
@@ -96,8 +96,8 @@ export default function UsersPage() {
           </div>
         )}
 
-        <div className="mt-6 overflow-hidden rounded-xl border border-line bg-white">
-          <div className="flex items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+        <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
+          <div className="flex min-w-[820px] items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
             <span className="flex-1">ACCOUNT</span>
             <span className="w-[150px] flex-none">LAST SEEN</span>
             <span className="w-[190px] flex-none text-right">ROLE</span>
@@ -105,7 +105,7 @@ export default function UsersPage() {
           {users.map((u) => (
             <div
               key={u.id}
-              className="flex items-center border-b border-line-faint px-5 py-[13px] last:border-b-0"
+              className="flex min-w-[820px] items-center border-b border-line-faint px-5 py-[13px] last:border-b-0"
             >
               <div className="min-w-0 flex-1 pr-4">
                 <div className="truncate text-[14px] font-medium text-ink-900">

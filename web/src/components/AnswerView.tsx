@@ -147,6 +147,11 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
     checks.unshift(`${answer.verify.checked_numbers} FIGURES TRACED`);
   }
 
+  // Citations already have their own tab. Duplicating them in a rail is only
+  // worth the width when the main column is a table the reader cross-checks
+  // against, which is the computation and comparison cases.
+  const showRail = hasComputation || hasCompare;
+
   return (
     <div className="fade-up flex flex-col gap-[14px]">
       <QuestionCard question={question} facts={factChips(answer)} intent={answer.intent} />
@@ -159,19 +164,26 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
         checks={checks}
       />
 
-      <div className="flex flex-1 gap-[14px]">
+      {/* The right rail earns its place only when there is a ledger or a
+          filing card to sit beside. A prose answer gets the full width, so an
+          explanation is not squeezed into two thirds of the column. */}
+      <div className={`flex flex-1 flex-col gap-[14px] ${showRail ? "xl:flex-row" : ""}`}>
         <div className="flex min-w-0 flex-1 flex-col gap-[14px]">
           <Headline answer={answer} />
 
-          {/* Tabs */}
-          <div role="tablist" className="flex flex-none gap-[3px] rounded-[10px] border border-line bg-[#EDF1F9] p-[3px]">
+          {/* Tabs. Six of these will not fit a phone, so the strip scrolls
+              horizontally instead of shrinking each label to nothing. */}
+          <div
+            role="tablist"
+            className="flex flex-none gap-[3px] overflow-x-auto rounded-[10px] border border-line bg-[#EDF1F9] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {tabs.map(([key, label]) => (
               <button
                 key={key}
                 role="tab"
                 aria-selected={tab === key}
                 onClick={() => setTab(key)}
-                className={`flex-1 rounded-[7px] py-[9px] text-center text-[13.5px] transition-all ${
+                className={`flex-none whitespace-nowrap rounded-[7px] px-4 py-[9px] text-center text-[13.5px] transition-all sm:flex-1 sm:px-2 ${
                   tab === key
                     ? "bg-white font-semibold text-ink-900 shadow-[0_1px_2px_rgba(14,20,48,0.08)]"
                     : "font-medium text-ink-400 hover:text-ink-700"
@@ -198,11 +210,14 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
           )}
 
           {tab === "explanation" && (
-            <div className="rounded-xl border border-line bg-white px-6 py-6">
+            <div className="rounded-xl border border-line bg-white px-5 py-6 sm:px-6">
               {answer.explanation ? (
                 <>
                   <div className="eyebrow">EXPLANATION</div>
-                  <p className="mt-3 max-w-[720px] text-[15.5px] leading-[1.75] text-ink-700">
+                  {/* A measure cap keeps long prose readable, but 75ch is the
+                      readable maximum, not 720px, so the paragraph uses the
+                      width the layout gives it. */}
+                  <p className="mt-3 max-w-[75ch] text-[15.5px] leading-[1.75] text-ink-700">
                     {answer.explanation}
                   </p>
                   <p className="mt-5 border-t border-line pt-4 text-[12px] leading-[1.55] text-ink-400">
@@ -295,13 +310,15 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
           )}
         </div>
 
-        {/* Right rail */}
-        <div className="flex w-[318px] flex-none flex-col gap-3">
-          <CitationsPanel citations={answer.citations ?? []} ya={answer.ya} highlightRuleKey={highlight} />
-          {answer.compliance && answer.intent !== "deadline" && (
-            <FilingCard compliance={answer.compliance} />
-          )}
-        </div>
+        {/* Right rail. Below xl it stacks under the main column. */}
+        {showRail && (
+          <div className="flex w-full flex-col gap-3 xl:w-[318px] xl:flex-none">
+            <CitationsPanel citations={answer.citations ?? []} ya={answer.ya} highlightRuleKey={highlight} />
+            {answer.compliance && answer.intent !== "deadline" && (
+              <FilingCard compliance={answer.compliance} />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -316,8 +333,8 @@ function Headline({ answer }: { answer: AnswerResponse }) {
     const balance = c.balance_payable;
     const negative = balance.startsWith("-");
     return (
-      <div className="rounded-xl border border-line bg-white px-6 py-[22px]">
-        <div className="flex items-start justify-between gap-6">
+      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
+        <div className="flex flex-col items-start justify-between gap-5 lg:flex-row lg:gap-6">
           <div className="min-w-0 flex-1">
             <div className="eyebrow">
               {intent === "obligation"
@@ -327,7 +344,7 @@ function Headline({ answer }: { answer: AnswerResponse }) {
             </div>
             {intent === "obligation" && compliance ? (
               <>
-                <div aria-live="polite" className="mt-[9px] text-[40px] font-semibold leading-[1.1] tracking-[-0.035em] text-ink-900">
+                <div aria-live="polite" className="mt-[9px] text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[33px] lg:text-[40px] lg:leading-[1.1] lg:tracking-[-0.035em]">
                   {compliance.must_file ? "You must file a return" : "No return required"}
                 </div>
                 <p className="mt-3 max-w-[560px] text-[14.5px] leading-[1.6] text-ink-500">
@@ -339,7 +356,7 @@ function Headline({ answer }: { answer: AnswerResponse }) {
               </>
             ) : (
               <>
-                <div aria-live="polite" className="tnum mt-[9px] font-mono text-[54px] font-semibold leading-none tracking-[-0.045em] text-ink-900">
+                <div aria-live="polite" className="tnum mt-[9px] break-words font-mono text-[34px] font-semibold leading-none tracking-[-0.04em] text-ink-900 sm:text-[44px] lg:text-[54px] lg:tracking-[-0.045em]">
                   LKR {money(negative ? balance.slice(1) : balance)}
                 </div>
                 <p className="mt-3 max-w-[520px] text-[14.5px] leading-[1.6] text-ink-500">
@@ -352,7 +369,7 @@ function Headline({ answer }: { answer: AnswerResponse }) {
             )}
           </div>
 
-          <div className="w-[236px] flex-none rounded-[10px] border border-line bg-panel p-[14px]">
+          <div className="w-full flex-none rounded-[10px] border border-line bg-panel p-[14px] lg:w-[236px]">
             <div className="eyebrow">EFFECTIVE RATE</div>
             <div className="tnum mt-[6px] font-mono text-[26px] font-semibold tracking-[-0.03em] text-ink-900">
               {rate(c.gross_tax, c.steps[0]?.value)}
@@ -379,11 +396,11 @@ function Headline({ answer }: { answer: AnswerResponse }) {
   if (intent === "deadline" && compliance) {
     const days = compliance.days_remaining;
     return (
-      <div className="rounded-xl border border-line bg-white px-6 py-[22px]">
-        <div className="flex items-start justify-between gap-6">
+      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
+        <div className="flex flex-col items-start justify-between gap-5 lg:flex-row lg:gap-6">
           <div className="min-w-0 flex-1">
             <div className="eyebrow">RETURN DUE · YEAR OF ASSESSMENT {ya}</div>
-            <div aria-live="polite" className="tnum mt-[9px] font-mono text-[46px] font-semibold leading-none tracking-[-0.04em] text-ink-900">
+            <div aria-live="polite" className="tnum mt-[9px] font-mono text-[30px] font-semibold leading-none tracking-[-0.035em] text-ink-900 sm:text-[38px] lg:text-[46px] lg:tracking-[-0.04em]">
               {formatDate(compliance.return_due)}
             </div>
             <p className="mt-3 max-w-[520px] text-[14.5px] leading-[1.6] text-ink-500">
@@ -420,9 +437,9 @@ function Headline({ answer }: { answer: AnswerResponse }) {
 
   if (intent === "compare" && compare) {
     return (
-      <div className="rounded-xl border border-line bg-white px-6 py-[22px]">
+      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
         <div className="eyebrow">WHAT CHANGED · {compare.from_ya} TO {compare.to_ya}</div>
-        <div aria-live="polite" className="mt-[9px] text-[40px] font-semibold leading-[1.1] tracking-[-0.035em] text-ink-900">
+        <div aria-live="polite" className="mt-[9px] text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[33px] lg:text-[40px] lg:leading-[1.1] lg:tracking-[-0.035em]">
           {compare.changed_count === 0
             ? "Nothing changed"
             : `${compare.changed_count} of ${compare.changes.length} rules changed`}
@@ -443,9 +460,9 @@ function Headline({ answer }: { answer: AnswerResponse }) {
   if ((intent === "rule_lookup" || intent === "general") && lookup && lookup.length) {
     const first = lookup[0];
     return (
-      <div className="rounded-xl border border-line bg-white px-6 py-[22px]">
+      <div className="rounded-xl border border-line bg-white px-5 py-[22px] sm:px-6">
         <div className="eyebrow">{first.label ?? first.rule_key} · IN FORCE FOR {ya}</div>
-        <div aria-live="polite" className="tnum mt-[9px] font-mono text-[40px] font-semibold leading-none tracking-[-0.04em] text-ink-900">
+        <div aria-live="polite" className="tnum mt-[9px] break-words font-mono text-[27px] font-semibold leading-tight tracking-[-0.035em] text-ink-900 sm:text-[33px] lg:text-[40px] lg:leading-none lg:tracking-[-0.04em]">
           {describeValue(first.value ?? {}, "headline")}
         </div>
         <p className="mt-3 max-w-[600px] text-[14.5px] leading-[1.6] text-ink-500">
@@ -466,7 +483,7 @@ function Headline({ answer }: { answer: AnswerResponse }) {
   return (
     <div className="rounded-xl border border-line bg-white px-6 py-[22px]">
       <div className="eyebrow">GROUNDED ANSWER · YEAR OF ASSESSMENT {ya}</div>
-      <p className="mt-3 max-w-[720px] text-[17px] leading-[1.65] text-ink-900">
+      <p className="mt-3 max-w-[75ch] text-[16px] leading-[1.7] text-ink-900 sm:text-[17px] sm:leading-[1.65]">
         {answer.explanation ?? answer.verify?.note ?? "The explanation was withheld."}
       </p>
       <p className="mt-4 border-t border-line pt-3 text-[12px] leading-[1.55] text-ink-400">
