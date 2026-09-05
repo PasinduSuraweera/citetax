@@ -120,6 +120,30 @@ def test_broken_proposal_reports_an_error_rather_than_crashing():
 
 
 # ---------------------------------------------------------------------------
+# Corpus agent queries run against the real database
+# ---------------------------------------------------------------------------
+
+def test_extract_pending_query_is_valid_postgres():
+    """Regression: the first version used SELECT DISTINCT with an ORDER BY
+    column outside the select list, which Postgres rejects, and every
+    proposal in the inbox sat at 'not extracted'. The query must run."""
+    from app.corpus import extractor
+
+    with db_conn() as conn:
+        # limit=0 returns nothing but still parses and plans the statement.
+        reports = extractor.extract_pending(conn, limit=0)
+    assert reports == []
+
+
+def test_index_unindexed_documents_query_is_valid_postgres():
+    from app.retrieval import indexer
+
+    with db_conn() as conn:
+        report = indexer.index_unindexed_documents(conn, limit=0)
+    assert report.errors == []
+
+
+# ---------------------------------------------------------------------------
 # Roles and dual control
 # ---------------------------------------------------------------------------
 

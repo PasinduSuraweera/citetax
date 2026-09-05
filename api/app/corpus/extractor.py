@@ -295,14 +295,21 @@ def extract_document(
 
 def extract_pending(conn: Connection, limit: int = 5, budget: llm.LLMBudget | None = None) -> list[ExtractReport]:
     """Documents with a placeholder proposal and text, not yet extracted."""
+    # Highest priority first: a silent revision of a published rule (P1) is
+    # extracted before a new guideline page, because a live rule may be wrong.
+    # Postgres requires ORDER BY columns to appear in a DISTINCT select list,
+    # so the join is folded into a subquery that also yields the priority.
     ids = conn.execute(
         text(
-            "select distinct d.id from source_document d "
-            "  join change_proposal p on p.source_document_id = d.id "
-            " where p.rule_key is null and p.status = 'needs_review' "
-            "   and d.raw_text is not null and length(d.raw_text) > 80 "
+            "select d.id from source_document d "
+            "  join (select source_document_id, min(priority) as pri "
+            "          from change_proposal "
+            "         where rule_key is null and status = 'needs_review' "
+            "         group by source_document_id) p "
+            "    on p.source_document_id = d.id "
+            " where d.raw_text is not null and length(d.raw_text) > 80 "
             "   and (d.text_meta is null or d.text_meta->>'extractor_version' is null) "
-            " order by d.fetched_at desc limit :n"
+            " order by p.pri asc, d.fetched_at desc limit :n"
         ),
         {"n": limit},
     ).scalars().all()
