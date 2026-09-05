@@ -1,65 +1,164 @@
 "use client";
 
 /**
- * Onboarding. Three steps, ported from screen 02 of the Claude Design set.
+ * Onboarding: three questions, then a draft question in the composer.
  *
- * Nothing here is required and nothing is sent anywhere: the choices set the
- * default year and seed the first question. Asking for income types up front
- * would imply we store a profile, and we do not. The panel on the right says
- * what is never sent, because the first run is when that promise matters.
+ * The rule that shapes this: never invent a figure. An onboarding that fills
+ * the box with someone else's salary produces a first answer that is fiction,
+ * and the person has to delete it before they can do anything. So step 3 asks
+ * for the real amount, and the composed question is handed over UNSENT so they
+ * can check it and change it.
+ *
+ * Steps that do not need a figure skip step 3 entirely: a deadline is the same
+ * date for everyone, and "just looking" means get out of the way.
+ *
+ * Nothing is stored. The answers only compose the draft.
  */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { SUPPORTED_YAS, type YA } from "@/components/Shell";
+import { useEffect, useMemo, useState } from "react";
+import { type YA } from "@/components/Shell";
 import { useSession } from "@/lib/session";
 
-const INCOME_TYPES = [
-  { key: "employment", name: "Employment", desc: "Salary, wages, allowances, bonuses", rule: "Act s.5" },
-  { key: "business", name: "Business or freelance", desc: "Self employed, consulting, invoicing clients", rule: "Act s.5" },
-  { key: "investment", name: "Investment", desc: "Interest, dividends, rent", rule: "Act s.5" },
-  { key: "other", name: "Other", desc: "Anything not covered above", rule: "Act s.5" },
-];
+type Work = "employed" | "freelance" | "both" | "investments";
+type Goal = "owe" | "file" | "deadline" | "explore";
 
-const NEVER_STORED = [
-  { what: "Your NIC or TIN", how: "Stripped by pattern match before anything is sent" },
-  { what: "Your name", how: "Replaced with a placeholder at intake" },
-  { what: "Your employer", how: "Tagged and masked; it does not affect a computation" },
-  { what: "Payslip text", how: "Only the extracted figures continue past intake" },
-];
+/* ---------------------------------------------------------------- icons */
 
-const STARTERS: Record<string, string> = {
-  employment: "What do I owe for {ya} on a salary of LKR 250,000 a month, with EPF deducted?",
-  business: "I invoiced 2,500,000 freelance in {ya}. What is my tax?",
-  investment: "I earned 400,000 in interest and 1,800,000 salary in {ya}. What do I owe?",
-  other: "Do I need to file a return for {ya}?",
+const ICON: Record<string, React.ReactNode> = {
+  briefcase: <><rect x="2.5" y="6" width="15" height="10.5" rx="2" /><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6" /><path d="M2.5 10.5h15" /></>,
+  receipt: <><path d="M4.5 2.5h11v15l-2-1.4-1.8 1.4-1.7-1.4-1.8 1.4-1.7-1.4-2 1.4z" /><path d="M7.5 7h5M7.5 10.5h5" /></>,
+  split: <><path d="M3 5h3.5l3 5 3 5H16" /><path d="M3 15h3.5l2-3.3" /><path d="M13.5 3l2.5 2-2.5 2" /><path d="M13.5 13l2.5 2-2.5 2" /></>,
+  trend: <><path d="M2.5 13.5l4.5-4.5 3 3 5.5-6" /><path d="M12 5.5h4v4" /></>,
+  calculator: <><rect x="4" y="2.5" width="12" height="15" rx="2" /><path d="M7 6h6" /><path d="M7.5 10h.01M10 10h.01M12.5 10h.01M7.5 13.5h.01M10 13.5h.01M12.5 13.5h.01" /></>,
+  question: <><circle cx="10" cy="10" r="7.5" /><path d="M7.8 7.8a2.2 2.2 0 1 1 2.9 2.1c-.5.2-.7.6-.7 1.1v.4" /><path d="M10 14.2h.01" /></>,
+  calendar: <><rect x="2.5" y="4" width="15" height="13.5" rx="2" /><path d="M2.5 8h15" /><path d="M6.5 2.5V5M13.5 2.5V5" /></>,
+  compass: <><circle cx="10" cy="10" r="7.5" /><path d="M12.8 7.2l-1.5 4.1-4.1 1.5 1.5-4.1z" /></>,
 };
+
+function Icon({ name }: { name: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+      strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {ICON[name]}
+    </svg>
+  );
+}
+
+function Arrow({ back }: { back?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+      strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+      className={back ? "rotate-180" : undefined}>
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------- options */
+
+const WORK: Array<{ key: Work; icon: string; name: string; desc: string }> = [
+  { key: "employed", icon: "briefcase", name: "I have a job", desc: "A salary from an employer" },
+  { key: "freelance", icon: "receipt", name: "I work for myself", desc: "Freelance, consulting or a small business" },
+  { key: "both", icon: "split", name: "A bit of both", desc: "A salary plus something on the side" },
+  { key: "investments", icon: "trend", name: "Mostly investments", desc: "Interest, dividends or rent" },
+];
+
+const GOALS: Array<{ key: Goal; icon: string; name: string; desc: string }> = [
+  { key: "owe", icon: "calculator", name: "How much tax do I owe?", desc: "A figure for the year, worked out step by step" },
+  { key: "file", icon: "question", name: "Do I need to file a return?", desc: "Check whether a return is required at all" },
+  { key: "deadline", icon: "calendar", name: "When is my return due?", desc: "Filing date and the quarterly instalments" },
+  { key: "explore", icon: "compass", name: "I will ask my own question", desc: "Take me straight in" },
+];
+
+/** What step 3 calls the money, per how they earn. */
+const INCOME_LABEL: Record<Work, { label: string; hint: string }> = {
+  employed: { label: "your salary", hint: "Before EPF and any tax already deducted" },
+  freelance: { label: "what you invoiced", hint: "Total billed before expenses" },
+  both: { label: "your total income", hint: "Salary plus anything on the side" },
+  investments: { label: "your total income", hint: "Interest, dividends, rent and any salary" },
+};
+
+const YA: YA = "2026/2027";
+
+/* ---------------------------------------------------------------- draft */
+
+function buildDraft(work: Work, goal: Goal, amount: string, monthly: boolean): string {
+  if (goal === "deadline") return `When is my tax return due for ${YA}?`;
+  if (goal === "explore") return "";
+
+  const n = Number(amount.replace(/[^\d.]/g, ""));
+  const figure = Number.isFinite(n) && n > 0 ? n.toLocaleString("en-GB") : null;
+  if (!figure) {
+    // No amount given: ask the shape of the question and let them fill it in.
+    return goal === "file"
+      ? `Do I need to file a return for ${YA}?`
+      : `What tax do I owe for ${YA}?`;
+  }
+
+  const per = monthly ? "a month" : "a year";
+  const earning = {
+    employed: `I earn LKR ${figure} ${per} in salary, with EPF deducted`,
+    freelance: `I invoiced LKR ${figure} ${per} for freelance work`,
+    both: `I earn LKR ${figure} ${per} in total, from a salary and freelance work`,
+    investments: `I earn LKR ${figure} ${per} in total, mostly from investments`,
+  }[work];
+
+  return goal === "file"
+    ? `${earning}. Do I need to file a return for ${YA}?`
+    : `${earning}. What tax do I owe for ${YA}?`;
+}
+
+/** Thousands separators while typing. Digits only: a salary is a whole
+ *  number of rupees, and a stray decimal point only invites a typo. */
+function groupDigits(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 12);
+  return digits ? Number(digits).toLocaleString("en-GB") : "";
+}
+
+/** First word of the account name, or nothing when Google gave none. */
+function greetingName(name: string | null): string | null {
+  const first = name?.trim().split(/\s+/)[0];
+  if (!first || first.length < 2) return null;
+  return /\d/.test(first) ? first : first[0].toUpperCase() + first.slice(1);
+}
+
+/* ---------------------------------------------------------------- page */
 
 export default function WelcomePage() {
   const router = useRouter();
   const { user, loading } = useSession();
-  const [step, setStep] = useState(1);
-  const [ya, setYa] = useState<YA>("2026/2027");
-  const [types, setTypes] = useState<Set<string>>(new Set(["employment"]));
 
-  // Onboarding is for a signed in account. Anyone else belongs at sign in.
+  const [step, setStep] = useState(1);
+  const [work, setWork] = useState<Work | null>(null);
+  const [goal, setGoal] = useState<Goal | null>(null);
+  const [amount, setAmount] = useState("");
+  const [monthly, setMonthly] = useState(true);
+  const [leaving, setLeaving] = useState(false);
+
   useEffect(() => {
     if (!loading && !user) router.replace("/signin?mode=signup");
   }, [loading, user, router]);
 
-  const toggle = (key: string) =>
-    setTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const needsAmount = goal === "owe" || goal === "file";
+  const totalSteps = needsAmount || goal === null ? 3 : 2;
 
-  const finish = () => {
-    const primary = INCOME_TYPES.find((t) => types.has(t.key))?.key ?? "employment";
-    const q = (STARTERS[primary] ?? STARTERS.employment).replace("{ya}", ya);
-    router.push(`/?q=${encodeURIComponent(q)}`);
+  const draft = useMemo(
+    () => (work && goal ? buildDraft(work, goal, amount, monthly) : ""),
+    [work, goal, amount, monthly],
+  );
+
+  const handOver = (q: string) => {
+    setLeaving(true);
+    router.push(q ? `/?draft=${encodeURIComponent(q)}` : "/");
+  };
+
+  const chooseGoal = (g: Goal) => {
+    setGoal(g);
+    // Only a figure question needs a figure. The rest can leave now.
+    if (g === "owe" || g === "file") setStep(3);
+    else handOver(buildDraft(work ?? "employed", g, "", monthly));
   };
 
   if (loading) {
@@ -70,246 +169,238 @@ export default function WelcomePage() {
     );
   }
 
+  const name = greetingName(user?.name ?? null);
+  const money = work ? INCOME_LABEL[work] : INCOME_LABEL.employed;
+
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <header className="flex h-[62px] flex-none items-center justify-between border-b border-line bg-white px-5 sm:px-8">
         <Link href="/" className="text-[19px] font-bold tracking-[-0.025em] text-ink-900">
           Citetax
         </Link>
-
-        <div className="hidden items-center gap-4 sm:flex">
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-[6px]" aria-label={`Step ${step} of ${totalSteps}`}>
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((n) => (
               <span
-                className={`flex h-[19px] w-[19px] flex-none items-center justify-center rounded-full font-mono text-[10.5px] font-semibold ${
-                  n === step
-                    ? "bg-brand-600 text-white"
-                    : n < step
-                      ? "bg-good-100 text-good-600"
-                      : "bg-panel text-ink-300"
+                key={n}
+                className={`h-[6px] rounded-full transition-all ${
+                  n === step ? "w-6 bg-brand-600"
+                    : n < step ? "w-[6px] bg-brand-600/40" : "w-[6px] bg-line-strong"
                 }`}
-              >
-                {n < step ? "✓" : n}
-              </span>
-              <span className={`text-[12.5px] font-medium ${n === step ? "text-ink-900" : "text-ink-300"}`}>
-                {["Year", "Income", "Privacy"][n - 1]}
-              </span>
-            </div>
-          ))}
+              />
+            ))}
+          </div>
+          <Link href="/" className="text-[13px] font-medium text-ink-300 transition-colors hover:text-ink-700">
+            Skip
+          </Link>
         </div>
-
-        <Link href="/" className="text-[13px] font-medium text-ink-300 hover:text-ink-700">
-          Skip for now
-        </Link>
       </header>
 
-      <div className="flex flex-1 flex-col gap-8 px-5 py-8 sm:px-8 lg:flex-row lg:gap-12 lg:px-14 lg:py-11">
-        <div className="min-w-0 flex-1 lg:max-w-[680px]">
-          <div className="font-mono text-[11px] tracking-[0.16em] text-ink-300">
-            STEP {step} OF 3
-          </div>
-
+      <div className="flex flex-1 items-start justify-center px-5 py-10 sm:px-8 sm:py-14">
+        <div className="w-full max-w-[620px]">
+          {/* ---------------------------------------------------- step 1 */}
           {step === 1 && (
             <div className="fade-up">
-              <h1 className="mt-3 text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[33px]">
-                {user?.name ? `Welcome, ${user.name.split(" ")[0]}.` : "Welcome."}
-                <br />
-                Which year of assessment?
+              <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[36px]">
+                {name ? `Hi ${name}. ` : "Welcome. "}
+                <span className="text-ink-400">How do you earn?</span>
               </h1>
-              <p className="mt-3 max-w-[560px] text-[15px] leading-[1.6] text-ink-500">
-                Every rule resolves against a year, so Citetax never leaves it
-                implicit. You can change it on any question later.
+              <p className="mt-3 text-[15.5px] leading-[1.6] text-ink-500">
+                Two quick questions so your first answer is about you.
               </p>
 
-              <div className="mt-7 flex flex-col gap-3 sm:max-w-[460px]">
-                {SUPPORTED_YAS.map((year) => {
-                  const on = year === ya;
-                  return (
-                    <button
-                      key={year}
-                      type="button"
-                      onClick={() => setYa(year)}
-                      aria-pressed={on}
-                      className={`flex items-center justify-between rounded-xl border bg-white px-5 py-4 text-left transition-all ${
-                        on
-                          ? "border-brand-600 shadow-[0_0_0_3px_rgba(43,68,199,0.10)]"
-                          : "border-line hover:border-line-strong"
-                      }`}
-                    >
-                      <div>
-                        <div className="tnum font-mono text-[17px] font-semibold text-ink-900">
-                          {year.replace("/", " / ")}
-                        </div>
-                        <div className="mt-1 text-[12.5px] text-ink-400">
-                          1 April {year.split("/")[0]} to 31 March {year.split("/")[1]}
-                        </div>
-                      </div>
-                      <span
-                        className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 ${
-                          on ? "border-brand-600 bg-brand-600 text-white" : "border-line-strong"
-                        }`}
-                      >
-                        {on && <span className="text-[9px] font-bold">✓</span>}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="mt-8 flex flex-col gap-[10px]">
+                {WORK.map((w) => (
+                  <Card
+                    key={w.key}
+                    icon={w.icon}
+                    name={w.name}
+                    desc={w.desc}
+                    onClick={() => {
+                      setWork(w.key);
+                      setStep(2);
+                    }}
+                  />
+                ))}
               </div>
             </div>
           )}
 
+          {/* ---------------------------------------------------- step 2 */}
           {step === 2 && (
             <div className="fade-up">
-              <h1 className="mt-3 text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[33px]">
-                Where does your income come from?
+              <BackLink onClick={() => setStep(1)} />
+              <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[36px]">
+                What do you want to know?
               </h1>
-              <p className="mt-3 max-w-[560px] text-[15px] leading-[1.6] text-ink-500">
-                This only shapes the first question we suggest. Nothing is stored
-                against your account, and you can ask about anything regardless.
+              <p className="mt-3 text-[15.5px] leading-[1.6] text-ink-500">
+                We will write the question for you. You can change it before sending.
               </p>
 
-              <div className="mt-7 flex flex-col gap-[10px] lg:max-w-[600px]">
-                {INCOME_TYPES.map((t) => {
-                  const on = types.has(t.key);
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => toggle(t.key)}
-                      aria-pressed={on}
-                      className={`flex items-start gap-[14px] rounded-xl border bg-white px-4 py-4 text-left transition-all sm:px-[18px] ${
-                        on
-                          ? "border-brand-600 shadow-[0_0_0_3px_rgba(43,68,199,0.10)]"
-                          : "border-line hover:border-line-strong"
-                      }`}
-                    >
-                      <span
-                        className={`mt-[2px] flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[5px] border-2 text-[10px] font-bold text-white ${
-                          on ? "border-brand-600 bg-brand-600" : "border-line-strong"
-                        }`}
-                      >
-                        {on && "✓"}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[15px] font-semibold text-ink-900">{t.name}</div>
-                        <div className="mt-1 text-[13px] leading-[1.5] text-ink-400">{t.desc}</div>
-                      </div>
-                      <span className="hidden flex-none rounded-[5px] bg-panel px-[7px] py-1 font-mono text-[11px] text-ink-300 sm:block">
-                        {t.rule}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="mt-8 flex flex-col gap-[10px]">
+                {GOALS.map((g) => (
+                  <Card
+                    key={g.key}
+                    icon={g.icon}
+                    name={g.name}
+                    desc={g.desc}
+                    busy={leaving && goal === g.key}
+                    disabled={leaving}
+                    onClick={() => chooseGoal(g.key)}
+                  />
+                ))}
               </div>
             </div>
           )}
 
+          {/* ---------------------------------------------------- step 3 */}
           {step === 3 && (
             <div className="fade-up">
-              <h1 className="mt-3 text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[33px]">
-                What Citetax never sends
+              <BackLink onClick={() => setStep(2)} />
+              <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[36px]">
+                Roughly, what is {money.label}?
               </h1>
-              <p className="mt-3 max-w-[560px] text-[15px] leading-[1.6] text-ink-500">
-                Identifiers are stripped in process before any hosted call. The
-                model receives structured facts and law text, never an identity.
+              <p className="mt-3 text-[15.5px] leading-[1.6] text-ink-500">
+                {money.hint}. An estimate is fine, you can correct it in a moment.
               </p>
 
-              <div className="mt-7 rounded-xl bg-ink-900 px-5 py-6 sm:px-6 lg:max-w-[600px]">
-                <div className="font-mono text-[10px] tracking-[0.16em] text-white/40">
-                  NEVER LEAVES THIS SERVER
+              <div className="mt-8 rounded-2xl border border-line bg-white p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <span className="flex-none font-mono text-[15px] font-medium text-ink-300">LKR</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoFocus
+                    value={amount}
+                    // Group as they type, so the field reads the way the
+                    // preview and the answer will.
+                    onChange={(e) => setAmount(groupDigits(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && amount.trim()) handOver(draft);
+                    }}
+                    placeholder="250,000"
+                    aria-label={`Amount in LKR, ${monthly ? "per month" : "per year"}`}
+                    className="tnum min-w-0 flex-1 bg-transparent font-mono text-[28px] font-semibold tracking-[-0.02em] text-ink-900 outline-none placeholder:text-ink-200 sm:text-[32px]"
+                  />
                 </div>
-                <div className="mt-4 flex flex-col gap-3">
-                  {NEVER_STORED.map((n) => (
-                    <div key={n.what} className="flex items-start gap-[10px]">
-                      <span className="mt-[2px] font-mono text-[11px] font-semibold text-[#F5A9A2]">✕</span>
-                      <div>
-                        <div className="text-[13.5px] font-semibold text-white">{n.what}</div>
-                        <div className="mt-[2px] text-[12px] leading-[1.45] text-white/45">{n.how}</div>
-                      </div>
-                    </div>
+
+                <div className="mt-5 flex gap-[3px] rounded-[10px] bg-panel p-[3px]">
+                  {[
+                    [true, "a month"],
+                    [false, "a year"],
+                  ].map(([val, label]) => (
+                    <button
+                      key={String(val)}
+                      type="button"
+                      onClick={() => setMonthly(val as boolean)}
+                      aria-pressed={monthly === val}
+                      className={`flex-1 rounded-[7px] py-[9px] text-[13.5px] transition-all ${
+                        monthly === val
+                          ? "bg-white font-semibold text-ink-900 shadow-[0_1px_2px_rgba(14,20,48,0.08)]"
+                          : "font-medium text-ink-400 hover:text-ink-700"
+                      }`}
+                    >
+                      {label as string}
+                    </button>
                   ))}
                 </div>
-                <p className="mt-5 border-t border-white/10 pt-[14px] text-[12px] leading-[1.55] text-white/50">
-                  The figures a computation needs are deliberately preserved,
-                  which is the harder half of the job.
-                </p>
               </div>
 
-              <div className="mt-4 rounded-xl border border-line bg-white px-5 py-4 text-[13.5px] leading-[1.6] text-ink-500 lg:max-w-[600px]">
-                Citetax is a computation aid, not a tax agent. Every figure is
-                traced to a rule version so you can check it, and you can flag any
-                step that looks wrong.
+              {/* What will land in the box. Shown so nothing is a surprise. */}
+              {amount.trim() && (
+                <div className="fade-up mt-4 rounded-xl border border-line bg-panel px-4 py-3">
+                  <div className="font-mono text-[10px] tracking-[0.14em] text-ink-300">
+                    YOUR QUESTION
+                  </div>
+                  <p className="mt-2 text-[14px] leading-[1.55] text-ink-700">{draft}</p>
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handOver(draft)}
+                  disabled={!amount.trim() || leaving}
+                  className="flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-[12px] text-[14px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Continue
+                  <Arrow />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handOver(buildDraft(work ?? "employed", goal ?? "owe", "", monthly))}
+                  disabled={leaving}
+                  className="text-[13.5px] font-medium text-ink-400 transition-colors hover:text-ink-700"
+                >
+                  I would rather type it myself
+                </button>
               </div>
             </div>
           )}
-
-          {/* Actions */}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            {step > 1 && (
-              <button
-                type="button"
-                onClick={() => setStep(step - 1)}
-                className="rounded-lg border border-line-strong bg-white px-5 py-[11px] text-[14px] font-medium text-ink-700 transition-colors hover:border-brand-600"
-              >
-                Back
-              </button>
-            )}
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={() => setStep(step + 1)}
-                disabled={step === 2 && types.size === 0}
-                className="rounded-lg bg-brand-600 px-6 py-[11px] text-[14px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Continue
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={finish}
-                className="rounded-lg bg-brand-600 px-6 py-[11px] text-[14px] font-semibold text-white transition-colors hover:bg-brand-700"
-              >
-                Ask my first question
-              </button>
-            )}
-          </div>
         </div>
-
-        {/* Aside. Below lg it drops entirely: the steps carry the message. */}
-        <aside className="hidden w-[330px] flex-none flex-col gap-3 lg:flex">
-          <div className="rounded-xl border border-line bg-white px-5 py-5">
-            <div className="eyebrow">HOW AN ANSWER IS BUILT</div>
-            <ol className="mt-4 flex flex-col gap-3">
-              {[
-                ["Identifiers stripped", "In process, before any hosted call"],
-                ["The agent picks a plan", "A deadline question skips the arithmetic"],
-                ["Rules resolved by date", "One version, or a refusal. Never a guess"],
-                ["Computed in plain Python", "No model touches a number"],
-                ["Every figure verified", "Untraceable prose is withheld, figures stand"],
-              ].map(([title, sub], i) => (
-                <li key={title} className="flex gap-3">
-                  <span className="mt-[2px] flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full bg-panel font-mono text-[10px] font-semibold text-ink-400">
-                    {i + 1}
-                  </span>
-                  <div>
-                    <div className="text-[13px] font-medium text-ink-900">{title}</div>
-                    <div className="mt-[2px] text-[11.5px] leading-[1.45] text-ink-400">{sub}</div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="rounded-xl border border-line bg-white px-5 py-5">
-            <div className="eyebrow">SCOPE</div>
-            <p className="mt-[11px] text-[13px] leading-[1.6] text-ink-500">
-              Personal income tax for {SUPPORTED_YAS.join(" and ")}. VAT, company
-              tax and advisory questions are refused with a reason and a pointer
-              to the right IRD resource.
-            </p>
-          </div>
-        </aside>
       </div>
+
+      <footer className="flex-none px-5 pb-8 text-center sm:px-8">
+        <p className="mx-auto max-w-[520px] text-[12px] leading-[1.6] text-ink-300">
+          Nothing here is saved to your account. Your name, NIC and employer are
+          never sent anywhere.
+        </p>
+      </footer>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------- pieces */
+
+function Card({
+  icon, name, desc, onClick, busy, disabled,
+}: {
+  icon: string; name: string; desc: string;
+  onClick: () => void; busy?: boolean; disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="group flex items-center gap-4 rounded-2xl border border-line bg-white px-4 py-4 text-left transition-all hover:-translate-y-[1px] hover:border-brand-600 hover:shadow-[0_6px_20px_-12px_rgba(14,20,48,0.35)] disabled:cursor-wait disabled:opacity-60 sm:px-5"
+    >
+      <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-brand-050 text-brand-600 transition-colors group-hover:bg-brand-600 group-hover:text-white">
+        <Icon name={icon} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16px] font-semibold text-ink-900">{name}</span>
+        <span className="mt-[3px] block text-[13.5px] leading-[1.5] text-ink-400">{desc}</span>
+      </span>
+      <span
+        className={`flex-none transition-all ${
+          busy ? "text-brand-600" : "text-ink-200 group-hover:translate-x-1 group-hover:text-brand-600"
+        }`}
+      >
+        {busy ? <Spinner /> : <Arrow />}
+      </span>
+    </button>
+  );
+}
+
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mb-5 flex items-center gap-[6px] font-mono text-[11.5px] text-ink-300 transition-colors hover:text-ink-700"
+    >
+      <Arrow back />
+      back
+    </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="animate-spin">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" opacity="0.25" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
   );
 }

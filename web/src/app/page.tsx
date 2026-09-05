@@ -36,6 +36,7 @@ function AskPageInner() {
   const [answer, setAnswer] = useState<AnswerResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -75,15 +76,29 @@ function AskPageInner() {
     [busy, ya],
   );
 
-  // Other pages hand a question over via ?q=, e.g. "ask the agent to explain"
-  // on the comparison screen.
+  // Other pages hand a question over. ?q= asks it straight away, which is what
+  // "ask the agent to explain" on the comparison page wants. ?draft= only fills
+  // the box and focuses it, so onboarding can compose a question from what
+  // someone told it while leaving them in control of sending it.
   const handedOff = useRef(false);
   useEffect(() => {
+    if (handedOff.current) return;
     const q = params.get("q");
-    if (q && !handedOff.current) {
+    const draft = params.get("draft");
+    if (q) {
       handedOff.current = true;
       setQuestion(q);
       ask(q);
+    } else if (draft) {
+      handedOff.current = true;
+      setQuestion(draft);
+      setPrefilled(true);
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(draft.length, draft.length);
+      });
     }
   }, [params, ask]);
 
@@ -92,6 +107,7 @@ function AskPageInner() {
     setAnswer(null);
     setQuestion("");
     setError(null);
+    setPrefilled(false);
     handedOff.current = true;
     window.history.replaceState(null, "", "/");
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -127,12 +143,28 @@ function AskPageInner() {
               </p>
             </div>
 
+            {prefilled && (
+              <div className="fade-up mt-6 flex items-start gap-2 rounded-[9px] border border-brand-600/25 bg-brand-050 px-[13px] py-[10px]">
+                <span className="mt-[1px] flex-none text-brand-600">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M11.5 2.5l2 2L6 12l-3 1 1-3z" />
+                  </svg>
+                </span>
+                <span className="text-[12.5px] leading-[1.5] text-ink-700">
+                  We drafted this from your answers. Check the figures are right,
+                  edit anything, then send it.
+                </span>
+              </div>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 ask(question);
               }}
-              className="mt-6 rounded-[13px] border-[1.5px] border-brand-600 bg-white shadow-[0_0_0_4px_rgba(43,68,199,0.09)]"
+              className={`rounded-[13px] border-[1.5px] border-brand-600 bg-white shadow-[0_0_0_4px_rgba(43,68,199,0.09)] ${
+                prefilled ? "mt-3" : "mt-6"
+              }`}
             >
               <textarea
                 ref={inputRef}
