@@ -2,9 +2,10 @@
 
 /** Source registry, crawl now, manual upload (spec section 5.1 I). */
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell, NoAccess } from "@/components/admin/AdminShell";
-import { admin, type CrawlResult, type Me, type SourceRow } from "@/lib/admin";
+import { admin, type AgentStatus, type CrawlResult, type Me, type SourceRow } from "@/lib/admin";
 
 export default function SourcesPage() {
   const [me, setMe] = useState<Me | null>(null);
@@ -13,6 +14,7 @@ export default function SourcesPage() {
   const [families, setFamilies] = useState<
     Awaited<ReturnType<typeof admin.documents>>["families"]
   >([]);
+  const [agent, setAgent] = useState<AgentStatus | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<CrawlResult | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -24,9 +26,14 @@ export default function SourcesPage() {
       const who = await admin.me();
       setMe(who);
       if (!who.is_reviewer) return;
-      const [s, d] = await Promise.all([admin.sources(), admin.documents()]);
+      const [s, d, a] = await Promise.all([
+        admin.sources(),
+        admin.documents(),
+        admin.agentStatus().catch(() => null),
+      ]);
       setSources(s.sources);
       setFamilies(d.families);
+      setAgent(a);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load sources");
     } finally {
@@ -100,6 +107,30 @@ export default function SourcesPage() {
         {error && (
           <div className="mt-5 rounded-xl border border-warn-300 bg-warn-100 px-5 py-3 text-[13.5px] text-warn-500">
             {error}
+          </div>
+        )}
+
+        {agent && (
+          <div className={`mt-5 flex items-center justify-between rounded-xl border px-5 py-3 ${agent.enabled ? "border-good-300 bg-good-100" : "border-line bg-panel"}`}>
+            <div className="flex items-center gap-3">
+              <span className={`h-[8px] w-[8px] flex-none rounded-full ${agent.enabled ? "bg-good-mint" : "bg-ink-300"} ${agent.running_now ? "pulse-dot" : ""}`} />
+              <span className="text-[13.5px] text-ink-700">
+                {agent.running_now ? (
+                  <strong className="font-semibold text-ink-900">The corpus agent is crawling now.</strong>
+                ) : agent.enabled ? (
+                  <>
+                    <strong className="font-semibold text-ink-900">The corpus agent crawls every {agent.interval_minutes} minutes</strong>
+                    {agent.next_run_at ? <>, next {relTime(agent.next_run_at)}</> : null}.
+                    {agent.cycles[0]?.summary ? <> Last time: {agent.cycles[0].summary}.</> : null}
+                  </>
+                ) : (
+                  <>Automatic crawling is off. Sources are crawled only when you press the button.</>
+                )}
+              </span>
+            </div>
+            <Link href="/admin/agent" className="flex-none font-mono text-[11px] text-brand-600 hover:underline">
+              agent log
+            </Link>
           </div>
         )}
 
@@ -287,6 +318,13 @@ export default function SourcesPage() {
       </div>
     </AdminShell>
   );
+}
+
+function relTime(iso: string): string {
+  const diff = new Date(iso).getTime() - Date.now();
+  const mins = Math.round(Math.abs(diff) / 60000);
+  const label = mins < 1 ? "under a minute" : mins < 60 ? `${mins} min` : `${Math.round(mins / 60)} h`;
+  return diff > 0 ? `in ${label}` : `${label} ago`;
 }
 
 function Loading() {

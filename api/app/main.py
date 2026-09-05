@@ -7,19 +7,37 @@ you are about to recreate the crash that caused this rebuild.
 
 from __future__ import annotations
 
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.corpus import scheduler
 from app.db.session import db_healthy
 from app.routers import admin, public, sources
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # The corpus agent runs on a timer inside this process for the dev build.
+    # It crawls, extracts and indexes on its own; it never approves anything.
+    scheduler.start()
+    try:
+        yield
+    finally:
+        scheduler.stop()
+
 
 app = FastAPI(
     title="Citetax API",
     description="Sri Lanka personal income tax copilot. Every number, cited.",
-    version="0.1.0",
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -52,6 +70,7 @@ def health() -> dict[str, object]:
         },
         "embedding_backend": settings.embedding_backend,
         "supported_yas": list(settings.supported_yas),
+        "agent": scheduler.status(),
     }
 
 

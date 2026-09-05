@@ -33,6 +33,10 @@ python-dotenv==1.0.1
 # Auth: verifies the NextAuth session JWT
 pyjwt==2.10.1
 
+# Corpus agent: PDF text (pure Python, no weights) and the background scheduler
+pypdf==5.1.0
+apscheduler==3.10.4
+
 # dev
 pytest==8.3.4
 pytest-asyncio==0.25.0

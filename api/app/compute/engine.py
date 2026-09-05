@@ -172,10 +172,23 @@ def compute(facts: TaxFacts, rules: ResolvedRuleSet) -> Computation:
 
     # --- Step 4: Personal relief -------------------------------------------
     relief_rule = rules["relief.personal"]
-    relief = _d(relief_rule.value_json["amount"])
-    # Relief cannot create a loss.
-    relief = min(relief, max(assessable - epf - qp, ZERO))
-    emit(4, "Less personal relief", "relief.personal", _round(relief))
+    statutory_relief = _d(relief_rule.value_json["amount"])
+    # Relief cannot create a loss, so the amount applied is capped at what is
+    # left after deductions. Both figures travel in the detail: the statutory
+    # relief is the rule, the applied relief is the ledger, and an explanation
+    # that conflates them ("personal relief of 1,380,000") misstates the law.
+    relief = min(statutory_relief, max(assessable - epf - qp, ZERO))
+    emit(
+        4,
+        "Less personal relief",
+        "relief.personal",
+        _round(relief),
+        detail={
+            "statutory": str(statutory_relief),
+            "applied": str(_round(relief)),
+            "capped": relief < statutory_relief,
+        },
+    )
 
     # --- Step 5: Taxable income --------------------------------------------
     taxable = max(assessable - epf - qp - relief, ZERO)

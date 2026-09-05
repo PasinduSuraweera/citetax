@@ -21,7 +21,6 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -45,8 +44,6 @@ _INDEX_PATHS = {
     "/circulars", "/publications",
 }
 _LINK = re.compile(r'href=["\']([^"\']+)["\']', re.I)
-_TAG = re.compile(r"<[^>]+>")
-_WS = re.compile(r"\s+")
 
 
 @dataclass
@@ -75,10 +72,6 @@ class WatchResult:
             "errors": self.errors,
             "documents": self.documents,
         }
-
-
-def _clean_text(html: str) -> str:
-    return _WS.sub(" ", _TAG.sub(" ", html)).strip()
 
 
 def extract_links(html: str, base_url: str, limit: int = 40) -> list[Discovered]:
@@ -163,28 +156,40 @@ def _record_document(
     family_id = str(prior["family_id"]) if prior else str(uuid.uuid4())
     revision_no = (prior["revision_no"] + 1) if prior else 1
 
-    raw_text = None
-    if "html" in content_type or url.lower().endswith((".htm", ".html")):
-        raw_text = _clean_text(body.decode("utf-8", "replace"))[:200000]
+    # Extract text from whatever arrived: HTML, PDF, or plain text. A PDF with
+    # no text layer yields an empty string, which the extractor reports as
+    # "no extractable text" rather than guessing.
+    from app.corpus.pdf import extract_text
+
+    raw_text, text_meta = extract_text(body, content_type, url)
+    raw_text = (raw_text or "")[:200000] or None
 
     doc_type = conn.execute(
         text("select doc_type from source where source_id = :s"), {"s": source_id}
     ).scalar() or "circular"
 
+    import json as _json
+
+    # A title from the first line of text reads better in the inbox than a
+    # URL slug, but a URL slug beats a 120 character wall of body text.
+    first_line = (raw_text or "").strip().split("\n", 1)[0].strip()
+    title = first_line[:120] if 8 <= len(first_line) <= 160 else url.rsplit("/", 1)[-1]
+
     conn.execute(
         text(
             "insert into source_document (id, family_id, revision_no, source_id, "
             "url, sha256, doc_type, title, fetched_at, last_seen_at, "
-            "supersedes_id, raw_text) values "
+            "supersedes_id, raw_text, text_meta) values "
             "(:id, :fam, :rev, :src, :url, :sha, :dt, :title, now(), now(), "
-            ":sup, :raw)"
+            ":sup, :raw, cast(:tm as jsonb))"
         ),
         {
             "id": doc_id, "fam": family_id, "rev": revision_no, "src": source_id,
             "url": url, "sha": sha, "dt": doc_type,
-            "title": (raw_text[:120] if raw_text else url.rsplit("/", 1)[-1]),
+            "title": title,
             "sup": str(prior["id"]) if prior else None,
             "raw": raw_text,
+            "tm": _json.dumps(text_meta or {}),
         },
     )
 
@@ -223,7 +228,9 @@ def _record_document(
     )
 
 
-def watch_source(conn: Connection, source_id: str, max_docs: int = 12) -> WatchResult:
+def watch_source(
+    conn: Connection, source_id: str, max_docs: int = 12, triggered_by: str = "manual"
+) -> WatchResult:
     """Crawl one registered source and record what changed."""
     row = conn.execute(
         text(
@@ -247,9 +254,10 @@ def watch_source(conn: Connection, source_id: str, max_docs: int = 12) -> WatchR
     crawl_id = str(uuid.uuid4())
     conn.execute(
         text(
-            "insert into crawl_run (id, source_id, status) values (:id, :s, 'running')"
+            "insert into crawl_run (id, source_id, status, triggered_by) "
+            "values (:id, :s, 'running', :by)"
         ),
-        {"id": crawl_id, "s": source_id},
+        {"id": crawl_id, "s": source_id, "by": triggered_by},
     )
     conn.commit()
 
@@ -323,11 +331,11 @@ def watch_source(conn: Connection, source_id: str, max_docs: int = 12) -> WatchR
     return result
 
 
-def watch_all(conn: Connection) -> list[WatchResult]:
+def watch_all(conn: Connection, triggered_by: str = "scheduler") -> list[WatchResult]:
     ids = conn.execute(
         text(
             "select source_id from source where enabled "
             "  and discovery <> 'manual_upload' order by priority"
         )
     ).scalars().all()
-    return [watch_source(conn, s) for s in ids]
+    return [watch_source(conn, s, triggered_by=triggered_by) for s in ids]

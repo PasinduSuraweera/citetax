@@ -63,9 +63,10 @@ _REPRESENTATION = re.compile(
 )
 
 _INCOME_TAX_HINT = re.compile(
-    r"(?i)\b(income tax|salary|epf|etf|apit|paye|relief|taxable income|"
-    r"balance payable|year of assessment|filing|return|deadline|"
-    r"how much (?:tax|do i owe)|owe)\b"
+    r"(?i)\b(income tax|salary|salaried|epf|etf|apit|paye|relief|taxable income|"
+    r"balance payable|year of assessment|filing|return|deadline|instalment|"
+    r"tax band|tax rate|withheld|assessable|qualifying payment|"
+    r"how much (?:tax|do i owe)|owe|tax)\b"
 )
 
 

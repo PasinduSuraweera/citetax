@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # before any account exists. Comma separated.
     bootstrap_admins: str = ""
 
+    # --- Corpus agent ---
+    # How often the background agent crawls, extracts and indexes. 0 disables
+    # the scheduler (cycles can still be triggered from the admin panel).
+    watch_interval_minutes: int = 30
+
     # --- Behaviour ---
     max_free_text_to_llm: int = 600  # truncation cap, spec §9.1 compensating controls
     cors_origins: str = "http://localhost:3000"

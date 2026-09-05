@@ -9,7 +9,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell, NoAccess } from "@/components/admin/AdminShell";
 import {
   admin,
@@ -139,6 +139,25 @@ export default function ProposalPage() {
     }
   };
 
+  const reextract = async () => {
+    setBusy("extract");
+    setError(null);
+    try {
+      const r = await admin.reextract(id);
+      if (r.error) setError(`Extractor failed: ${r.error}`);
+      else if (r.skipped_reason) setError(`Extractor skipped: ${r.skipped_reason}`);
+      else
+        setMessage(
+          `Extractor re-ran. ${r.proposals_updated} field set updated, ${r.proposals_created} additional proposal(s) created.${r.summary ? ` Document: ${r.summary}` : ""}`,
+        );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Re-extraction failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const reject = async () => {
     const reason = window.prompt(
       "Why is this rejected? Rejections are kept forever with the reason, as extractor training data and audit evidence.",
@@ -213,9 +232,7 @@ export default function ProposalPage() {
           <div className="rounded-xl border border-line bg-white p-5">
             <div className="eyebrow">SOURCE DOCUMENT</div>
             {proposal.raw_text ? (
-              <pre className="mt-3 max-h-[420px] overflow-y-auto whitespace-pre-wrap rounded-lg bg-panel p-4 text-[12.5px] leading-[1.6] text-ink-700">
-                {proposal.raw_text}
-              </pre>
+              <HighlightedText text={proposal.raw_text} quote={proposal.rule_key ? proposal.quoted_text : null} />
             ) : (
               <div className="mt-3 rounded-lg border border-dashed border-line-strong bg-panel px-4 py-10 text-center">
                 <p className="text-[13px] text-ink-400">
@@ -229,19 +246,73 @@ export default function ProposalPage() {
               </div>
             )}
             {proposal.quoted_text && (
-              <div className="mt-3 rounded-lg border border-line bg-panel px-4 py-3">
-                <div className="font-mono text-[10px] tracking-[0.14em] text-ink-300">
-                  EXTRACTOR NOTE
+              <div className="mt-3 rounded-lg border border-[#E8D9A0] bg-[#FFF8E1] px-4 py-3">
+                <div className="font-mono text-[10px] tracking-[0.14em] text-[#7E5D1B]">
+                  {proposal.rule_key ? "QUOTED FROM THE DOCUMENT" : "NOTE"}
                 </div>
-                <p className="mt-2 text-[12.5px] leading-[1.55] text-ink-700">
-                  {proposal.quoted_text}
+                <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-700">
+                  {proposal.rule_key ? <>“{proposal.quoted_text}”</> : proposal.quoted_text}
                 </p>
+                {proposal.rule_key && (
+                  <p className="mt-2 text-[11px] text-ink-400">
+                    Compare this sentence to the value on the right. If they disagree, correct the field, not the quote.
+                  </p>
+                )}
               </div>
             )}
           </div>
 
           <div className="rounded-xl border border-line bg-white p-5">
-            <div className="eyebrow">EXTRACTED RULE</div>
+            <div className="flex items-center justify-between">
+              <div className="eyebrow">EXTRACTED RULE</div>
+              <div className="flex items-center gap-3">
+                {proposal.confidence != null && (
+                  <span
+                    className={`rounded-full px-2 py-[3px] font-mono text-[10px] font-semibold ${
+                      proposal.confidence >= 0.85
+                        ? "bg-good-100 text-good-600"
+                        : proposal.confidence >= 0.6
+                          ? "bg-[#FDF4E0] text-[#7E5D1B]"
+                          : "bg-warn-100 text-warn-600"
+                    }`}
+                    title="Extractor confidence"
+                  >
+                    {Math.round(proposal.confidence * 100)}% confident
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={reextract}
+                  disabled={busy !== null || proposal.status === "approved" || proposal.status === "published"}
+                  className="font-mono text-[11px] text-brand-600 hover:underline disabled:opacity-40"
+                  title="Run the model extractor again on this document"
+                >
+                  {busy === "extract" ? "extracting..." : proposal.rule_key ? "re-extract" : "extract now"}
+                </button>
+              </div>
+            </div>
+
+            {proposal.rationale && (
+              <div className="mt-3 rounded-lg border border-brand-600/30 bg-brand-050 px-4 py-3">
+                <div className="font-mono text-[10px] tracking-[0.14em] text-brand-600">
+                  EXTRACTOR RATIONALE
+                </div>
+                <p className="mt-1 text-[12.5px] leading-[1.55] text-ink-700">{proposal.rationale}</p>
+                {proposal.extractor_version && (
+                  <div className="mt-2 font-mono text-[10px] text-ink-300">
+                    {proposal.extractor_version}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!proposal.rule_key && !proposal.rationale && (
+              <div className="mt-3 rounded-lg border border-dashed border-line-strong bg-panel px-4 py-3 text-[12.5px] leading-[1.55] text-ink-400">
+                Not extracted yet. The corpus agent picks up blank proposals on its
+                next cycle, or press extract now.
+              </div>
+            )}
+
             <div className="mt-4 flex flex-col gap-4">
               <Field label="Rule key">
                 <input
@@ -376,6 +447,49 @@ export default function ProposalPage() {
 }
 
 /* ---------- pieces ---------- */
+
+/** The source text with the extracted sentence highlighted and scrolled into
+ *  view (spec section 5.1 B). */
+function HighlightedText({ text, quote }: { text: string; quote: string | null }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: "center" });
+  }, [quote]);
+
+  if (!quote) {
+    return (
+      <pre className="mt-3 max-h-[420px] overflow-y-auto whitespace-pre-wrap rounded-lg bg-panel p-4 text-[12.5px] leading-[1.6] text-ink-700">
+        {text}
+      </pre>
+    );
+  }
+  // Match on a normalised prefix so minor whitespace differences still land.
+  const needle = quote.trim().slice(0, 60).replace(/\s+/g, " ");
+  const hay = text.replace(/\s+/g, " ");
+  const at = hay.indexOf(needle);
+  if (at < 0) {
+    return (
+      <>
+        <pre className="mt-3 max-h-[420px] overflow-y-auto whitespace-pre-wrap rounded-lg bg-panel p-4 text-[12.5px] leading-[1.6] text-ink-700">
+          {text}
+        </pre>
+        <p className="mt-2 font-mono text-[10.5px] text-warn-600">
+          quoted sentence not found verbatim in the text; check the quote against the source
+        </p>
+      </>
+    );
+  }
+  const end = Math.min(hay.length, at + Math.max(needle.length, quote.trim().length));
+  return (
+    <pre className="mt-3 max-h-[420px] overflow-y-auto whitespace-pre-wrap rounded-lg bg-panel p-4 text-[12.5px] leading-[1.6] text-ink-700">
+      {hay.slice(0, at)}
+      <mark ref={ref} className="rounded-sm bg-[#FFE7A3] px-[2px] text-ink-900">
+        {hay.slice(at, end)}
+      </mark>
+      {hay.slice(end)}
+    </pre>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

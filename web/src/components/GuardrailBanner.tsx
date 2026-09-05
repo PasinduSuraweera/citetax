@@ -44,8 +44,8 @@ export function GuardrailBanner({
             <span className="font-semibold text-good-700">Released by guardrail</span>
             <span className="text-good-500">
               {stepCount != null
-                ? `. ${stepCount} of ${stepCount} figures traced to law in force for ${ya ?? "this year"}.`
-                : `. Every figure traced to law in force for ${ya ?? "this year"}.`}
+                ? `. All ${stepCount} ledger steps cite a rule in force for ${ya ?? "this year"}.`
+                : `. Every figure traced to a rule in force for ${ya ?? "this year"}.`}
             </span>
           </div>
         </div>

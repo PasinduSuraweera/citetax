@@ -39,14 +39,19 @@ export interface Citation {
   effective_to: string | null;
   supersedes_version_id: string | null;
   quoted_text: string | null;
+  value?: Record<string, unknown>;
 }
 
 export interface TraceEntry {
   node: string;
-  status: "ok" | "refused" | "skipped" | "failed";
+  status: "ok" | "refused" | "skipped" | "failed" | "planned";
   detail: string | null;
   ms: number;
 }
+
+export type Intent =
+  | "compute" | "obligation" | "deadline" | "compare"
+  | "rule_lookup" | "general" | "out_of_scope";
 
 export interface Compliance {
   must_file: boolean;
@@ -55,6 +60,50 @@ export interface Compliance {
   instalments: string[];
   rule_version_id: string | null;
   citation_label: string | null;
+  days_remaining?: number | null;
+}
+
+export interface Passage {
+  chunk_id: string;
+  text: string;
+  source_document_id: string | null;
+  rule_key: string | null;
+  title: string | null;
+  url: string | null;
+  score: number;
+  matched_by: "fts" | "dense" | "both";
+}
+
+export interface LlmUsage {
+  calls: Array<{
+    model: string;
+    called: boolean;
+    ok: boolean;
+    ms: number;
+    tokens: { in: number; out: number };
+    finish_reason: string | null;
+    error: string | null;
+  }>;
+  total_tokens: number;
+  total_ms: number;
+}
+
+export interface CompareChange {
+  rule_key: string;
+  title?: string;
+  changed: boolean;
+  same_version?: boolean;
+  from: RuleSide;
+  to: RuleSide;
+}
+
+export interface RuleSide {
+  value: Record<string, unknown>;
+  rule_version_id: string;
+  citation_label: string | null;
+  effective_from?: string;
+  effective_to?: string | null;
+  quoted_text?: string | null;
 }
 
 export interface VerifyResult {
@@ -64,6 +113,7 @@ export interface VerifyResult {
   pii_classes: string[];
   prose_released: boolean;
   note: string | null;
+  checked_numbers?: number;
 }
 
 export interface Snapshot {
@@ -75,11 +125,15 @@ export interface Snapshot {
 
 export interface AnswerResponse {
   kind: "answer" | "refusal" | "clarify";
+  intent: Intent;
+  plan: string[];
+  route_source: "llm" | "regex";
   badge: Badge;
   ya: string | null;
   snapshot: Snapshot | null;
   trace: TraceEntry[];
   latency_ms: number;
+  llm?: LlmUsage;
   run_id?: string | null;
   computation?: {
     steps: LedgerStep[];
@@ -90,10 +144,18 @@ export interface AnswerResponse {
     step_count: number;
   };
   compliance?: Compliance;
+  compare?: {
+    from_ya: string;
+    to_ya: string;
+    changed_count: number;
+    changes: CompareChange[];
+  };
+  lookup?: Citation[];
+  passages?: Passage[];
   explanation?: string | null;
   verify?: VerifyResult | null;
   citations?: Citation[];
-  refusal?: { reason: string; pointer: string | null };
+  refusal?: { reason: string; pointer: string | null; category?: string | null };
   clarify?: { question: string };
 }
 
@@ -112,13 +174,13 @@ export interface CompareResponse {
   from_ya: string;
   to_ya: string;
   changed_count: number;
-  changes: Array<{
-    rule_key: string;
-    changed: boolean;
-    from: { value: unknown; rule_version_id: string; citation_label: string | null };
-    to: { value: unknown; rule_version_id: string; citation_label: string | null };
-  }>;
+  changes: CompareChange[];
   corpus_snapshot_id: string;
+  snapshot_history: Array<{
+    label: string;
+    changelog: string | null;
+    created_at: string | null;
+  }>;
 }
 
 export interface DeadlinesResponse {
@@ -242,6 +304,8 @@ export const api = {
       runs: Array<{
         id: string;
         ya: string;
+        intent: Intent | null;
+        question: string | null;
         balance_payable: string | null;
         taxable_income: string | null;
         step_count: number | null;
@@ -253,6 +317,24 @@ export const api = {
       }>;
       count: number;
     }>("/v1/history"),
+
+  historyDetail: (id: string) =>
+    request<{
+      id: string;
+      ya: string;
+      intent: Intent | null;
+      plan: string[] | null;
+      question: string | null;
+      ledger: AnswerResponse["computation"] | null;
+      facts: Record<string, unknown> | null;
+      answer_text: string | null;
+      verify_result: VerifyResult | null;
+      llm_usage: LlmUsage | null;
+      latency_ms: number | null;
+      model: string | null;
+      created_at: string | null;
+      snapshot: { id: string | null; label: string | null; changelog: string | null };
+    }>(`/v1/history/${id}`),
 
   deadlines: (ya: string) =>
     request<DeadlinesResponse>(`/v1/deadlines?ya=${encodeURIComponent(ya)}`),

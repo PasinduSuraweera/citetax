@@ -241,3 +241,18 @@ def test_taxfacts_has_no_identity_fields():
     """Spec §9.1 minimisation — the boundary object carries no identifiers."""
     forbidden = {"name", "nic", "tin", "employer", "address", "phone", "email"}
     assert forbidden & set(TaxFacts.model_fields) == set()
+
+
+def test_relief_step_carries_statutory_and_applied_when_capped():
+    """Below the threshold the ledger applies less relief than the law grants.
+    Both figures must travel so an explanation cannot call the capped amount
+    'the personal relief'."""
+    c = compute(TaxFacts(ya="2026/2027", employment_income=Decimal("1500000")), _rules())
+    relief = next(s for s in c.steps if s.rule_key == "relief.personal")
+    assert relief.value == Decimal("1380000.00")
+    assert relief.detail == {"statutory": "1800000", "applied": "1380000.00", "capped": True}
+
+    c_hi = compute(TaxFacts(ya="2026/2027", employment_income=Decimal("3000000")), _rules())
+    relief_hi = next(s for s in c_hi.steps if s.rule_key == "relief.personal")
+    assert relief_hi.value == Decimal("1800000.00")
+    assert relief_hi.detail["capped"] is False

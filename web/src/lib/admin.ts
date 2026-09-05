@@ -28,6 +28,8 @@ export interface ProposalRow {
   effective_from: string | null;
   effective_to: string | null;
   quoted_text: string | null;
+  rationale?: string | null;
+  extractor_version?: string | null;
   assigned_to: string | null;
   document_title: string | null;
   document_url: string | null;
@@ -145,6 +147,33 @@ export interface SnapshotRow {
   rule_count: number;
 }
 
+export interface AgentCycle {
+  id: string;
+  trigger: string;
+  started_at: string | null;
+  finished_at: string | null;
+  crawled_sources: number;
+  new_documents: number;
+  revisions: number;
+  extracted_documents: number;
+  proposals_created: number;
+  chunks_indexed: number;
+  llm_tokens: number;
+  errors: string[] | null;
+  summary: string | null;
+}
+
+export interface AgentStatus {
+  enabled: boolean;
+  interval_minutes: number;
+  next_run_at: string | null;
+  running_now: boolean;
+  last_cycle: Record<string, unknown> | null;
+  cycles: AgentCycle[];
+  index: { chunks: number; embedded: number; rule_chunks: number; documents: number };
+  awaiting_extraction: number;
+}
+
 export interface AuditEvent {
   id: string;
   actor: string | null;
@@ -255,6 +284,28 @@ export const admin = {
     ),
 
   health: () => req<CorpusHealth>("/admin/health/corpus"),
+
+  agentStatus: () => req<AgentStatus>("/admin/agent/status"),
+
+  agentRun: () =>
+    req<AgentCycle & { summary: string }>("/admin/agent/run", { method: "POST" }),
+
+  reextract: (proposalId: string) =>
+    req<{
+      document_id: string;
+      proposals_created: number;
+      proposals_updated: number;
+      relevant: boolean | null;
+      summary: string | null;
+      error: string | null;
+      skipped_reason: string | null;
+    }>(`/admin/proposals/${proposalId}/extract`, { method: "POST" }),
+
+  rebuildIndex: () =>
+    req<{ chunks_written: number; embedded: number; errors: string[] }>(
+      "/admin/index/rebuild",
+      { method: "POST" },
+    ),
 
   audit: (limit = 100) => req<{ events: AuditEvent[] }>(`/admin/audit?limit=${limit}`),
 

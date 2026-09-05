@@ -1,10 +1,13 @@
 "use client";
 
-/** Left rail. Ported from UI/Shell.dc.html. */
+/** Left rail. Ported from UI/Shell.dc.html, with account and admin access. */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { Snapshot } from "@/lib/api";
+import { admin, type Me } from "@/lib/admin";
+import { initials, useSession } from "@/lib/session";
 
 const NAV = [
   { label: "Ask", href: "/" },
@@ -25,8 +28,39 @@ interface Props {
   onSnapshotClick?: () => void;
 }
 
+// One fetch of the API role per page load, shared by every Shell instance.
+let meCache: Me | null | undefined;
+
 export function Shell({ ya, onYaChange, snapshot, ruleCount, onSnapshotClick }: Props) {
   const pathname = usePathname();
+  const { user, loading, signOut } = useSession();
+  const [me, setMe] = useState<Me | null>(meCache ?? null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      meCache = null;
+      setMe(null);
+      return;
+    }
+    if (meCache !== undefined) return;
+    admin
+      .me()
+      .then((m) => {
+        meCache = m;
+        setMe(m);
+      })
+      .catch(() => {
+        meCache = null;
+      });
+  }, [user]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [menuOpen]);
 
   return (
     <aside className="flex h-full w-[252px] flex-none flex-col overflow-hidden bg-ink-900 px-[18px] py-6">
@@ -75,6 +109,21 @@ export function Shell({ ya, onYaChange, snapshot, ruleCount, onSnapshotClick }: 
             </Link>
           );
         })}
+
+        {me?.is_reviewer && (
+          <Link
+            href="/admin"
+            className="mt-1 flex items-center justify-between rounded-lg border border-white/10 px-[11px] py-2 transition-colors hover:border-white/25 hover:bg-white/[0.04]"
+          >
+            <span className="flex items-center gap-[9px]">
+              <span className="h-1 w-1 flex-none rounded-full bg-good-mintsoft" />
+              <span className="text-[13.5px] font-medium text-white/70">Admin panel</span>
+            </span>
+            <span className="font-mono text-[9.5px] uppercase tracking-[0.08em] text-good-mintsoft">
+              {me.role}
+            </span>
+          </Link>
+        )}
       </nav>
 
       {/* The year of assessment is the axis every rule resolves against, so it
@@ -118,12 +167,103 @@ export function Shell({ ya, onYaChange, snapshot, ruleCount, onSnapshotClick }: 
 
       <div className="flex-1" />
 
+      {/* Account */}
+      <div className="relative mb-3">
+        {loading ? (
+          <div className="h-[46px] rounded-lg bg-white/[0.04]" />
+        ) : user ? (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((v) => !v);
+              }}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="flex w-full items-center gap-[10px] rounded-lg border border-white/10 px-[10px] py-2 text-left transition-colors hover:border-white/25 hover:bg-white/[0.04]"
+            >
+              {user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.image}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-[26px] w-[26px] flex-none rounded-full"
+                />
+              ) : (
+                <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-brand-600 text-[10.5px] font-semibold text-white">
+                  {initials(user)}
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12.5px] font-medium text-white/85">
+                  {user.name ?? user.email}
+                </span>
+                <span className="block truncate font-mono text-[10px] text-white/40">
+                  {user.email}
+                </span>
+              </span>
+              <span className="font-mono text-[10px] text-white/40">▾</span>
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                className="fade-up absolute bottom-[calc(100%+6px)] left-0 right-0 overflow-hidden rounded-lg border border-white/10 bg-[#141B3A] shadow-[0_18px_40px_-20px_rgba(0,0,0,0.7)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Link
+                  href="/history"
+                  role="menuitem"
+                  className="block px-3 py-[9px] text-[12.5px] text-white/75 hover:bg-white/[0.06] hover:text-white"
+                >
+                  My history
+                </Link>
+                <Link
+                  href="/profile"
+                  role="menuitem"
+                  className="block px-3 py-[9px] text-[12.5px] text-white/75 hover:bg-white/[0.06] hover:text-white"
+                >
+                  Privacy and account
+                </Link>
+                {me?.is_reviewer && (
+                  <Link
+                    href="/admin"
+                    role="menuitem"
+                    className="block px-3 py-[9px] text-[12.5px] text-white/75 hover:bg-white/[0.06] hover:text-white"
+                  >
+                    Admin panel
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={signOut}
+                  className="block w-full border-t border-white/10 px-3 py-[9px] text-left text-[12.5px] text-[#F5A9A2] hover:bg-white/[0.06]"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <Link
+            href="/signin"
+            className="flex items-center justify-between rounded-lg border border-white/[0.16] px-3 py-[9px] transition-colors hover:border-white/35 hover:bg-white/[0.04]"
+          >
+            <span className="text-[12.5px] font-medium text-white/80">Sign in</span>
+            <span className="font-mono text-[10px] text-white/40">keeps your history</span>
+          </Link>
+        )}
+      </div>
+
       {/* Spec section 6.2 addition 1: the snapshot is clickable, not a passive date. */}
       <button
         type="button"
         onClick={onSnapshotClick}
         disabled={!snapshot}
-        className="mt-3 border-t border-white/10 pt-[14px] text-left disabled:cursor-default"
+        className="border-t border-white/10 pt-[14px] text-left disabled:cursor-default"
       >
         <div className="font-mono text-[10px] font-medium tracking-[0.14em] text-white/30">
           CORPUS SNAPSHOT

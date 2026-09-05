@@ -1,76 +1,119 @@
-"""The answer graph — spec §4.1, nodes 1-9.
+"""The answer graph, planner driven.
 
-Written as an explicit sequential pipeline rather than a LangGraph StateGraph.
-The graph is linear with two early exits (scope refusal, clarify), so a plain
-function is more readable and more testable than a node registry, and it keeps
-the trace construction obvious. Swapping in LangGraph later means wrapping each
-`_node_*` function; the signatures are already shaped for it.
+The old graph ran the same nine nodes for every question. This one asks the
+model what the user wants, then runs only the nodes that intent needs:
 
-Order matters and is not the obvious one: **retrieval comes after computation**.
-Computation reads the rules table, never the search index. Search is for prose
-the user reads, never for numbers the user relies on.
+  compute      Route → Resolve → Compute → Comply → Retrieve → Explain → Verify
+  obligation   Route → Resolve → Compute → Comply → Explain → Verify
+  deadline     Route → Resolve(deadline) → Retrieve → Explain → Verify
+  compare      Route → Resolve(both years) → Diff → Retrieve → Explain → Verify
+  rule_lookup  Route → Resolve(asked rules) → Retrieve → Explain → Verify
+  general      Route → Retrieve → Resolve(for citations) → Explain → Verify
+  out_of_scope Route → refuse
+
+Two things never change with the path. Numbers come from the rules table and the
+compute engine, never from the model. And Verify runs on every word of prose the
+model produces, whatever the intent.
+
+The trace records the plan before executing it, so the UI can show the agent's
+intention and then fill in what actually happened.
 """
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from sqlalchemy.engine import Connection
 
 from app.compute.engine import REQUIRED_RULE_KEYS, compute
 from app.compute.types import Computation, TaxFacts
+from app.core import llm
 from app.core.config import get_settings
-from app.graph import comply, explain as explain_mod, intake, scope
-from app.graph.verify import BadgeState, VerifyResult, verify
+from app.graph import comply, intent as intent_mod
+from app.graph.explain import ExplainContext, explain
+from app.graph.verify import BadgeState, Evidence, VerifyResult, verify
 from app.privacy.redactor import CodedRedactor, truncate_for_llm
+from app.retrieval import search as retrieval
+from app.retrieval.search import Passage
 from app.rules.resolver import (
     AmbiguousRule,
     ResolvedRuleSet,
+    RuleVersion,
     UnresolvedRule,
     current_snapshot,
+    resolve,
     resolve_many,
 )
+
+ALL_KEYS = REQUIRED_RULE_KEYS + ["deadline.return_filing"]
+
+PLANS: dict[str, list[str]] = {
+    "compute":     ["Intake", "Route", "Resolve", "Compute", "Comply", "Retrieve", "Explain", "Verify"],
+    "obligation":  ["Intake", "Route", "Resolve", "Compute", "Comply", "Explain", "Verify"],
+    "deadline":    ["Intake", "Route", "Resolve", "Retrieve", "Explain", "Verify"],
+    "compare":     ["Intake", "Route", "Resolve", "Compare", "Retrieve", "Explain", "Verify"],
+    "rule_lookup": ["Intake", "Route", "Resolve", "Retrieve", "Explain", "Verify"],
+    "general":     ["Intake", "Route", "Retrieve", "Resolve", "Explain", "Verify"],
+    "out_of_scope": ["Intake", "Route"],
+}
 
 
 @dataclass
 class TraceEntry:
     node: str
-    status: str            # ok | refused | skipped | failed
+    status: str            # ok | refused | skipped | failed | planned
     detail: str | None = None
     ms: int = 0
 
     def to_json(self) -> dict[str, Any]:
-        return {"node": self.node, "status": self.status,
-                "detail": self.detail, "ms": self.ms}
+        return {"node": self.node, "status": self.status, "detail": self.detail, "ms": self.ms}
 
 
 @dataclass
 class AnswerResult:
     kind: str                      # answer | refusal | clarify
+    intent: str = "compute"
+    plan: list[str] = field(default_factory=list)
+    route_source: str = "regex"
     ya: str | None = None
     computation: Computation | None = None
     compliance: comply.Compliance | None = None
     rules: ResolvedRuleSet | None = None
+    lookup: list[RuleVersion] = field(default_factory=list)
+    compare: dict[str, Any] | None = None
+    passages: list[Passage] = field(default_factory=list)
     prose: str | None = None
     verify_result: VerifyResult | None = None
     badge: BadgeState = BadgeState.ALL_CITED
     refusal_reason: str | None = None
     refusal_pointer: str | None = None
+    refusal_category: str | None = None
     clarify_question: str | None = None
     facts: TaxFacts | None = None
     snapshot: dict[str, Any] | None = None
     trace: list[TraceEntry] = field(default_factory=list)
     latency_ms: int = 0
-    model_meta: dict[str, Any] = field(default_factory=dict)
+    llm_budget: llm.LLMBudget = field(default_factory=llm.LLMBudget)
+    redacted_question: str = ""
+    days_remaining: int | None = None
+
+    @property
+    def model_meta(self) -> dict[str, Any]:
+        return self.llm_budget.to_json()
 
 
 _REDACTOR = CodedRedactor(use_ner=True)
 
-_CLARIFY_PROMPTS = {
-    "ya": "Which year of assessment are you asking about — 2025/2026 or 2026/2027?",
-    "income": "What was your total income for the year? A monthly salary figure is fine.",
+_POINTERS = {
+    "VAT": "https://www.ird.gov.lk | Value Added Tax",
+    "SSCL": "https://www.ird.gov.lk | Social Security Contribution Levy",
+    "corporate": "https://www.ird.gov.lk | Corporate Income Tax",
+    "employer-filing": "https://www.ird.gov.lk | APIT for employers",
+    "representation": "https://www.ird.gov.lk | Appeals",
+    "unsupported-year": "https://www.ird.gov.lk | Publications",
 }
 
 
@@ -82,183 +125,335 @@ def run_answer_graph(
 ) -> AnswerResult:
     settings = get_settings()
     started = time.perf_counter()
-    trace: list[TraceEntry] = []
-    result = AnswerResult(kind="answer", trace=trace)
+    result = AnswerResult(kind="answer")
+    trace = result.trace
+    budget = result.llm_budget
 
-    def mark(node: str, status: str, detail: str | None = None, t0: float | None = None):
+    def mark(node: str, status: str, detail: str | None = None, t0: float | None = None) -> None:
         ms = int((time.perf_counter() - (t0 or started)) * 1000)
         trace.append(TraceEntry(node=node, status=status, detail=detail, ms=ms))
 
-    def finish(res: AnswerResult) -> AnswerResult:
-        res.latency_ms = int((time.perf_counter() - started) * 1000)
-        res.trace = trace
-        return res
+    def finish() -> AnswerResult:
+        result.latency_ms = int((time.perf_counter() - started) * 1000)
+        return result
 
-    # --- Node 1: Intake — redact, parse, minimise --------------------------
+    def refuse(reason: str, category: str | None, node: str, t0: float) -> AnswerResult:
+        mark(node, "refused", reason, t0)
+        result.kind = "refusal"
+        result.badge = BadgeState.CANNOT_ANSWER
+        result.refusal_reason = reason
+        result.refusal_category = category
+        result.refusal_pointer = _POINTERS.get(category or "")
+        return finish()
+
+    # --- Intake: redact in process, nothing leaves the machine ---------------
     t0 = time.perf_counter()
     redacted = _REDACTOR.redact(question)
-    if facts_override is not None:
-        facts = facts_override
-    else:
-        facts = intake.parse_question(question, settings.supported_yas)
-    if ya_override:
-        facts.ya = ya_override
-    result.facts = facts
+    result.redacted_question = truncate_for_llm(redacted.text, settings.max_free_text_to_llm)
     mark(
-        "Intake",
-        "ok",
+        "Intake", "ok",
         f"{redacted.total} identifier(s) redacted"
-        + ("" if redacted.ner_available else "; NER model unavailable"),
+        + ("" if redacted.ner_available else "; NER unavailable"),
         t0,
     )
 
-    # --- Node 2: Scope gate ------------------------------------------------
-    # Classifies the ORIGINAL text, not the redacted text. spaCy tags "VAT" as
-    # an ORG, so redaction rewrites it to <EMPLOYER_1> and the gate goes blind
-    # to the very word it exists to catch. This runs in-process against fixed
-    # patterns — nothing leaves the machine — so the raw string is safe here.
-    # Only text bound for the hosted model is redacted (node 8).
+    # --- Route: one model call decides intent, facts, scope, and the plan ---
     t0 = time.perf_counter()
-    verdict = scope.check_scope(question, facts.ya, settings.supported_yas)
-    if not verdict.in_scope:
-        mark("Scope gate", "refused", verdict.reason, t0)
-        result.kind = "refusal"
-        result.badge = BadgeState.CANNOT_ANSWER
-        result.refusal_reason = verdict.reason
-        result.refusal_pointer = verdict.pointer
-        return finish(result)
-    mark("Scope gate", "ok", "personal income tax, supported year", t0)
+    routed = intent_mod.route(result.redacted_question, question, settings.supported_yas, budget)
+    r = routed.routed
+    result.intent = r.intent
+    result.route_source = routed.source
+    result.plan = list(PLANS.get(r.intent, PLANS["general"]))
 
-    # --- Node 3: Clarify — ask exactly one question and stop ---------------
-    t0 = time.perf_counter()
-    missing = facts.missing_required()
-    if missing:
-        field_name = missing[0]
-        mark("Clarify", "ok", f"missing: {field_name}", t0)
-        result.kind = "clarify"
-        result.clarify_question = _CLARIFY_PROMPTS.get(
-            field_name, f"Could you tell me your {field_name}?"
-        )
-        return finish(result)
-    mark("Clarify", "skipped", "all required facts present", t0)
-
-    # --- Node 4: Resolve — deterministic, no LLM --------------------------
-    t0 = time.perf_counter()
-    snapshot = current_snapshot(conn)
-    if snapshot is None:
-        mark("Resolve", "failed", "no current corpus snapshot", t0)
-        result.kind = "refusal"
-        result.badge = BadgeState.CANNOT_ANSWER
-        result.refusal_reason = (
-            "No corpus snapshot is published. The rules database has not been "
-            "seeded."
-        )
-        return finish(result)
-
-    result.snapshot = {
-        "id": str(snapshot["id"]),
-        "label": snapshot["label"],
-        "changelog": snapshot.get("changelog"),
-    }
+    facts = facts_override if facts_override is not None else routed.facts
+    if ya_override and not facts.ya:
+        # The sidebar year applies only when the question did not name one.
+        facts.ya = ya_override  # type: ignore[assignment]
+    result.facts = facts
     result.ya = facts.ya
 
-    needed = REQUIRED_RULE_KEYS + ["deadline.return_filing"]
+    route_detail = f"{r.intent} via {routed.source}"
+    if routed.notes:
+        route_detail += "; " + "; ".join(routed.notes)
+
+    if not r.in_scope or r.intent == "out_of_scope":
+        return refuse(
+            r.scope_reason or "This is outside what Citetax covers.",
+            r.scope_category, "Route", t0,
+        )
+    mark("Route", "ok", route_detail, t0)
+
+    # --- Clarify: only compute and obligation need facts ---------------------
+    if r.intent in ("compute", "obligation"):
+        missing = facts.missing_required()
+        if missing:
+            result.kind = "clarify"
+            result.clarify_question = r.clarify_question or {
+                "ya": "Which year of assessment are you asking about, 2025/2026 or 2026/2027?",
+                "income": "What was your total income for the year? A monthly figure is fine.",
+            }.get(missing[0], "Could you give me a little more detail?")
+            mark("Route", "ok", f"clarify: missing {missing[0]}", t0)
+            return finish()
+    elif not facts.ya:
+        # Non-computational intents still need a year to resolve against.
+        facts.ya = ya_override or settings.supported_yas[-1]  # type: ignore[assignment]
+        result.ya = facts.ya
+
+    # --- Snapshot ------------------------------------------------------------
+    snapshot = current_snapshot(conn)
+    if snapshot is None:
+        return refuse(
+            "No corpus snapshot is published, so there is nothing to resolve against.",
+            None, "Resolve", time.perf_counter(),
+        )
+    result.snapshot = {
+        "id": str(snapshot["id"]), "label": snapshot["label"],
+        "changelog": snapshot.get("changelog"),
+    }
+    snap_id = str(snapshot["id"])
+
+    # --- Dispatch on intent --------------------------------------------------
+    handler = {
+        "compute": _run_compute,
+        "obligation": _run_compute,
+        "deadline": _run_deadline,
+        "compare": _run_compare,
+        "rule_lookup": _run_lookup,
+        "general": _run_general,
+    }.get(r.intent, _run_general)
+
     try:
-        rules = resolve_many(
-            conn, needed, facts.ya, str(snapshot["id"]), as_of=facts.as_of
-        )
+        handler(conn, result, r, facts, snap_id, mark, budget)
     except UnresolvedRule as exc:
-        mark("Resolve", "refused", str(exc), t0)
-        result.kind = "refusal"
-        result.badge = BadgeState.CANNOT_ANSWER
-        result.refusal_reason = (
+        return refuse(
             f"No rule in force found for {exc.rule_key} in year of assessment "
-            f"{exc.ya}. Citetax will not guess a figure."
+            f"{exc.ya}. Citetax will not guess a figure.",
+            "no_rule", "Resolve", time.perf_counter(),
         )
-        return finish(result)
     except AmbiguousRule as exc:
-        # Data-integrity alarm — block the answer (spec §3.6).
-        mark("Resolve", "failed", str(exc), t0)
-        result.kind = "refusal"
-        result.badge = BadgeState.CANNOT_ANSWER
-        result.refusal_reason = (
+        return refuse(
             "The corpus contains conflicting rule versions for this year. The "
-            "answer is blocked and an administrator has been notified."
+            "answer is blocked and an administrator has been notified.",
+            "integrity", "Resolve", time.perf_counter(),
         )
-        return finish(result)
 
+    return finish()
+
+
+# ---------------------------------------------------------------------------
+# Intent handlers. Each runs its nodes, then hands off to _explain_and_verify.
+# ---------------------------------------------------------------------------
+
+def _run_compute(conn, result, r, facts, snap_id, mark, budget) -> None:
+    t0 = time.perf_counter()
+    rules = resolve_many(conn, ALL_KEYS, facts.ya, snap_id, as_of=facts.as_of)
     result.rules = rules
-    mark("Resolve", "ok", f"{len(rules.rules)} rules at snapshot {snapshot['label']}", t0)
+    mark("Resolve", "ok", f"{len(rules.rules)} rules at snapshot {result.snapshot['label']}", t0)
 
-    # --- Node 5: Compute — pure Python ------------------------------------
     t0 = time.perf_counter()
     computation = compute(facts, rules)
     result.computation = computation
-    mark("Compute", "ok", f"{len(computation.steps)} steps", t0)
+    mark("Compute", "ok", f"{len(computation.steps)} steps, pure Python", t0)
 
-    # --- Node 6: Comply ----------------------------------------------------
     t0 = time.perf_counter()
     compliance = comply.assess(computation, rules)
     result.compliance = compliance
+    result.days_remaining = comply.days_until(compliance.return_due)
     mark("Comply", "ok", "must file" if compliance.must_file else "no filing obligation", t0)
 
-    # --- Node 7: Retrieve (explanation only) ------------------------------
-    # Deferred to Phase 7. The quoted_text on each resolved rule version is
-    # already sufficient context for the Explain node, and retrieval must never
-    # influence a number.
-    t0 = time.perf_counter()
-    mark("Retrieve", "skipped", "using quoted source text from resolved rules", t0)
+    if r.intent == "compute":
+        used_keys = [s.rule_key for s in computation.steps if not s.is_zero]
+        _retrieve(conn, result, mark, used_keys)
 
-    # --- Node 8: Explain ---------------------------------------------------
+    _explain_and_verify(result, mark, budget)
+
+
+def _run_deadline(conn, result, r, facts, snap_id, mark, budget) -> None:
     t0 = time.perf_counter()
-    skeleton = truncate_for_llm(redacted.text, settings.max_free_text_to_llm)
-    prose, meta = explain_mod.explain(computation, rules, skeleton)
-    result.model_meta = meta
+    rv = resolve(conn, "deadline.return_filing", facts.ya, snap_id, as_of=facts.as_of)
+    rules = ResolvedRuleSet(ya=facts.ya, snapshot_id=snap_id, rules={rv.rule_key: rv})
+    result.rules = rules
+    result.lookup = [rv]
+    due = rv.value_json.get("due")
+    result.compliance = comply.Compliance(
+        must_file=True, reason="Filing dates for the year of assessment.",
+        return_due=due, instalments=list(rv.value_json.get("instalments", [])),
+        rule_version_id=rv.id, citation_label=rv.citation_label,
+    )
+    result.days_remaining = comply.days_until(due)
+    mark("Resolve", "ok", f"deadline rule {rv.citation_label}, due {due}", t0)
+
+    _retrieve(conn, result, mark, ["deadline.return_filing"])
+    _explain_and_verify(result, mark, budget)
+
+
+def _run_compare(conn, result, r, facts, snap_id, mark, budget) -> None:
+    settings = get_settings()
+    from_ya = r.compare_from if r.compare_from in settings.supported_yas else settings.supported_yas[0]
+    to_ya = r.compare_to if r.compare_to in settings.supported_yas else settings.supported_yas[-1]
+    if from_ya == to_ya:
+        from_ya, to_ya = settings.supported_yas[0], settings.supported_yas[-1]
+
+    t0 = time.perf_counter()
+    a = resolve_many(conn, ALL_KEYS, from_ya, snap_id)
+    b = resolve_many(conn, ALL_KEYS, to_ya, snap_id)
+    result.rules = b
+    result.ya = to_ya
+    mark("Resolve", "ok", f"{len(ALL_KEYS)} rules for each of {from_ya} and {to_ya}", t0)
+
+    t0 = time.perf_counter()
+    from sqlalchemy import text as _sql
+
+    titles = {
+        row[0]: row[1]
+        for row in conn.execute(_sql("select rule_key, title from rule")).all()
+    }
+    changes = []
+    for key in ALL_KEYS:
+        ra, rb = a.rules[key], b.rules[key]
+        changes.append({
+            "rule_key": key,
+            "title": titles.get(key, key),
+            "changed": ra.value_json != rb.value_json,
+            "from": {"value": ra.value_json, "rule_version_id": ra.id,
+                     "citation_label": ra.citation_label,
+                     "effective_from": ra.effective_from.isoformat()},
+            "to": {"value": rb.value_json, "rule_version_id": rb.id,
+                   "citation_label": rb.citation_label,
+                   "effective_from": rb.effective_from.isoformat()},
+        })
+    result.compare = {
+        "from_ya": from_ya, "to_ya": to_ya,
+        "changed_count": sum(1 for c in changes if c["changed"]),
+        "changes": changes,
+    }
+    mark("Compare", "ok", f"{result.compare['changed_count']} of {len(changes)} rules differ", t0)
+
+    changed_keys = [c["rule_key"] for c in changes if c["changed"]] or ALL_KEYS[:3]
+    _retrieve(conn, result, mark, changed_keys)
+    _explain_and_verify(result, mark, budget)
+
+
+def _run_lookup(conn, result, r, facts, snap_id, mark, budget) -> None:
+    keys = [k for k in r.rule_keys if k in ALL_KEYS] or _guess_keys(result.redacted_question)
+    t0 = time.perf_counter()
+    rules = resolve_many(conn, keys, facts.ya, snap_id, as_of=facts.as_of)
+    result.rules = rules
+    result.lookup = list(rules.rules.values())
+    mark("Resolve", "ok", ", ".join(keys), t0)
+
+    _retrieve(conn, result, mark, keys)
+    _explain_and_verify(result, mark, budget)
+
+
+def _run_general(conn, result, r, facts, snap_id, mark, budget) -> None:
+    keys = [k for k in r.rule_keys if k in ALL_KEYS]
+    _retrieve(conn, result, mark, keys or None)
+
+    # Resolve whatever rules the question touches, or everything if it is
+    # broad, so the model has reviewer approved law text to ground on and the
+    # citations panel has something to show.
+    t0 = time.perf_counter()
+    resolve_keys = keys or ALL_KEYS
+    rules = resolve_many(conn, resolve_keys, facts.ya, snap_id)
+    result.rules = rules
+    mark("Resolve", "ok", f"{len(rules.rules)} rules for citation", t0)
+
+    _explain_and_verify(result, mark, budget)
+
+
+# ---------------------------------------------------------------------------
+# Shared tail: retrieve, explain, verify
+# ---------------------------------------------------------------------------
+
+def _retrieve(conn, result, mark, rule_keys: list[str] | None) -> None:
+    t0 = time.perf_counter()
+    try:
+        passages, meta = retrieval.search(conn, result.redacted_question, rule_keys)
+        result.passages = passages
+        detail = f"{len(passages)} passages"
+        if meta.get("dense_enabled"):
+            detail += f" (fts {meta['fts']}, dense {meta['dense']})"
+        else:
+            detail += " (full text only)"
+        if not passages:
+            detail = "nothing indexed yet; using resolved law text"
+        mark("Retrieve", "ok" if passages else "skipped", detail, t0)
+    except Exception as exc:  # noqa: BLE001 — retrieval is for prose, never blocking
+        conn.rollback()
+        mark("Retrieve", "failed", str(exc)[:120], t0)
+
+
+def _explain_and_verify(result: AnswerResult, mark, budget: llm.LLMBudget) -> None:
+    ctx = ExplainContext(
+        intent=result.intent, ya=result.ya,
+        redacted_question=result.redacted_question,
+        rules=result.rules, computation=result.computation,
+        compliance=result.compliance, passages=result.passages,
+        compare=result.compare, lookup=result.lookup,
+        days_remaining=result.days_remaining,
+    )
+    evidence = Evidence(
+        computation=result.computation, rules=result.rules,
+        compliance=result.compliance, passages=result.passages,
+        extra_rules=result.lookup, compare=result.compare,
+        days_remaining=result.days_remaining,
+    )
+
+    t0 = time.perf_counter()
+    prose, meta = explain(ctx, budget=budget)
     if prose is None:
         mark("Explain", "skipped", meta.get("skipped") or meta.get("error"), t0)
-    else:
-        mark("Explain", "ok", f"{len(prose)} chars", t0)
-
-    # --- Node 9: Verify ----------------------------------------------------
-    t0 = time.perf_counter()
-    if prose is None:
-        # No prose to verify. The figures are still fully cited.
         result.prose = None
         result.badge = BadgeState.ALL_CITED
         result.verify_result = VerifyResult(
-            badge=BadgeState.ALL_CITED,
-            ok=True,
-            prose_released=False,
-            note="Explanation unavailable — figures below are verified.",
+            badge=BadgeState.ALL_CITED, ok=True, prose_released=False,
+            note="Explanation unavailable. The figures shown are verified.",
         )
-        mark("Verify", "ok", "no prose; ledger verified by construction", t0)
-        return finish(result)
+        mark("Verify", "ok", "no prose; figures verified by construction", time.perf_counter())
+        return
+    mark("Explain", "ok", f"{len(prose)} chars, {meta.get('tokens', {}).get('out', 0)} tokens", t0)
 
-    vr = verify(prose, computation, rules, attempt=1)
-    if not vr.ok:
-        # Spec §4.2 item 5 — regenerate once, naming the offending token.
-        retry_note = ", ".join(vr.unmatched_numbers) or "an identifier"
-        prose2, meta2 = explain_mod.explain(computation, rules, skeleton, retry_note)
-        result.model_meta = {**meta, "retry": meta2}
+    t0 = time.perf_counter()
+    vr = verify(prose, evidence, attempt=1)
+    if not vr.ok and not vr.pii_classes:
+        retry_note = ", ".join(vr.unmatched_numbers)
+        prose2, _ = explain(ctx, retry_note=retry_note, budget=budget)
         if prose2 is not None:
-            vr = verify(prose2, computation, rules, attempt=2)
-            if vr.ok:
-                prose = prose2
+            vr2 = verify(prose2, evidence, attempt=2)
+            if vr2.ok:
+                prose, vr = prose2, vr2
+            else:
+                vr = vr2
 
     if vr.ok:
         result.prose = prose
         result.badge = BadgeState.ALL_CITED
-        mark("Verify", "ok", "every figure traced to a rule", t0)
+        mark("Verify", "ok", f"{vr.checked_numbers} figures traced", t0)
     else:
-        # Second failure — release the ledger and citations WITHOUT the prose.
         result.prose = None
         result.badge = BadgeState.PARTIAL
         mark(
-            "Verify",
-            "refused",
-            f"withheld: {', '.join(vr.unmatched_numbers) or 'PII in egress'}",
+            "Verify", "refused",
+            "withheld: " + (", ".join(vr.unmatched_numbers) or "identifier in egress"),
             t0,
         )
-
     result.verify_result = vr
-    return finish(result)
+
+
+def _guess_keys(q: str) -> list[str]:
+    q = q.lower()
+    hits = []
+    if "relief" in q:
+        hits.append("relief.personal")
+    if any(w in q for w in ("band", "rate", "bracket", "percent")):
+        hits.append("band.progressive")
+    if "epf" in q:
+        hits.append("deduction.epf_employee")
+    if "apit" in q or "paye" in q:
+        hits.append("credit.apit")
+    if any(w in q for w in ("deadline", "due", "instalment")):
+        hits.append("deadline.return_filing")
+    if "qualifying" in q:
+        hits.append("deduction.qualifying")
+    return hits or ["relief.personal", "band.progressive"]

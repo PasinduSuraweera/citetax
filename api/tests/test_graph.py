@@ -16,10 +16,19 @@ from app.compute.engine import compute
 from app.compute.types import TaxFacts
 from app.graph.intake import parse_question, parse_year_of_assessment
 from app.graph.scope import check_scope, looks_like_tax_question
-from app.graph.verify import BadgeState, verify
+from app.graph.verify import BadgeState, Evidence
+from app.graph.verify import verify as _verify_impl
 from app.rules.resolver import ResolvedRuleSet, RuleVersion
 
 SUPPORTED = ("2025/2026", "2026/2027")
+
+
+def verify(prose, computation, rules, attempt: int = 1):
+    """The node now takes an Evidence bundle so it can verify prose for
+    intents with no computation. These tests exercise the compute case."""
+    return _verify_impl(
+        prose, Evidence(computation=computation, rules=rules), attempt=attempt
+    )
 
 BANDS = [
     {"upto": 1000000, "rate": "0.06"},

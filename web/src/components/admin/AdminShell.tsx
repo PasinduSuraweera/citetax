@@ -5,9 +5,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Me } from "@/lib/admin";
+import { useSession } from "@/lib/session";
+
+function SignOutButton() {
+  const { signOut } = useSession();
+  return (
+    <button
+      type="button"
+      onClick={signOut}
+      title="Sign out"
+      className="ml-2 flex-none rounded-md border border-white/10 px-2 py-1 font-mono text-[10px] text-white/50 transition-colors hover:border-[#F5A9A2]/50 hover:text-[#F5A9A2]"
+    >
+      sign out
+    </button>
+  );
+}
 
 const NAV = [
   { label: "Review inbox", href: "/admin", exact: true },
+  { label: "Corpus agent", href: "/admin/agent" },
   { label: "Corpus health", href: "/admin/health" },
   { label: "Snapshots", href: "/admin/snapshots" },
   { label: "Sources", href: "/admin/sources" },
@@ -86,11 +102,14 @@ export function AdminShell({ me, snapshotLabel, urgentCount, children }: Props) 
             {snapshotLabel ?? "none published"}
           </div>
           {me && (
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <div className="truncate text-[12px] text-white/70">{me.email}</div>
-              <div className="mt-1 inline-block rounded bg-white/10 px-[6px] py-[2px] font-mono text-[10px] uppercase tracking-[0.08em] text-good-mintsoft">
-                {me.role}
+            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+              <div className="min-w-0">
+                <div className="truncate text-[12px] text-white/70">{me.email}</div>
+                <div className="mt-1 inline-block rounded bg-white/10 px-[6px] py-[2px] font-mono text-[10px] uppercase tracking-[0.08em] text-good-mintsoft">
+                  {me.role}
+                </div>
               </div>
+              <SignOutButton />
             </div>
           )}
         </div>

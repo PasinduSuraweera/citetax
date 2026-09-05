@@ -819,6 +819,119 @@ def set_role(
     return {"ok": True, "email": before["email"], "role": role}
 
 
+# ---------------------------------------------------------------------------
+# The corpus agent: status, manual cycle, re-extraction, index rebuild
+# ---------------------------------------------------------------------------
+
+@router.get("/agent/status")
+def agent_status(user: ReviewerDep) -> dict[str, Any]:
+    from app.corpus import scheduler
+
+    with db_conn() as conn:
+        cycles = conn.execute(
+            text(
+                "select id, trigger, started_at, finished_at, crawled_sources, "
+                "       new_documents, revisions, extracted_documents, "
+                "       proposals_created, chunks_indexed, llm_tokens, errors, summary "
+                "  from agent_cycle order by started_at desc limit 12"
+            )
+        ).mappings().all()
+        index_stats = conn.execute(
+            text(
+                "select count(*) as chunks, "
+                "       count(*) filter (where embedding is not null) as embedded, "
+                "       count(*) filter (where rule_key is not null) as rule_chunks, "
+                "       count(distinct source_document_id) as documents "
+                "  from chunk where status = 'published'"
+            )
+        ).mappings().one()
+        pending = conn.execute(
+            text(
+                "select count(*) from change_proposal p join source_document d "
+                "  on d.id = p.source_document_id "
+                " where p.rule_key is null and p.status = 'needs_review' "
+                "   and d.raw_text is not null"
+            )
+        ).scalar_one()
+
+    return {
+        **scheduler.status(),
+        "cycles": [
+            {**dict(c), "id": str(c["id"]),
+             "started_at": c["started_at"].isoformat() if c["started_at"] else None,
+             "finished_at": c["finished_at"].isoformat() if c["finished_at"] else None}
+            for c in cycles
+        ],
+        "index": dict(index_stats),
+        "awaiting_extraction": pending,
+    }
+
+
+@router.post("/agent/run")
+def agent_run_now(user: ReviewerDep) -> dict[str, Any]:
+    """Run one full agent cycle now, synchronously, and return what it did."""
+    from app.corpus import scheduler
+
+    report = scheduler.run_cycle(trigger=f"manual:{user.email}")
+    with db_conn() as conn:
+        _audit(conn, user.email, "agent.run", "agent_cycle", report.id, None,
+               {"summary": report.summary})
+        conn.commit()
+    return report.to_json()
+
+
+@router.post("/proposals/{proposal_id}/extract")
+def reextract(proposal_id: str, user: ReviewerDep) -> dict[str, Any]:
+    """Run the LLM extractor again on this proposal's document.
+
+    Useful after a reviewer uploads a better copy, or when the first attempt
+    failed. Creates new proposal rows for anything found; never touches a
+    proposal the reviewer has already edited or approved.
+    """
+    from app.corpus import extractor
+
+    with db_conn() as conn:
+        row = conn.execute(
+            text(
+                "select source_document_id, status from change_proposal where id = :id"
+            ),
+            {"id": proposal_id},
+        ).mappings().first()
+        if not row or not row["source_document_id"]:
+            raise HTTPException(404, "Proposal or its document not found")
+        if row["status"] in ("approved", "published"):
+            raise HTTPException(409, "This proposal is already approved; re-extraction would not apply.")
+
+        # Reset the extractor marker so it runs again, then run it.
+        conn.execute(
+            text(
+                "update source_document set text_meta = text_meta - 'extractor_version' "
+                " where id = :d"
+            ),
+            {"d": str(row["source_document_id"])},
+        )
+        conn.commit()
+        report = extractor.extract_document(
+            conn, str(row["source_document_id"]), replace_placeholder=True
+        )
+        _audit(conn, user.email, "proposal.reextract", "change_proposal",
+               proposal_id, None, report.to_json())
+        conn.commit()
+    return report.to_json()
+
+
+@router.post("/index/rebuild")
+def rebuild_index(user: AdminDep) -> dict[str, Any]:
+    """Drop and rebuild every retrieval chunk. Slow; admin only."""
+    from app.retrieval import indexer
+
+    with db_conn() as conn:
+        report = indexer.rebuild_all(conn)
+        _audit(conn, user.email, "index.rebuild", "chunk", "all", None, report.to_json())
+        conn.commit()
+    return report.to_json()
+
+
 @router.get("/me")
 def whoami(user: CurrentUserDep) -> dict[str, Any]:
     return {

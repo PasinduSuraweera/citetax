@@ -49,36 +49,42 @@ def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
         result = run_answer_graph(conn, req.question, ya_override=req.ya)
         payload = serialise_answer(result)
 
-        # Persist the run so any answer is reproducible at its snapshot (§9).
-        if result.kind == "answer" and result.computation:
+        # Persist every answered question, whatever path the planner took, so
+        # any answer is reproducible at its snapshot (spec section 9) and the
+        # agent's routing decisions are measurable.
+        if result.kind == "answer":
             run_id = str(uuid.uuid4())
             try:
-                # The connection autobegan during the reads above, so calling
-                # conn.begin() here would raise. Commit what is already open.
+                settings = get_settings()
                 conn.execute(
                     text(
-                        "insert into computation_run (id, user_id, ya, "
-                        "facts_redacted_json, ledger_json, corpus_snapshot_id, "
-                        "answer_text, verify_result, latency_ms, model) values "
-                        "(:id, :uid, :ya, cast(:facts as jsonb), "
-                        "cast(:ledger as jsonb), :snap, :ans, cast(:vr as jsonb), "
-                        ":ms, :model)"
+                        "insert into computation_run (id, user_id, ya, intent, plan, "
+                        "question_redacted, facts_redacted_json, ledger_json, "
+                        "corpus_snapshot_id, answer_text, verify_result, latency_ms, "
+                        "model, llm_usage) values "
+                        "(:id, :uid, :ya, :intent, cast(:plan as jsonb), :q, "
+                        "cast(:facts as jsonb), cast(:ledger as jsonb), :snap, :ans, "
+                        "cast(:vr as jsonb), :ms, :model, cast(:llm as jsonb))"
                     ),
                     {
                         "id": run_id,
                         "uid": user.id if user else None,
-                        "ya": result.ya,
-                        # Redacted facts only — no name, employer or ID ever
-                        # reaches this table (spec §9 retention).
+                        "ya": result.ya or "",
+                        "intent": result.intent,
+                        "plan": _json(result.plan),
+                        # Redacted text only. No name, employer or ID reaches
+                        # this table (spec section 9 retention).
+                        "q": result.redacted_question,
                         "facts": _json(result.facts.model_dump(mode="json"))
                         if result.facts
                         else "{}",
-                        "ledger": _json(payload["computation"]),
+                        "ledger": _json(payload.get("computation") or {}),
                         "snap": result.snapshot["id"] if result.snapshot else None,
                         "ans": result.prose,
                         "vr": _json(payload.get("verify") or {}),
                         "ms": result.latency_ms,
-                        "model": result.model_meta.get("model"),
+                        "model": settings.groq_model if result.llm_budget.calls else None,
+                        "llm": _json(payload.get("llm") or {}),
                     },
                 )
                 conn.commit()
@@ -277,22 +283,42 @@ def compare(
         except UnresolvedRule as exc:
             raise HTTPException(422, str(exc)) from exc
 
+        titles = {
+            r[0]: r[1]
+            for r in conn.execute(text("select rule_key, title from rule")).all()
+        }
+        # The snapshot changelog is the approvers' own words about what moved.
+        history = conn.execute(
+            text(
+                "select label, changelog, created_at from corpus_snapshot "
+                " order by created_at desc limit 8"
+            )
+        ).mappings().all()
+
     changes = []
     for key in keys:
         ra, rb = a.rules[key], b.rules[key]
         changes.append(
             {
                 "rule_key": key,
+                "title": titles.get(key, key),
                 "changed": ra.value_json != rb.value_json,
+                "same_version": ra.id == rb.id,
                 "from": {
                     "value": ra.value_json,
                     "rule_version_id": ra.id,
                     "citation_label": ra.citation_label,
+                    "effective_from": ra.effective_from.isoformat(),
+                    "effective_to": ra.effective_to.isoformat() if ra.effective_to else None,
+                    "quoted_text": ra.quoted_text,
                 },
                 "to": {
                     "value": rb.value_json,
                     "rule_version_id": rb.id,
                     "citation_label": rb.citation_label,
+                    "effective_from": rb.effective_from.isoformat(),
+                    "effective_to": rb.effective_to.isoformat() if rb.effective_to else None,
+                    "quoted_text": rb.quoted_text,
                 },
             }
         )
@@ -303,6 +329,14 @@ def compare(
         "changed_count": sum(1 for c in changes if c["changed"]),
         "changes": changes,
         "corpus_snapshot_id": str(snap["id"]),
+        "snapshot_history": [
+            {
+                "label": h["label"],
+                "changelog": h["changelog"],
+                "created_at": h["created_at"].isoformat() if h["created_at"] else None,
+            }
+            for h in history
+        ],
     }
 
 
@@ -315,6 +349,7 @@ def history(user: CurrentUserDep, limit: int = Query(50, le=200)) -> dict[str, A
             text(
                 "select r.id, r.ya, r.ledger_json, r.answer_text, r.latency_ms, "
                 "       r.created_at, r.corpus_snapshot_id, r.verify_result, "
+                "       r.intent, r.question_redacted, "
                 "       s.label as snapshot_label "
                 "  from computation_run r "
                 "  left join corpus_snapshot s on s.id = r.corpus_snapshot_id "
@@ -331,6 +366,8 @@ def history(user: CurrentUserDep, limit: int = Query(50, le=200)) -> dict[str, A
             {
                 "id": str(r["id"]),
                 "ya": r["ya"],
+                "intent": r["intent"],
+                "question": r["question_redacted"],
                 "balance_payable": ledger.get("balance_payable"),
                 "taxable_income": ledger.get("taxable_income"),
                 "step_count": ledger.get("step_count"),
@@ -366,10 +403,14 @@ def history_detail(run_id: str, user: CurrentUserDep) -> dict[str, Any]:
     return {
         "id": str(row["id"]),
         "ya": row["ya"],
+        "intent": row["intent"],
+        "plan": row["plan"],
+        "question": row["question_redacted"],
         "ledger": row["ledger_json"],
         "facts": row["facts_redacted_json"],
         "answer_text": row["answer_text"],
         "verify_result": row["verify_result"],
+        "llm_usage": row["llm_usage"],
         "latency_ms": row["latency_ms"],
         "model": row["model"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,

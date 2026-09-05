@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AgentTrace } from "@/components/AgentTrace";
 import { AnswerView } from "@/components/AnswerView";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
@@ -9,12 +10,23 @@ import { api, ApiError, type AnswerResponse, type Snapshot } from "@/lib/api";
 
 const EXAMPLES = [
   "What do I owe for 2026/2027 on a salary of LKR 250,000 a month, with EPF deducted?",
-  "Do I need to file if I earn 1,500,000 a year?",
-  "I earned 3,000,000 salary and 1,200,000 freelance in 2026/2027. What is my tax?",
   "When is my return due for 2025/2026?",
+  "What is the personal relief this year?",
+  "What changed between 2025/2026 and 2026/2027?",
+  "Do I need to file if I earn 1,500,000 a year?",
+  "How does APIT work for a salaried employee?",
 ];
 
 export default function AskPage() {
+  return (
+    <Suspense fallback={null}>
+      <AskPageInner />
+    </Suspense>
+  );
+}
+
+function AskPageInner() {
+  const params = useSearchParams();
   const [ya, setYa] = useState<YA>("2026/2027");
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [snapshotOpen, setSnapshotOpen] = useState(false);
@@ -62,6 +74,18 @@ export default function AskPage() {
     [busy, ya],
   );
 
+  // Other pages hand a question over via ?q=, e.g. "ask the agent to explain"
+  // on the comparison screen.
+  const handedOff = useRef(false);
+  useEffect(() => {
+    const q = params.get("q");
+    if (q && !handedOff.current) {
+      handedOff.current = true;
+      setQuestion(q);
+      ask(q);
+    }
+  }, [params, ask]);
+
   const showComposer = !asked && !busy;
 
   return (
@@ -81,8 +105,9 @@ export default function AskPage() {
                 What would you like checked?
               </h1>
               <p className="mt-[10px] text-[15px] leading-[1.6] text-ink-500">
-                Ask about personal income tax for {ya}. Every figure comes back
-                traced to the rule that produced it.
+                Ask about personal income tax for {ya}: a figure, a deadline, a
+                rule, or what changed. The agent picks the path; every figure
+                comes back traced to the rule that produced it.
               </p>
             </div>
 
@@ -124,20 +149,25 @@ export default function AskPage() {
               </div>
             </form>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              {EXAMPLES.map((ex) => (
-                <button
-                  key={ex}
-                  type="button"
-                  onClick={() => {
-                    setQuestion(ex);
-                    ask(ex);
-                  }}
-                  className="rounded-full border border-line-strong bg-white px-[13px] py-[7px] text-[12.5px] text-ink-500 transition-colors hover:border-brand-600 hover:text-brand-600"
-                >
-                  {ex.length > 62 ? `${ex.slice(0, 62)}...` : ex}
-                </button>
-              ))}
+            <div className="mt-5">
+              <div className="mb-2 font-mono text-[10px] tracking-[0.14em] text-ink-300">
+                TRY ONE
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => {
+                      setQuestion(ex);
+                      ask(ex);
+                    }}
+                    className="rounded-full border border-line-strong bg-white px-[13px] py-[7px] text-[12.5px] text-ink-500 transition-colors hover:border-brand-600 hover:text-brand-600"
+                  >
+                    {ex.length > 64 ? `${ex.slice(0, 64)}...` : ex}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mt-8 flex gap-3 rounded-[9px] bg-brand-050 px-[13px] py-3">
@@ -164,9 +194,13 @@ export default function AskPage() {
                 {asked}
               </p>
             </div>
-            <div className="mt-[14px] max-w-[420px]">
+            <div className="mt-[14px] max-w-[440px]">
               <AgentTrace trace={[]} running />
             </div>
+            <p className="mt-3 max-w-[440px] px-1 text-[12px] leading-[1.5] text-ink-400">
+              The model reads the question first and chooses the plan. A
+              deadline question will skip the computation; a figure will run it.
+            </p>
           </div>
         )}
 
@@ -183,17 +217,26 @@ export default function AskPage() {
         {answer && asked && !busy && (
           <div className="mx-auto w-full max-w-[1400px]">
             <AnswerView question={asked} answer={answer} onClarifyAnswer={(t) => ask(`${asked} ${t}`)} />
-            <button
-              type="button"
-              onClick={() => {
-                setAsked(null);
-                setAnswer(null);
-                setQuestion("");
-              }}
-              className="mt-5 rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
-            >
-              Ask another question
-            </button>
+            <div className="mt-5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAsked(null);
+                  setAnswer(null);
+                  setQuestion("");
+                  handedOff.current = true;
+                  window.history.replaceState(null, "", "/");
+                }}
+                className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
+              >
+                Ask another question
+              </button>
+              {answer.run_id && (
+                <span className="font-mono text-[11px] text-ink-300">
+                  saved to history · run {answer.run_id.slice(0, 8)}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </main>

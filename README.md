@@ -4,30 +4,54 @@
 
 SLIIT IT3041, Information Retrieval and Web Analytics.
 
-Citetax answers personal income tax questions for two years of assessment with
-a figure, a step by step computation, and a citation to the specific version of
+Citetax answers personal income tax questions for two years of assessment with a
+figure, a step by step computation, and a citation to the specific version of
 the rule that produced each number.
 
 The differentiator is not that it uses agents. It is that it runs on a
-maintained, versioned, human approved corpus of tax law, and a general chatbot
-does not.
+maintained, versioned, human approved corpus of tax law, kept current by an
+agent that watches the sources, and a general chatbot does not.
 
 ---
 
-## What works today
+## How an answer is produced
 
-| | |
+The model reads the question first and picks a plan. A deadline question does
+not run the computation; a rule lookup goes to retrieval; a comparison diffs the
+two years. Two things never change with the path: numbers come from the rules
+table and the compute engine, never from the model, and every figure in the
+prose is checked against the material before release.
+
+| Intent | Nodes |
 |---|---|
-| Compute engine | Pure Python, `Decimal`, 8 step ledger, every step citing a rule version. No network, no model. |
-| Rule resolution | Deterministic, by year of assessment and by date, so a mid year circular applies from its effective date. Refuses rather than guessing. |
-| Answer graph | 9 nodes: intake, scope gate, clarify, resolve, compute, comply, retrieve, explain, verify. |
-| Verify node | Every figure in generated prose is checked against the ledger. Uncited numbers are blocked and the prose withheld. |
-| Privacy layer | Coded redaction plus spaCy NER. Identifiers stripped, money preserved. |
-| Admin panel | Review inbox, document viewer, diff, impact preview, dual control, publish, rollback, corpus health, audit log. |
-| Source watcher | Live against taxadvisor.lk. Detects silent revisions by content hash and files them as priority 1. |
-| Auth | Google sign in via NextAuth, roles held in the database. |
+| compute | Intake, Route, Resolve, Compute, Comply, Retrieve, Explain, Verify |
+| obligation | Intake, Route, Resolve, Compute, Comply, Explain, Verify |
+| deadline | Intake, Route, Resolve, Retrieve, Explain, Verify |
+| compare | Intake, Route, Resolve, Compare, Retrieve, Explain, Verify |
+| rule_lookup | Intake, Route, Resolve, Retrieve, Explain, Verify |
+| general | Intake, Route, Retrieve, Resolve, Explain, Verify |
+| out_of_scope | Intake, Route, refuse with a reason and a pointer |
 
-**109 backend tests passing.**
+**Intake** strips identifiers in process before anything leaves the machine.
+**Route** is one structured model call: intent, scope, facts in annual LKR, and
+one clarifying question if a required fact is missing. A deterministic regex
+route is the fallback and a cross check: its refusals always stand.
+**Resolve** picks the rule version in force for the year and the date, and
+refuses rather than guessing. **Verify** traces every number, percentage and
+date in the prose to the ledger, a rule value, or a retrieved passage.
+
+## The corpus agent
+
+Runs on a timer inside the API. Each cycle it crawls every enabled source,
+detects silent revisions by content hash, extracts text from PDFs and pages,
+asks the model to pre-fill proposals with the rule key, value, effective date,
+quoted sentence, confidence and rationale, and indexes new passages for
+retrieval. It stops at the point a human has to decide: it never approves, never
+publishes, never touches a published rule.
+
+Reviewers see the agent's report on the admin panel, take pre-filled proposals
+from the inbox, run an impact preview across the golden set, and sign. Anything
+that changes a computed figure needs two distinct people.
 
 ---
 
@@ -56,13 +80,12 @@ assessment. Instalments 15 Aug, 15 Nov, 15 Feb, 15 May.
 ## Layout
 
 ```
-api/     FastAPI. Compute engine, resolver, answer graph, privacy layer, admin API.
-web/     Next.js. User interface and admin panel.
+api/     FastAPI. Planner graph, compute engine, resolver, privacy layer,
+         retrieval, extractor, corpus agent, admin API.
+web/     Next.js. User interface, Google sign in, admin panel.
 db/      SQL migrations, applied in order by api/migrate.py.
 UI/      Claude Design export, the source of truth for the interface.
 ```
-
----
 
 ## Running it
 
@@ -82,18 +105,25 @@ cd web && npm run dev
 |---|---|
 | http://localhost:3000 | Ask a question |
 | http://localhost:3000/admin | Review inbox, needs the reviewer role |
+| http://localhost:3000/admin/agent | What the corpus agent has done |
 | http://127.0.0.1:8000/docs | API reference |
+
+Tests: `pytest tests/` in `api/` (132), and `smoke_test.py` runs every intent
+against the live model.
 
 ---
 
 ## Known gaps
 
-- **PDF text extraction is not wired.** Uploaded PDFs get lineage and audit,
-  but the reviewer works from the source link rather than rendered text.
-- **The extractor is a stub.** The watcher creates proposals; it does not yet
-  read values out of documents, so a reviewer enters the rule key and value.
 - **The IRD source is registered but disabled.** Its site builds the document
-  list client side, so a plain crawler finds nothing. Recorded with the reason
-  rather than left to fail silently.
-- **Retrieval is deferred.** Explanations use the quoted text on each resolved
-  rule version. Embeddings are configured but chunking is not built.
+  list client side, so a plain crawler finds nothing. Documents from IRD enter by
+  reviewer upload until a crawlable index is found.
+- **Scanned PDFs yield no text.** pypdf reads text layers only; OCR would be a
+  separate service. The extractor reports "no extractable text" rather than
+  guessing.
+- **Embedding quota.** The free Gemini tier rate limits per minute. Passages that
+  miss an embedding are still searchable by full text, and the agent retries
+  next cycle.
+- **The reranker is fusion, not a cross encoder.** The spec's BGE reranker needs
+  model weights this build does not load; reciprocal rank fusion of full text and
+  dense results stands in, capped at 20 candidates.

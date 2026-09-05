@@ -1,33 +1,15 @@
-﻿"use client";
+"use client";
 
-/** Spec section 6.2 addition 7: what changed this year, and the rule responsible. */
+/**
+ * What changed between the two years, and the amendment responsible
+ * (spec section 6.2 addition 7).
+ */
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CompareTable } from "@/components/AnswerView";
 import { Shell, type YA } from "@/components/Shell";
-import { api, type CompareResponse, type Snapshot } from "@/lib/api";
-
-function describe(value: unknown): string {
-  if (value == null) return "-";
-  if (typeof value === "object") {
-    const v = value as Record<string, unknown>;
-    if (Array.isArray(v.bands)) {
-      return (v.bands as Array<{ upto: number | null; rate: string }>)
-        .map(
-          (b) =>
-            `${b.upto == null ? "above" : `to ${Number(b.upto).toLocaleString()}`} at ${
-              Number(b.rate) * 100
-            }%`,
-        )
-        .join(", ");
-    }
-    if (typeof v.amount === "string") return Number(v.amount).toLocaleString();
-    if (typeof v.due === "string") return v.due;
-    if (typeof v.employee_rate === "string")
-      return `${Number(v.employee_rate) * 100}%`;
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
+import { api, formatDate, type CompareResponse, type Snapshot } from "@/lib/api";
 
 export default function ComparePage() {
   const [ya, setYa] = useState<YA>("2026/2027");
@@ -37,24 +19,34 @@ export default function ComparePage() {
 
   useEffect(() => {
     api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
-    api
-      .compare("2025/2026", "2026/2027")
-      .then(setData)
-      .catch((e) => setError(e.message));
+    api.compare("2025/2026", "2026/2027").then(setData).catch((e) => setError(e.message));
   }, []);
+
+  const question = "What changed between 2025/2026 and 2026/2027?";
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
       <Shell ya={ya} onYaChange={setYa} snapshot={snapshot} />
       <main className="flex-1 overflow-y-auto px-11 py-9">
-        <div className="max-w-[1000px]">
-          <h1 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900">
-            What changed between the two years
-          </h1>
-          <p className="mt-[10px] max-w-[640px] text-[15px] leading-[1.6] text-ink-500">
-            Comparing 2025/2026 with 2026/2027, rule by rule, as the corpus
-            stands at the current snapshot.
-          </p>
+        <div className="max-w-[1060px]">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <h1 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900">
+                What changed between the two years
+              </h1>
+              <p className="mt-[10px] max-w-[640px] text-[15px] leading-[1.6] text-ink-500">
+                2025/2026 against 2026/2027, rule by rule, as the corpus stands at
+                the current snapshot. A rule that did not change is one version
+                serving both years, not a copy.
+              </p>
+            </div>
+            <Link
+              href={`/?q=${encodeURIComponent(question)}`}
+              className="flex-none rounded-lg bg-brand-600 px-4 py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-brand-700"
+            >
+              Ask the agent to explain
+            </Link>
+          </div>
 
           {error && (
             <div className="mt-6 rounded-xl border border-warn-300 bg-warn-100 px-5 py-4 text-[14px] text-warn-500">
@@ -64,64 +56,71 @@ export default function ComparePage() {
 
           {data && (
             <>
-              <div className="mt-6 rounded-xl border border-line bg-white px-6 py-5">
-                <div className="text-[15px] text-ink-700">
-                  <strong className="font-semibold text-ink-900">
-                    {data.changed_count} of {data.changes.length}
-                  </strong>{" "}
-                  rules differ between the two years.
-                  {data.changed_count === 1 && (
-                    <span className="text-ink-400">
-                      {" "}
-                      The Amendment Act of 2025 set the rates and relief from 1
-                      April 2025 and has not been amended since, so only the
-                      filing dates move.
-                    </span>
-                  )}
-                </div>
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                <Stat label="RULES COMPARED" value={String(data.changes.length)} />
+                <Stat label="CHANGED" value={String(data.changed_count)} tone={data.changed_count ? "brand" : undefined} />
+                <Stat label="SNAPSHOT" value={snapshot?.label ?? "-"} small />
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-xl border border-line bg-white">
-                <div className="flex items-center border-b border-line px-6 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
-                  <span className="flex-1">RULE</span>
-                  <span className="w-[240px] flex-none">2025 / 2026</span>
-                  <span className="w-[240px] flex-none">2026 / 2027</span>
-                  <span className="w-[90px] flex-none text-right">CHANGED</span>
+              <div className="mt-4">
+                <CompareTable compare={data} />
+              </div>
+
+              {data.changed_count === 1 && data.changes.some((c) => c.changed && c.rule_key.startsWith("deadline.")) && (
+                <div className="mt-4 rounded-xl border border-line bg-white px-5 py-4 text-[13.5px] leading-[1.6] text-ink-500">
+                  The Inland Revenue (Amendment) Act No. 2 of 2025 set the rates,
+                  bands and relief from 1 April 2025 and has not been amended since,
+                  so the only movement between these two years is the filing
+                  calendar. When a circular changes a rate mid year, the corpus
+                  agent will file it for review and this page will show the split.
                 </div>
-                {data.changes.map((c) => (
-                  <div
-                    key={c.rule_key}
-                    className={`flex items-center border-b border-line-faint px-6 py-[13px] last:border-b-0 ${
-                      c.changed ? "bg-brand-050/40" : ""
-                    }`}
-                  >
-                    <span className="flex-1 pr-4 font-mono text-[12.5px] text-ink-700">
-                      {c.rule_key}
-                    </span>
-                    <span className="tnum w-[240px] flex-none pr-3 font-mono text-[12px] text-ink-500">
-                      {describe(c.from.value)}
-                    </span>
-                    <span className="tnum w-[240px] flex-none pr-3 font-mono text-[12px] text-ink-900">
-                      {describe(c.to.value)}
-                    </span>
-                    <span className="w-[90px] flex-none text-right">
-                      {c.changed ? (
-                        <span className="rounded-full bg-brand-100 px-2 py-[3px] font-mono text-[10px] font-semibold text-brand-600">
-                          CHANGED
-                        </span>
-                      ) : (
-                        <span className="font-mono text-[10px] text-ink-200">
-                          same
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                ))}
+              )}
+
+              {/* The approvers' own words about what moved, snapshot by snapshot. */}
+              <div className="mt-6 rounded-xl border border-line bg-white px-5 py-5">
+                <div className="eyebrow">CORPUS CHANGELOG</div>
+                <p className="mt-1 text-[12.5px] text-ink-400">
+                  Every publish creates a snapshot with a one line changelog written
+                  by the approver. Newest first.
+                </p>
+                <ol className="mt-4 flex flex-col">
+                  {data.snapshot_history.map((s, i) => (
+                    <li key={`${s.label}-${i}`} className="flex gap-4">
+                      <div className="flex w-[9px] flex-none flex-col items-center">
+                        <span className={`mt-[6px] h-[7px] w-[7px] rounded-full ${i === 0 ? "bg-good-mint" : "bg-[#CFD8EE]"}`} />
+                        {i < data.snapshot_history.length - 1 && <span className="w-px flex-1 bg-[#EEF1F8]" />}
+                      </div>
+                      <div className="pb-4">
+                        <div className="flex items-baseline gap-3">
+                          <span className="text-[13.5px] font-semibold text-ink-900">{s.label}</span>
+                          {i === 0 && (
+                            <span className="rounded-full bg-good-100 px-2 py-[2px] font-mono text-[9.5px] font-semibold text-good-600">CURRENT</span>
+                          )}
+                          {s.created_at && (
+                            <span className="font-mono text-[10.5px] text-ink-300">{formatDate(s.created_at.slice(0, 10))}</span>
+                          )}
+                        </div>
+                        <p className="mt-1 max-w-[680px] text-[13px] leading-[1.55] text-ink-500">
+                          {s.changelog ?? "No changelog recorded."}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
             </>
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function Stat({ label, value, tone, small }: { label: string; value: string; tone?: "brand"; small?: boolean }) {
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${tone === "brand" ? "border-brand-600 bg-brand-050" : "border-line bg-white"}`}>
+      <div className="font-mono text-[10px] tracking-[0.14em] text-ink-300">{label}</div>
+      <div className={`tnum mt-1 font-mono font-semibold text-ink-900 ${small ? "text-[15px]" : "text-[24px]"}`}>{value}</div>
     </div>
   );
 }
