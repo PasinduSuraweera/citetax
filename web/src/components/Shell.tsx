@@ -10,11 +10,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import type { Snapshot } from "@/lib/api";
 import { admin, type Me } from "@/lib/admin";
 import { requestNewQuestion } from "@/lib/ask-store";
 import { initials, useSession } from "@/lib/session";
+import { ConversationList } from "./ConversationList";
 
 const NAV = [
   { label: "Ask", href: "/" },
@@ -145,7 +146,9 @@ function RailContent({
 
   const newQuestion = useCallback(() => {
     onNavigate();
-    // On "/" this resets the view; elsewhere the Link navigation handles it.
+    // On "/" this starts a fresh draft; elsewhere the Link navigation does.
+    // Either way no conversation is created, and none is cleared, until the
+    // first question of the new chat is sent.
     requestNewQuestion();
   }, [onNavigate]);
 
@@ -177,7 +180,7 @@ function RailContent({
         onClick={newQuestion}
         className="mt-6 flex items-center justify-between rounded-[9px] bg-brand-600 px-3 py-[10px] transition-colors hover:bg-brand-700"
       >
-        <span className="text-[13.5px] font-semibold text-white">New question</span>
+        <span className="text-[13.5px] font-semibold text-white">+ New chat</span>
         <span className="hidden font-mono text-[10.5px] font-medium text-white/55 lg:inline">⌘K</span>
       </Link>
 
@@ -267,7 +270,17 @@ function RailContent({
         })}
       </div>
 
-      <div className="flex-1" />
+      {/* Signed in, Recent takes the free height and scrolls on its own.
+          Signed out there is nothing to list and the spacer keeps the account
+          block at the bottom. The list reads the ?c= param, which needs a
+          Suspense boundary on pages that are prerendered. */}
+      {user ? (
+        <Suspense fallback={<div className="flex-1" />}>
+          <ConversationList onNavigate={onNavigate} />
+        </Suspense>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* Account */}
       <div className="relative mb-3 mt-6">

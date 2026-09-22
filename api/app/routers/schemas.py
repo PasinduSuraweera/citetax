@@ -3,6 +3,7 @@ export format and the golden set (spec section 4.3), so it is defined once here.
 
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -15,6 +16,17 @@ from app.rules.resolver import RuleVersion
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     ya: str | None = None
+    # Signed in only. The conversation this question continues; omitted, a
+    # signed in question starts a new one.
+    conversation_id: uuid.UUID | None = None
+    # Ask an answered turn of that conversation again, with the facts stored
+    # on its run, against the current snapshot. The stored question is used
+    # and `question` is ignored. The original turn is left as it was.
+    reask_message_id: uuid.UUID | None = None
+
+
+class RenameConversationRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
 
 
 class ComputeRequest(BaseModel):

@@ -55,6 +55,32 @@ _ACCOUNT_CONTEXT = re.compile(
 # Placeholders already inserted by an earlier tier. NER must not re-enter these.
 _PLACEHOLDER = re.compile(r"<[A-Z]+(?:_\d+)?>")
 
+# Public tax vocabulary that en_core_web_sm, trained on English news, tags as
+# organisations: "What about EPF?" went out as "What about <EMPLOYER_1>?", which
+# cost the planner the subject of the question and retrieval its keyword. These
+# name taxes, funds, identifiers and the tax authority. Every taxpayer shares
+# them, so they identify no one. An entity is kept only when the WHOLE of it is
+# one of these, after dropping a leading "the" and possessives. "Ceylon
+# Textiles EPF" is still redacted whole, so fail-closed still holds.
+_TAX_TERMS = frozenset({
+    "ait", "apit", "cbsl", "cgt", "epf", "esc", "etf", "iit", "ird", "lkr",
+    "nbt", "nic", "paye", "ramis", "rs", "sscl", "svat", "tin", "vat", "wht",
+    "inland revenue", "inland revenue department", "department of inland revenue",
+    "commissioner general of inland revenue", "inland revenue act",
+    "provident fund", "employees provident fund",
+    "trust fund", "employees trust fund",
+    "central bank of sri lanka",
+})
+_POSSESSIVE = re.compile(r"['’]s\b")
+_NOT_WORD = re.compile(r"[^\w\s]")
+
+
+def _is_tax_term(span: str) -> bool:
+    words = _NOT_WORD.sub("", _POSSESSIVE.sub("", span.lower())).split()
+    if words[:1] == ["the"]:
+        words = words[1:]
+    return " ".join(words) in _TAX_TERMS
+
 # A label word immediately preceding its own placeholder, e.g. "NIC <NIC>".
 _LABEL_BEFORE_PLACEHOLDER = re.compile(
     r"(?i)\b(nic|n\.i\.c|tin|passport|phone|tel|mobile|email|e-mail|"
@@ -188,6 +214,8 @@ class CodedRedactor:
 
         for ent in doc.ents:
             if overlaps_placeholder(ent.start_char, ent.end_char):
+                continue
+            if _is_tax_term(ent.text):
                 continue
             if ent.label_ == "PERSON":
                 kind = "PERSON"

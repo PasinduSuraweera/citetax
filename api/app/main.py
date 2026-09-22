@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.corpus import scheduler
 from app.db.session import db_healthy
-from app.routers import admin, public, sources
+from app.routers import admin, conversations, public, sources
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 settings = get_settings()
@@ -49,6 +49,7 @@ app.add_middleware(
 )
 
 app.include_router(public.router)
+app.include_router(conversations.router)
 # Admin routes carry their own role dependencies. In production these sit
 # behind IAP on a separate service (spec section 2.2); locally the role on the
 # account is the gate.
