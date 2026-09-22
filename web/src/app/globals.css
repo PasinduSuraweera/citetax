@@ -81,6 +81,16 @@ html, body {
   .fade-up, .pulse-dot { animation: none; }
 }
 
+/* "Download PDF" is the browser's own print-to-PDF, not a server-generated
+   file. .print-area isolates the printed content; .no-print hides controls
+   (buttons, nav) that would otherwise print along with it. */
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
+
 ::selection { background: var(--color-brand-100); color: var(--color-ink-900); }
 
 :focus-visible {

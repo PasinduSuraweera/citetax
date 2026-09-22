@@ -121,7 +121,7 @@ function AskPageInner() {
   // instead and we clear the answer here.
   useEffect(() => onNewQuestion(reset), [reset]);
 
-  const showComposer = !asked && !busy;
+  const showComposer = !asked && !busy && !payslipFile;
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
@@ -283,6 +283,10 @@ function AskPageInner() {
           </div>
         )}
 
+        {payslipFile && (
+          <PayslipConfirm file={payslipFile} ya={ya} onClose={() => setPayslipFile(null)} />
+        )}
+
         {answer && asked && !busy && (
           <div className="mx-auto w-full max-w-[1440px]">
             <AnswerView question={asked} answer={answer} onClarifyAnswer={(t) => ask(`${asked} ${t}`)} />
@@ -312,10 +316,6 @@ function AskPageInner() {
 
       {snapshotOpen && snapshot && (
         <SnapshotPanel snapshot={snapshot} onClose={() => setSnapshotOpen(false)} />
-      )}
-
-      {payslipFile && (
-        <PayslipConfirm file={payslipFile} ya={ya} onClose={() => setPayslipFile(null)} />
       )}
     </div>
   );
