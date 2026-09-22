@@ -39,6 +39,16 @@ _MULTIPLIER = {
 _MONTHLY = re.compile(r"(?i)\b(per month|a month|monthly|pm|p\.m\.|each month)\b")
 _ANNUAL = re.compile(r"(?i)\b(per year|a year|per annum|annually|yearly|p\.a\.)\b")
 
+# A "what if I got a raise" question states a change, not a total — the
+# figure near these words is added to the base salary rather than replacing
+# it. Without this, "income is 3,000,000 ... with a 50,000 raise" silently
+# drops the 50,000: no keyword list above claims it, so it is never parsed
+# at all and the computation quietly answers the old salary.
+_RAISE_KEYWORDS = [
+    "raise", "increase", "rise", "hike", "pay rise", "pay increase",
+    "salary increase", "salary hike",
+]
+
 _YA = re.compile(r"\b(20\d{2})\s*[/\-–]\s*(20\d{2})\b")
 _SINGLE_YEAR = re.compile(r"(?i)\b(?:ya|year of assessment|for)\s*(20\d{2})\b")
 
@@ -158,6 +168,14 @@ def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
         if _MONTHLY.search(text) and not _ANNUAL.search(text):
             salary *= 12
         facts.employment_income = salary
+
+    raise_hit = _find_amount(text, _RAISE_KEYWORDS, claimed=claimed)
+    if raise_hit is not None:
+        raise_amount, pos = raise_hit
+        claimed.add(pos)
+        if _MONTHLY.search(text) and not _ANNUAL.search(text):
+            raise_amount *= 12
+        facts.employment_income = (facts.employment_income or Decimal(0)) + raise_amount
 
     for keywords, field_name in (
         (["epf", "provident"], "epf_employee"),
