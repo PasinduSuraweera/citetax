@@ -4,7 +4,7 @@ export format and the golden set (spec section 4.3), so it is defined once here.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,10 @@ class ComputeRequest(BaseModel):
     apit_withheld: Decimal = Decimal(0)
     foreign_tax_credit: Decimal = Decimal(0)
     wht_credit: Decimal = Decimal(0)
+
+    # Provenance for the UI/ledger (spec §1.3). Never affects the computation
+    # itself — only which figures a user typed vs. confirmed from a payslip.
+    source: Literal["structured", "payslip"] = "structured"
 
 
 def _money(value: Decimal) -> str:

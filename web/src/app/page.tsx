@@ -4,9 +4,10 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AgentTrace } from "@/components/AgentTrace";
 import { AnswerView } from "@/components/AnswerView";
+import { PayslipConfirm } from "@/components/PayslipConfirm";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
 import { SnapshotPanel } from "@/components/SnapshotPanel";
-import { api, ApiError, type AnswerResponse, type Snapshot } from "@/lib/api";
+import { api, ApiError, type AnswerResponse, type Snapshot, type StreamStep } from "@/lib/api";
 import { onNewQuestion } from "@/lib/ask-store";
 
 const EXAMPLES = [
@@ -37,7 +38,10 @@ function AskPageInner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefilled, setPrefilled] = useState(false);
+  const [liveTrace, setLiveTrace] = useState<StreamStep[]>([]);
+  const [payslipFile, setPayslipFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const payslipInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
@@ -61,8 +65,9 @@ function AskPageInner() {
       setError(null);
       setAsked(text);
       setAnswer(null);
+      setLiveTrace([]);
       try {
-        setAnswer(await api.ask(text, ya));
+        setAnswer(await api.askStream(text, ya, (step) => setLiveTrace((t) => [...t, step])));
       } catch (e) {
         setError(
           e instanceof ApiError
@@ -118,7 +123,7 @@ function AskPageInner() {
   // instead and we clear the answer here.
   useEffect(() => onNewQuestion(reset), [reset]);
 
-  const showComposer = !asked && !busy;
+  const showComposer = !asked && !busy && !payslipFile;
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
@@ -186,6 +191,24 @@ function AskPageInner() {
                   <span className="rounded-lg border border-line-strong px-[11px] py-[7px] text-[12.5px] font-medium text-ink-700">
                     Y/A {ya.replace("/", " / ")}
                   </span>
+                  <input
+                    ref={payslipInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setPayslipFile(f);
+                      if (payslipInputRef.current) payslipInputRef.current.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => payslipInputRef.current?.click()}
+                    className="rounded-lg border border-line-strong px-[11px] py-[7px] text-[12.5px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
+                  >
+                    Upload payslip
+                  </button>
                 </div>
                 <button
                   type="submit"
@@ -243,7 +266,7 @@ function AskPageInner() {
               </p>
             </div>
             <div className="mt-[14px] max-w-[440px]">
-              <AgentTrace trace={[]} running />
+              <AgentTrace trace={liveTrace} running />
             </div>
             <p className="mt-3 max-w-[440px] px-1 text-[12px] leading-[1.5] text-ink-400">
               The model reads the question first and chooses the plan. A
@@ -260,6 +283,10 @@ function AskPageInner() {
               cd api &amp;&amp; .venv\Scripts\python.exe -m uvicorn app.main:app --reload
             </p>
           </div>
+        )}
+
+        {payslipFile && (
+          <PayslipConfirm file={payslipFile} ya={ya} onClose={() => setPayslipFile(null)} />
         )}
 
         {answer && asked && !busy && (

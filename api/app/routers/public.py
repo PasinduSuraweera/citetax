@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import queue
+import threading
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
 from app.compute.engine import REQUIRED_RULE_KEYS, compute
 from app.compute.types import TaxFacts
-from app.core.auth import CurrentUserDep, OptionalUserDep
+from app.core.auth import CurrentUserDep, OptionalUserDep, User
 from app.core.config import get_settings
 from app.db.session import db_conn
 from app.graph import comply
-from app.graph.answer import run_answer_graph
+from app.graph.answer import AnswerResult, run_answer_graph
 from app.routers.schemas import AskRequest, ComputeRequest, serialise_answer
 from app.rules.resolver import (
     AmbiguousRule,
@@ -27,6 +31,55 @@ from app.rules.resolver import (
 
 router = APIRouter(prefix="/v1")
 logger = logging.getLogger(__name__)
+
+
+def _persist_run(
+    conn, result: AnswerResult, payload: dict[str, Any], user: User | None
+) -> None:
+    """Log the interaction so any answer is reproducible at its snapshot (spec
+    section 9) and the agent's routing decisions are measurable. A logging
+    failure must never cost the user their answer, but must not vanish
+    either — an unrecorded run breaks the reproducibility guarantee."""
+    if result.kind != "answer":
+        return
+    run_id = str(uuid.uuid4())
+    try:
+        settings = get_settings()
+        conn.execute(
+            text(
+                "insert into computation_run (id, user_id, ya, intent, plan, "
+                "question_redacted, facts_redacted_json, ledger_json, "
+                "corpus_snapshot_id, answer_text, verify_result, latency_ms, "
+                "model, llm_usage) values "
+                "(:id, :uid, :ya, :intent, cast(:plan as jsonb), :q, "
+                "cast(:facts as jsonb), cast(:ledger as jsonb), :snap, :ans, "
+                "cast(:vr as jsonb), :ms, :model, cast(:llm as jsonb))"
+            ),
+            {
+                "id": run_id,
+                "uid": user.id if user else None,
+                "ya": result.ya or "",
+                "intent": result.intent,
+                "plan": _json(result.plan),
+                "q": result.redacted_question,
+                "facts": _json(result.facts.model_dump(mode="json"))
+                if result.facts
+                else "{}",
+                "ledger": _json(payload.get("computation") or {}),
+                "snap": result.snapshot["id"] if result.snapshot else None,
+                "ans": result.prose,
+                "vr": _json(payload.get("verify") or {}),
+                "ms": result.latency_ms,
+                "model": settings.groq_model if result.llm_budget.calls else None,
+                "llm": _json(payload.get("llm") or {}),
+            },
+        )
+        conn.commit()
+        payload["run_id"] = run_id
+    except Exception as exc:  # noqa: BLE001
+        conn.rollback()
+        logger.warning("computation_run insert failed: %s", exc)
+        payload["run_id"] = None
 
 
 def _require_snapshot(conn) -> dict[str, Any]:
@@ -48,61 +101,57 @@ def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
     with db_conn() as conn:
         result = run_answer_graph(conn, req.question, ya_override=req.ya)
         payload = serialise_answer(result)
-
-        # Persist every answered question, whatever path the planner took, so
-        # any answer is reproducible at its snapshot (spec section 9) and the
-        # agent's routing decisions are measurable.
-        if result.kind == "answer":
-            run_id = str(uuid.uuid4())
-            try:
-                settings = get_settings()
-                conn.execute(
-                    text(
-                        "insert into computation_run (id, user_id, ya, intent, plan, "
-                        "question_redacted, facts_redacted_json, ledger_json, "
-                        "corpus_snapshot_id, answer_text, verify_result, latency_ms, "
-                        "model, llm_usage) values "
-                        "(:id, :uid, :ya, :intent, cast(:plan as jsonb), :q, "
-                        "cast(:facts as jsonb), cast(:ledger as jsonb), :snap, :ans, "
-                        "cast(:vr as jsonb), :ms, :model, cast(:llm as jsonb))"
-                    ),
-                    {
-                        "id": run_id,
-                        "uid": user.id if user else None,
-                        "ya": result.ya or "",
-                        "intent": result.intent,
-                        "plan": _json(result.plan),
-                        # Redacted text only. No name, employer or ID reaches
-                        # this table (spec section 9 retention).
-                        "q": result.redacted_question,
-                        "facts": _json(result.facts.model_dump(mode="json"))
-                        if result.facts
-                        else "{}",
-                        "ledger": _json(payload.get("computation") or {}),
-                        "snap": result.snapshot["id"] if result.snapshot else None,
-                        "ans": result.prose,
-                        "vr": _json(payload.get("verify") or {}),
-                        "ms": result.latency_ms,
-                        "model": settings.groq_model if result.llm_budget.calls else None,
-                        "llm": _json(payload.get("llm") or {}),
-                    },
-                )
-                conn.commit()
-                payload["run_id"] = run_id
-            except Exception as exc:  # noqa: BLE001
-                # A logging failure must never cost the user their answer, but
-                # it must not vanish either — an unrecorded run breaks the
-                # reproducibility guarantee and needs to be visible.
-                conn.rollback()
-                logger.warning("computation_run insert failed: %s", exc)
-                payload["run_id"] = None
-
+        _persist_run(conn, result, payload, user)
         return payload
 
 
-def _json(obj: Any) -> str:
-    import json
+@router.post("/ask/stream")
+def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingResponse:
+    """Same question-in, answer-out contract as /ask, except each trace step
+    is pushed the instant it actually finishes instead of arriving all at
+    once at the end.
 
+    Newline-delimited JSON over a plain POST response, not text/event-stream:
+    a browser's native EventSource cannot attach an Authorization header, and
+    this API is bearer-token authenticated. A plain fetch() reading the
+    response body as a stream has no such limitation.
+
+    The graph itself is synchronous, so it runs on a background thread that
+    posts each step to a queue; this generator just drains that queue and
+    yields as items arrive.
+    """
+
+    def generate():
+        q: "queue.Queue[dict[str, Any]]" = queue.Queue()
+
+        def on_node(entry) -> None:
+            q.put({"type": "step", **entry.to_json()})
+
+        def worker() -> None:
+            try:
+                with db_conn() as conn:
+                    result = run_answer_graph(
+                        conn, req.question, ya_override=req.ya, on_node=on_node,
+                    )
+                    payload = serialise_answer(result)
+                    _persist_run(conn, result, payload, user)
+                q.put({"type": "done", "payload": payload})
+            except Exception as exc:  # noqa: BLE001 — surfaced to the client, not swallowed
+                logger.exception("ask/stream worker failed")
+                q.put({"type": "error", "message": str(exc)[:300]})
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        while True:
+            item = q.get()
+            yield json.dumps(item, default=str) + "\n"
+            if item["type"] in ("done", "error"):
+                break
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+def _json(obj: Any) -> str:
     return json.dumps(obj, default=str)
 
 
@@ -117,7 +166,7 @@ def compute_endpoint(req: ComputeRequest) -> dict[str, Any]:
             f"Supported: {', '.join(settings.supported_yas)}",
         )
 
-    facts = TaxFacts(source="structured", **req.model_dump(exclude={"ya"}), ya=req.ya)
+    facts = TaxFacts(**req.model_dump(exclude={"ya"}), ya=req.ya)
 
     with db_conn() as conn:
         snap = _require_snapshot(conn)

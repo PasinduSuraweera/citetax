@@ -5,8 +5,14 @@
  *
  * Shown, not summarised (spec section 9, "Nothing hidden"). The node list comes
  * from the response, because the planner picks a different path for a deadline
- * question than for a computation. While a question is running, the timeline
- * shows the generic full path filling in.
+ * question than for a computation.
+ *
+ * While a question is running, this reflects the real backend, not a guess:
+ * `trace` grows one entry at a time as /v1/ask/stream pushes each step the
+ * instant it actually finishes (see api.askStream). The step immediately
+ * after the last real one pulses as "next up" — that part is the only
+ * inference this component makes, and it is a one-step inference, not a
+ * timed animation standing in for data that was never there.
  */
 
 import type { TraceEntry } from "@/lib/api";
@@ -27,13 +33,43 @@ const BLURB: Record<string, string> = {
   Verify: "Checks every figure against a rule before release",
 };
 
-const DOT: Record<TraceEntry["status"], string> = {
-  ok: "bg-good-mint",
+// Each step's own identity color — what a step IS, shown once it succeeds.
+// Status colors below take over instead whenever a step did not simply
+// succeed, so a failure or refusal is never hidden behind its phase color.
+const PHASE_DOT: Record<string, string> = {
+  Intake: "bg-brand-600",
+  Route: "bg-phase-route",
+  Resolve: "bg-phase-resolve",
+  Compute: "bg-good-mint",
+  Comply: "bg-phase-comply",
+  Compare: "bg-phase-compare",
+  Retrieve: "bg-phase-retrieve",
+  Explain: "bg-phase-explain",
+  Verify: "bg-phase-verify",
+};
+const PHASE_RING: Record<string, string> = {
+  Intake: "bg-brand-600/30",
+  Route: "bg-phase-route/30",
+  Resolve: "bg-phase-resolve/30",
+  Compute: "bg-good-mint/30",
+  Comply: "bg-phase-comply/30",
+  Compare: "bg-phase-compare/30",
+  Retrieve: "bg-phase-retrieve/30",
+  Explain: "bg-phase-explain/30",
+  Verify: "bg-phase-verify/30",
+};
+
+// What a step's status was, shown instead of its phase color whenever that
+// status was not a plain success — a failure needs to stand out, not blend
+// into the same palette as everything that went fine.
+const STATUS_DOT: Partial<Record<TraceEntry["status"], string>> = {
   skipped: "bg-ink-200",
   refused: "bg-[#B07A16]",
   failed: "bg-warn-600",
-  planned: "bg-[#DFE5F2]",
 };
+
+const LINE_LIT = "bg-brand-600";
+const LINE_DIM = "bg-line";
 
 interface Props {
   trace: TraceEntry[];
@@ -77,28 +113,60 @@ export function AgentTrace({ trace, plan, intent, routeSource, running, latencyM
         </div>
       )}
 
-      <ol className="mt-[13px] flex flex-col">
+      <ol className="mt-[15px] flex flex-col">
         {nodes.map((node, i) => {
           const entry = byNode.get(node);
-          const isNext = running && i === nextIndex;
-          const pending = !entry && !isNext;
+          const isNext = running && i === nextIndex && !entry;
+          const done = Boolean(entry);
+          const pending = !done && !isNext;
+
+          const dotClass = entry
+            ? (STATUS_DOT[entry.status] ?? PHASE_DOT[node] ?? "bg-good-mint")
+            : isNext
+              ? (PHASE_DOT[node] ?? "bg-brand-600")
+              : "bg-line-strong";
 
           return (
-            <li key={`${node}-${i}`} className="flex gap-[10px]">
-              <div className="flex w-[9px] flex-none flex-col items-center">
+            <li key={`${node}-${i}`} className="flex gap-[11px]">
+              <div className="flex w-[11px] flex-none flex-col items-center">
                 <span
-                  className={`mt-[5px] h-[7px] w-[7px] flex-none rounded-full ${
-                    entry ? DOT[entry.status] : isNext ? "bg-brand-600 pulse-dot" : "bg-[#DFE5F2]"
-                  }`}
-                />
+                  className={`relative mt-[3px] h-[11px] w-[11px] flex-none rounded-full transition-colors duration-300 ${dotClass}`}
+                >
+                  {entry?.status === "ok" && (
+                    <svg
+                      className="absolute inset-0 h-full w-full text-white"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 6.2l2 2 4-4.4" />
+                    </svg>
+                  )}
+                  {isNext && (
+                    <span
+                      className={`absolute -inset-[3px] rounded-full pulse-dot ${PHASE_RING[node] ?? "bg-brand-600/30"}`}
+                    />
+                  )}
+                </span>
                 {i < nodes.length - 1 && (
-                  <span className={`w-px flex-1 ${entry ? "bg-[#CFD8EE]" : "bg-[#EEF1F8]"}`} />
+                  <span
+                    className={`w-[2px] flex-1 rounded-full transition-colors duration-300 ${
+                      done ? LINE_LIT : LINE_DIM
+                    }`}
+                  />
                 )}
               </div>
 
-              <div className={`pb-[11px] ${pending ? "opacity-40" : ""}`}>
+              <div className={`pb-[13px] transition-opacity duration-300 ${pending ? "opacity-40" : ""}`}>
                 <div className="flex items-baseline gap-2">
-                  <span className={`text-[13px] ${entry ? "font-medium text-ink-900" : "text-ink-400"}`}>
+                  <span
+                    className={`text-[13px] ${
+                      entry ? "font-medium text-ink-900" : isNext ? "font-medium text-brand-600" : "text-ink-400"
+                    }`}
+                  >
                     {node}
                   </span>
                   {entry && entry.status !== "ok" && (
