@@ -62,6 +62,40 @@ class _GeminiPayslipResponse(BaseModel):
     warnings: list[str] = []
 
 
+def _response_schema() -> dict:
+    """Built by hand as a plain dict, not a `types.Schema` instance or a
+    Pydantic model class.
+
+    The google-genai SDK's `t_schema` transformer only passes a plain `dict`
+    through untouched. Anything else gets routed through
+    `origin.model_json_schema()` — including a `types.Schema` instance, since
+    `Schema` is itself a Pydantic model, so that call describes the *shape of
+    the Schema class*, not the schema we built. And a Pydantic model class's
+    own `X | None` field becomes `anyOf: [{type: X}, {type: "null"}]`, which
+    the SDK naively uppercases to `"NULL"` — not a legal Gemini type, so
+    `Schema.model_validate` rejects it. A plain dict sidesteps both problems;
+    "optional" is expressed as `nullable: true` on the real type, the way
+    Gemini's schema actually supports it.
+    """
+
+    def nullable(schema_type: str, **kw) -> dict:
+        return {"type": schema_type, "nullable": True, **kw}
+
+    return {
+        "type": "OBJECT",
+        "properties": {
+            "is_payslip": {"type": "BOOLEAN"},
+            "confidence": {"type": "NUMBER"},
+            "pay_period": nullable("STRING", enum=["monthly", "annual"]),
+            "gross_salary": nullable("NUMBER"),
+            "epf_employee": nullable("NUMBER"),
+            "apit_withheld": nullable("NUMBER"),
+            "warnings": {"type": "ARRAY", "items": {"type": "STRING"}},
+        },
+        "required": ["is_payslip", "confidence"],
+    }
+
+
 class PayslipExtraction(BaseModel):
     """What the rest of the app sees. No name/employer/NIC field exists here,
     mirroring TaxFacts's minimisation boundary at the schema level."""
@@ -106,12 +140,10 @@ def extract(file_bytes: bytes, mime_type: str) -> PayslipExtraction:
             ],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=_GeminiPayslipResponse,
+                response_schema=_response_schema(),
             ),
         )
-        raw = resp.parsed
-        if raw is None:
-            raw = _GeminiPayslipResponse.model_validate_json(resp.text)
+        raw = _GeminiPayslipResponse.model_validate_json(resp.text)
     except Exception as exc:  # noqa: BLE001 — any failure here is the same to the caller
         logger.warning("payslip extraction failed: %s", exc)
         raise PayslipExtractionUnavailable(str(exc)[:200]) from exc
