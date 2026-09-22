@@ -299,12 +299,87 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface StreamStep {
+  node: string;
+  status: TraceEntry["status"];
+  detail: string | null;
+  ms: number;
+}
+
+/**
+ * Same question-in, answer-out contract as api.ask, except onStep fires the
+ * instant each step actually finishes on the backend — not a guess, not a
+ * timer. Plain fetch() reading the body as a stream, not EventSource: a
+ * browser's native EventSource cannot attach the Authorization header this
+ * API needs, and NDJSON over POST has no such limitation.
+ */
+async function askStream(
+  question: string,
+  ya: string | undefined,
+  onStep: (step: StreamStep) => void,
+): Promise<AnswerResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (typeof window !== "undefined") {
+    const token = await getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/v1/ask/stream`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ question, ya: ya ?? null }),
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(`Cannot reach the Citetax API at ${API_BASE}. Is it running?`, 0);
+  }
+  if (!res.ok || !res.body) {
+    throw new ApiError(`Request failed (${res.status})`, res.status);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineAt: number;
+    while ((newlineAt = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, newlineAt).trim();
+      buffer = buffer.slice(newlineAt + 1);
+      if (!line) continue;
+
+      const event = JSON.parse(line) as
+        | ({ type: "step" } & StreamStep)
+        | { type: "done"; payload: AnswerResponse }
+        | { type: "error"; message: string };
+
+      if (event.type === "step") {
+        onStep(event);
+      } else if (event.type === "done") {
+        return event.payload;
+      } else {
+        throw new ApiError(event.message, 0);
+      }
+    }
+  }
+
+  throw new ApiError("The stream ended without a result.", 0);
+}
+
 export const api = {
   ask: (question: string, ya?: string) =>
     request<AnswerResponse>("/v1/ask", {
       method: "POST",
       body: JSON.stringify({ question, ya: ya ?? null }),
     }),
+
+  askStream,
 
   compute: (body: Record<string, string>) =>
     request<ComputeResponse>("/v1/compute", {

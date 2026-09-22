@@ -7,7 +7,7 @@ import { AnswerView } from "@/components/AnswerView";
 import { PayslipConfirm } from "@/components/PayslipConfirm";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
 import { SnapshotPanel } from "@/components/SnapshotPanel";
-import { api, ApiError, type AnswerResponse, type Snapshot } from "@/lib/api";
+import { api, ApiError, type AnswerResponse, type Snapshot, type StreamStep } from "@/lib/api";
 import { onNewQuestion } from "@/lib/ask-store";
 
 const EXAMPLES = [
@@ -38,6 +38,7 @@ function AskPageInner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefilled, setPrefilled] = useState(false);
+  const [liveTrace, setLiveTrace] = useState<StreamStep[]>([]);
   const [payslipFile, setPayslipFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const payslipInputRef = useRef<HTMLInputElement>(null);
@@ -64,8 +65,9 @@ function AskPageInner() {
       setError(null);
       setAsked(text);
       setAnswer(null);
+      setLiveTrace([]);
       try {
-        setAnswer(await api.ask(text, ya));
+        setAnswer(await api.askStream(text, ya, (step) => setLiveTrace((t) => [...t, step])));
       } catch (e) {
         setError(
           e instanceof ApiError
@@ -264,7 +266,7 @@ function AskPageInner() {
               </p>
             </div>
             <div className="mt-[14px] max-w-[440px]">
-              <AgentTrace trace={[]} running />
+              <AgentTrace trace={liveTrace} running />
             </div>
             <p className="mt-3 max-w-[440px] px-1 text-[12px] leading-[1.5] text-ink-400">
               The model reads the question first and chooses the plan. A
