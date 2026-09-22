@@ -37,6 +37,19 @@
   --color-warn-300: #F1CFCA;
   --color-warn-100: #FBE9E7;
 
+  /* Agent trace: each step gets its own identity color, distinct from the
+     status colors above (ok/failed/etc), which still take over when a step
+     did not simply succeed. Intake and Compute reuse brand/good rather than
+     add two more hues, since "entry point" and "verified arithmetic" already
+     have an established color in this app. */
+  --color-phase-route: #6E56CF;
+  --color-phase-resolve: #0E8F8A;
+  --color-phase-comply: #C4832B;
+  --color-phase-compare: #2A8FC7;
+  --color-phase-retrieve: #8B6FD9;
+  --color-phase-explain: #C24F87;
+  --color-phase-verify: #1F8F4C;
+
   /* next/font injects these variables on <html>. */
   --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, monospace;

@@ -18,6 +18,7 @@ import {
   type AnswerResponse,
   type ComputeResponse,
   type PayslipExtractResponse,
+  type StreamStep,
 } from "@/lib/api";
 import { AgentTrace } from "./AgentTrace";
 import { AnswerView } from "./AnswerView";
@@ -46,6 +47,7 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
   const [followUpAnswer, setFollowUpAnswer] = useState<AnswerResponse | null>(null);
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
+  const [followUpTrace, setFollowUpTrace] = useState<StreamStep[]>([]);
   const followUpRef = useRef<HTMLTextAreaElement>(null);
 
   const contextPrefix = () =>
@@ -59,8 +61,13 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
     setFollowUpError(null);
     setFollowUpAsked(question);
     setFollowUpAnswer(null);
+    setFollowUpTrace([]);
     try {
-      setFollowUpAnswer(await api.ask(contextPrefix() + question, ya));
+      setFollowUpAnswer(
+        await api.askStream(contextPrefix() + question, ya, (step) =>
+          setFollowUpTrace((t) => [...t, step]),
+        ),
+      );
     } catch (e) {
       setFollowUpError(e instanceof ApiError ? e.message : "Something went wrong reaching the API.");
     } finally {
@@ -269,7 +276,7 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
 
             {followUpBusy && followUpAsked && (
               <div className="mt-4 max-w-[440px]">
-                <AgentTrace trace={[]} running />
+                <AgentTrace trace={followUpTrace} running />
               </div>
             )}
 

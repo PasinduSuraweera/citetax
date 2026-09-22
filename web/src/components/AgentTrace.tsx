@@ -5,18 +5,16 @@
  *
  * Shown, not summarised (spec section 9, "Nothing hidden"). The node list comes
  * from the response, because the planner picks a different path for a deadline
- * question than for a computation. While a question is running, the timeline
- * shows the generic full path filling in.
+ * question than for a computation.
  *
- * The backend answers atomically — there is no real per-step signal while a
- * question is in flight, only the full trace once it lands. Rather than leave
- * the first step lit for the entire wait (which reads as stuck, not working),
- * the loading state walks a synthetic index down the plan on a timer. It is
- * honest about being a guess: a stepped-past node gets a plain filled dot, not
- * the checkmark a real "ok" status gets once the answer actually arrives.
+ * While a question is running, this reflects the real backend, not a guess:
+ * `trace` grows one entry at a time as /v1/ask/stream pushes each step the
+ * instant it actually finishes (see api.askStream). The step immediately
+ * after the last real one pulses as "next up" — that part is the only
+ * inference this component makes, and it is a one-step inference, not a
+ * timed animation standing in for data that was never there.
  */
 
-import { useEffect, useState } from "react";
 import type { TraceEntry } from "@/lib/api";
 
 const FULL_PATH = [
@@ -35,12 +33,39 @@ const BLURB: Record<string, string> = {
   Verify: "Checks every figure against a rule before release",
 };
 
-const DOT: Record<TraceEntry["status"], string> = {
-  ok: "bg-good-mint",
+// Each step's own identity color — what a step IS, shown once it succeeds.
+// Status colors below take over instead whenever a step did not simply
+// succeed, so a failure or refusal is never hidden behind its phase color.
+const PHASE_DOT: Record<string, string> = {
+  Intake: "bg-brand-600",
+  Route: "bg-phase-route",
+  Resolve: "bg-phase-resolve",
+  Compute: "bg-good-mint",
+  Comply: "bg-phase-comply",
+  Compare: "bg-phase-compare",
+  Retrieve: "bg-phase-retrieve",
+  Explain: "bg-phase-explain",
+  Verify: "bg-phase-verify",
+};
+const PHASE_RING: Record<string, string> = {
+  Intake: "bg-brand-600/30",
+  Route: "bg-phase-route/30",
+  Resolve: "bg-phase-resolve/30",
+  Compute: "bg-good-mint/30",
+  Comply: "bg-phase-comply/30",
+  Compare: "bg-phase-compare/30",
+  Retrieve: "bg-phase-retrieve/30",
+  Explain: "bg-phase-explain/30",
+  Verify: "bg-phase-verify/30",
+};
+
+// What a step's status was, shown instead of its phase color whenever that
+// status was not a plain success — a failure needs to stand out, not blend
+// into the same palette as everything that went fine.
+const STATUS_DOT: Partial<Record<TraceEntry["status"], string>> = {
   skipped: "bg-ink-200",
   refused: "bg-[#B07A16]",
   failed: "bg-warn-600",
-  planned: "bg-[#DFE5F2]",
 };
 
 const LINE_LIT = "bg-brand-600";
@@ -62,19 +87,7 @@ export function AgentTrace({ trace, plan, intent, routeSource, running, latencyM
   // last entry for a node is the one that stands.
   const byNode = new Map<string, TraceEntry>();
   trace.forEach((t) => byNode.set(t.node, t));
-  const hasRealProgress = trace.length > 0;
-
-  // No reset-on-transition needed: the loading trace and the completed trace
-  // are different mounted instances in the parent (a "busy" block swaps for
-  // an "answer" block), so a fresh mount already starts this at 0.
-  const [simIndex, setSimIndex] = useState(0);
-  useEffect(() => {
-    if (!running || hasRealProgress) return;
-    const id = setInterval(() => {
-      setSimIndex((i) => (i + 1 < nodes.length ? i + 1 : i));
-    }, 850);
-    return () => clearInterval(id);
-  }, [running, hasRealProgress, nodes.length]);
+  const nextIndex = trace.length;
 
   return (
     <div className="rounded-xl border border-line bg-white px-4 pb-4 pt-4">
@@ -103,19 +116,15 @@ export function AgentTrace({ trace, plan, intent, routeSource, running, latencyM
       <ol className="mt-[15px] flex flex-col">
         {nodes.map((node, i) => {
           const entry = byNode.get(node);
-          const simDone = !hasRealProgress && running && i < simIndex;
-          const simActive = !hasRealProgress && running && i === simIndex;
-          const done = Boolean(entry) || simDone;
-          const active = simActive;
-          const pending = !done && !active;
+          const isNext = running && i === nextIndex && !entry;
+          const done = Boolean(entry);
+          const pending = !done && !isNext;
 
           const dotClass = entry
-            ? DOT[entry.status]
-            : active
-              ? "bg-brand-600"
-              : simDone
-                ? "bg-ink-700"
-                : "bg-line-strong";
+            ? (STATUS_DOT[entry.status] ?? PHASE_DOT[node] ?? "bg-good-mint")
+            : isNext
+              ? (PHASE_DOT[node] ?? "bg-brand-600")
+              : "bg-line-strong";
 
           return (
             <li key={`${node}-${i}`} className="flex gap-[11px]">
@@ -136,8 +145,10 @@ export function AgentTrace({ trace, plan, intent, routeSource, running, latencyM
                       <path d="M3 6.2l2 2 4-4.4" />
                     </svg>
                   )}
-                  {active && (
-                    <span className="absolute -inset-[3px] rounded-full bg-brand-600/30 pulse-dot" />
+                  {isNext && (
+                    <span
+                      className={`absolute -inset-[3px] rounded-full pulse-dot ${PHASE_RING[node] ?? "bg-brand-600/30"}`}
+                    />
                   )}
                 </span>
                 {i < nodes.length - 1 && (
@@ -153,7 +164,7 @@ export function AgentTrace({ trace, plan, intent, routeSource, running, latencyM
                 <div className="flex items-baseline gap-2">
                   <span
                     className={`text-[13px] ${
-                      entry ? "font-medium text-ink-900" : active ? "font-medium text-brand-600" : "text-ink-400"
+                      entry ? "font-medium text-ink-900" : isNext ? "font-medium text-brand-600" : "text-ink-400"
                     }`}
                   >
                     {node}
