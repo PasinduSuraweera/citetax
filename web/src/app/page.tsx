@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AgentTrace } from "@/components/AgentTrace";
 import { AnswerView } from "@/components/AnswerView";
+import { PayslipConfirm } from "@/components/PayslipConfirm";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
 import { SnapshotPanel } from "@/components/SnapshotPanel";
 import { api, ApiError, type AnswerResponse, type Snapshot } from "@/lib/api";
@@ -37,7 +38,9 @@ function AskPageInner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefilled, setPrefilled] = useState(false);
+  const [payslipFile, setPayslipFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const payslipInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
@@ -186,6 +189,24 @@ function AskPageInner() {
                   <span className="rounded-lg border border-line-strong px-[11px] py-[7px] text-[12.5px] font-medium text-ink-700">
                     Y/A {ya.replace("/", " / ")}
                   </span>
+                  <input
+                    ref={payslipInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setPayslipFile(f);
+                      if (payslipInputRef.current) payslipInputRef.current.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => payslipInputRef.current?.click()}
+                    className="rounded-lg border border-line-strong px-[11px] py-[7px] text-[12.5px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
+                  >
+                    Upload payslip
+                  </button>
                 </div>
                 <button
                   type="submit"
@@ -291,6 +312,10 @@ function AskPageInner() {
 
       {snapshotOpen && snapshot && (
         <SnapshotPanel snapshot={snapshot} onClose={() => setSnapshotOpen(false)} />
+      )}
+
+      {payslipFile && (
+        <PayslipConfirm file={payslipFile} ya={ya} onClose={() => setPayslipFile(null)} />
       )}
     </div>
   );
