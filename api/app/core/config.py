@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     google_project_id: str = ""
 
+    # --- Payslip upload (hosted vision extraction, no local OCR) ---
+    payslip_extraction_model: str = "gemini-2.5-flash"
+    payslip_max_bytes: int = 8 * 1024 * 1024
+
     # --- Supported years of assessment (spec §1.2) ---
     supported_yas: tuple[str, ...] = ("2025/2026", "2026/2027")
 

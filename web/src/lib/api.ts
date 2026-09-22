@@ -202,6 +202,19 @@ export interface ObligationResponse extends Compliance {
   corpus_snapshot_id: string;
 }
 
+export interface PayslipExtractResponse {
+  ya: string;
+  source: "payslip";
+  confidence: number;
+  pay_period: "monthly" | "annual" | null;
+  fields: {
+    employment_income?: string;
+    epf_employee?: string;
+    apit_withheld?: string;
+  };
+  warnings: string[];
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -245,7 +258,9 @@ export function clearToken(): void {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    // A FormData body needs the browser to set its own multipart boundary —
+    // forcing JSON here would break every upload call.
+    ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(init?.headers as Record<string, string>),
   };
 
@@ -296,6 +311,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  payslipExtract: (file: File, ya: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("ya", ya);
+    return request<PayslipExtractResponse>("/v1/payslip/extract", {
+      method: "POST",
+      body: form,
+    });
+  },
 
   snapshot: () => request<Snapshot>("/v1/snapshot/current"),
 

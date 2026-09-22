@@ -117,7 +117,7 @@ def compute_endpoint(req: ComputeRequest) -> dict[str, Any]:
             f"Supported: {', '.join(settings.supported_yas)}",
         )
 
-    facts = TaxFacts(source="structured", **req.model_dump(exclude={"ya"}), ya=req.ya)
+    facts = TaxFacts(**req.model_dump(exclude={"ya"}), ya=req.ya)
 
     with db_conn() as conn:
         snap = _require_snapshot(conn)
