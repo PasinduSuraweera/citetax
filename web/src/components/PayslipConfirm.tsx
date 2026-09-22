@@ -18,11 +18,12 @@ interface Props {
   file: File;
   ya: string;
   onClose: () => void;
+  onAskAbout: (draft: string) => void;
 }
 
 type Phase = "extracting" | "confirm" | "computing" | "result" | "error";
 
-export function PayslipConfirm({ file, ya, onClose }: Props) {
+export function PayslipConfirm({ file, ya, onClose, onAskAbout }: Props) {
   const [phase, setPhase] = useState<Phase>("extracting");
   const [error, setError] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<PayslipExtractResponse | null>(null);
@@ -178,6 +179,19 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
           </div>
 
           <div className="no-print mt-5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                onAskAbout(
+                  `For ${ya}, my annual employment income is LKR ${employmentIncome || "0"}, ` +
+                    `EPF (employee share) is LKR ${epfEmployee || "0"}, and APIT already withheld ` +
+                    `is LKR ${apitWithheld || "0"}. `,
+                )
+              }
+              className="rounded-lg bg-brand-600 px-[18px] py-[9px] text-[13.5px] font-semibold text-white transition-colors hover:bg-brand-700"
+            >
+              Ask a question about this
+            </button>
             <button
               type="button"
               onClick={() => window.print()}
