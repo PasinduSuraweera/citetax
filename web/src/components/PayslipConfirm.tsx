@@ -10,20 +10,28 @@
  * numeric response from `/v1/payslip/extract` does.
  */
 
-import { useEffect, useState } from "react";
-import { api, ApiError, money, type ComputeResponse, type PayslipExtractResponse } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import {
+  api,
+  ApiError,
+  money,
+  type AnswerResponse,
+  type ComputeResponse,
+  type PayslipExtractResponse,
+} from "@/lib/api";
+import { AgentTrace } from "./AgentTrace";
+import { AnswerView } from "./AnswerView";
 import { ComputationTable } from "./ComputationTable";
 
 interface Props {
   file: File;
   ya: string;
   onClose: () => void;
-  onAskAbout: (draft: string) => void;
 }
 
 type Phase = "extracting" | "confirm" | "computing" | "result" | "error";
 
-export function PayslipConfirm({ file, ya, onClose, onAskAbout }: Props) {
+export function PayslipConfirm({ file, ya, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>("extracting");
   const [error, setError] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<PayslipExtractResponse | null>(null);
@@ -31,6 +39,34 @@ export function PayslipConfirm({ file, ya, onClose, onAskAbout }: Props) {
   const [epfEmployee, setEpfEmployee] = useState("");
   const [apitWithheld, setApitWithheld] = useState("");
   const [result, setResult] = useState<ComputeResponse | null>(null);
+
+  // Follow-up question, answered in place — this screen never navigates away.
+  const [followUp, setFollowUp] = useState("");
+  const [followUpAsked, setFollowUpAsked] = useState<string | null>(null);
+  const [followUpAnswer, setFollowUpAnswer] = useState<AnswerResponse | null>(null);
+  const [followUpBusy, setFollowUpBusy] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
+  const followUpRef = useRef<HTMLTextAreaElement>(null);
+
+  const contextPrefix = () =>
+    `For ${ya}, my annual employment income is LKR ${employmentIncome || "0"}, ` +
+    `EPF (employee share) is LKR ${epfEmployee || "0"}, and APIT already withheld ` +
+    `is LKR ${apitWithheld || "0"}. `;
+
+  const askFollowUp = async (question: string) => {
+    if (!question.trim() || followUpBusy) return;
+    setFollowUpBusy(true);
+    setFollowUpError(null);
+    setFollowUpAsked(question);
+    setFollowUpAnswer(null);
+    try {
+      setFollowUpAnswer(await api.ask(contextPrefix() + question, ya));
+    } catch (e) {
+      setFollowUpError(e instanceof ApiError ? e.message : "Something went wrong reaching the API.");
+    } finally {
+      setFollowUpBusy(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -181,19 +217,6 @@ export function PayslipConfirm({ file, ya, onClose, onAskAbout }: Props) {
           <div className="no-print mt-5 flex items-center gap-3">
             <button
               type="button"
-              onClick={() =>
-                onAskAbout(
-                  `For ${ya}, my annual employment income is LKR ${employmentIncome || "0"}, ` +
-                    `EPF (employee share) is LKR ${epfEmployee || "0"}, and APIT already withheld ` +
-                    `is LKR ${apitWithheld || "0"}. `,
-                )
-              }
-              className="rounded-lg bg-brand-600 px-[18px] py-[9px] text-[13.5px] font-semibold text-white transition-colors hover:bg-brand-700"
-            >
-              Ask a question about this
-            </button>
-            <button
-              type="button"
               onClick={() => window.print()}
               className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
             >
@@ -206,6 +229,65 @@ export function PayslipConfirm({ file, ya, onClose, onAskAbout }: Props) {
             >
               Done
             </button>
+          </div>
+
+          <div className="no-print mt-6">
+            <div className="eyebrow">ASK ABOUT THIS</div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                askFollowUp(followUp);
+                setFollowUp("");
+              }}
+              className="mt-2 rounded-[13px] border-[1.5px] border-brand-600 bg-white shadow-[0_0_0_4px_rgba(43,68,199,0.09)]"
+            >
+              <textarea
+                ref={followUpRef}
+                value={followUp}
+                onChange={(e) => setFollowUp(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    askFollowUp(followUp);
+                    setFollowUp("");
+                  }
+                }}
+                rows={2}
+                placeholder="e.g. how much more would I owe with a 50,000 raise?"
+                className="w-full resize-none bg-transparent px-4 pb-[6px] pt-3 text-[14.5px] leading-[1.5] text-ink-900 outline-none placeholder:text-ink-200"
+              />
+              <div className="flex justify-end px-3 pb-[10px]">
+                <button
+                  type="submit"
+                  disabled={!followUp.trim() || followUpBusy}
+                  className="rounded-lg bg-brand-600 px-4 py-[7px] text-[13px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Ask
+                </button>
+              </div>
+            </form>
+
+            {followUpBusy && followUpAsked && (
+              <div className="mt-4 max-w-[440px]">
+                <AgentTrace trace={[]} running />
+              </div>
+            )}
+
+            {followUpError && (
+              <div className="mt-4 rounded-xl border border-warn-300 bg-warn-100 px-5 py-4">
+                <p className="text-[13.5px] leading-[1.55] text-warn-500">{followUpError}</p>
+              </div>
+            )}
+
+            {followUpAnswer && followUpAsked && !followUpBusy && (
+              <div className="mt-4">
+                <AnswerView
+                  question={followUpAsked}
+                  answer={followUpAnswer}
+                  onClarifyAnswer={(t) => askFollowUp(`${followUpAsked} ${t}`)}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

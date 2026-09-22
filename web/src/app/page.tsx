@@ -121,23 +121,6 @@ function AskPageInner() {
   // instead and we clear the answer here.
   useEffect(() => onNewQuestion(reset), [reset]);
 
-  // A follow-up from the payslip result stays on this same mounted page, so
-  // it cannot reuse the ?draft= handoff (handedOff.current already fired on
-  // first load and a route push here would not remount). Same end effect —
-  // fill the box, focus it, leave the user in control of sending it — done
-  // as a direct state update instead.
-  const draftFromPayslip = useCallback((draft: string) => {
-    setPayslipFile(null);
-    setQuestion(draft);
-    setPrefilled(true);
-    requestAnimationFrame(() => {
-      const el = inputRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(draft.length, draft.length);
-    });
-  }, []);
-
   const showComposer = !asked && !busy && !payslipFile;
 
   return (
@@ -301,12 +284,7 @@ function AskPageInner() {
         )}
 
         {payslipFile && (
-          <PayslipConfirm
-            file={payslipFile}
-            ya={ya}
-            onClose={() => setPayslipFile(null)}
-            onAskAbout={draftFromPayslip}
-          />
+          <PayslipConfirm file={payslipFile} ya={ya} onClose={() => setPayslipFile(null)} />
         )}
 
         {answer && asked && !busy && (
