@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Client for citetax-api.
  *
  * Money crosses the wire as a string and stays a string until it is formatted
@@ -245,6 +245,19 @@ export interface ObligationResponse extends Compliance {
   corpus_snapshot_id: string;
 }
 
+export interface PayslipExtractResponse {
+  ya: string;
+  source: "payslip";
+  confidence: number;
+  pay_period: "monthly" | "annual" | null;
+  fields: {
+    employment_income?: string;
+    epf_employee?: string;
+    apit_withheld?: string;
+  };
+  warnings: string[];
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -288,7 +301,9 @@ export function clearToken(): void {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    // A FormData body needs the browser to set its own multipart boundary —
+    // forcing JSON here would break every upload call.
+    ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(init?.headers as Record<string, string>),
   };
 
@@ -327,6 +342,79 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // 204 No Content has no body to parse.
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+export interface StreamStep {
+  node: string;
+  status: TraceEntry["status"];
+  detail: string | null;
+  ms: number;
+}
+
+/**
+ * Same question-in, answer-out contract as api.ask, except onStep fires the
+ * instant each step actually finishes on the backend — not a guess, not a
+ * timer. Plain fetch() reading the body as a stream, not EventSource: a
+ * browser's native EventSource cannot attach the Authorization header this
+ * API needs, and NDJSON over POST has no such limitation.
+ */
+async function askStream(
+  question: string,
+  ya: string | undefined,
+  onStep: (step: StreamStep) => void,
+): Promise<AnswerResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (typeof window !== "undefined") {
+    const token = await getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/v1/ask/stream`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ question, ya: ya ?? null }),
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(`Cannot reach the Citetax API at ${API_BASE}. Is it running?`, 0);
+  }
+  if (!res.ok || !res.body) {
+    throw new ApiError(`Request failed (${res.status})`, res.status);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineAt: number;
+    while ((newlineAt = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, newlineAt).trim();
+      buffer = buffer.slice(newlineAt + 1);
+      if (!line) continue;
+
+      const event = JSON.parse(line) as
+        | ({ type: "step" } & StreamStep)
+        | { type: "done"; payload: AnswerResponse }
+        | { type: "error"; message: string };
+
+      if (event.type === "step") {
+        onStep(event);
+      } else if (event.type === "done") {
+        return event.payload;
+      } else {
+        throw new ApiError(event.message, 0);
+      }
+    }
+  }
+
+  throw new ApiError("The stream ended without a result.", 0);
 }
 
 export const api = {
@@ -371,11 +459,23 @@ export const api = {
   deleteConversation: (id: string) =>
     request<void>(`/v1/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
+  askStream,
+
   compute: (body: Record<string, string>) =>
     request<ComputeResponse>("/v1/compute", {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  payslipExtract: (file: File, ya: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("ya", ya);
+    return request<PayslipExtractResponse>("/v1/payslip/extract", {
+      method: "POST",
+      body: form,
+    });
+  },
 
   snapshot: () => request<Snapshot>("/v1/snapshot/current"),
 

@@ -24,7 +24,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy.engine import Connection
 
@@ -124,13 +124,19 @@ def run_answer_graph(
     ya_override: str | None = None,
     facts_override: TaxFacts | None = None,
     context: ConversationContext | None = None,
+    on_node: Callable[[TraceEntry], None] | None = None,
 ) -> AnswerResult:
     """Answer one question.
 
-    `context` is the bounded, redacted slice of the conversation the question
-    belongs to, built by app.conversations.context. Only Route reads it.
-    Resolve, Compute, Explain and Verify see the current turn alone, and the
-    rules are always resolved against the current snapshot.
+    `context` is the bounded, redacted slice of the conversation the
+    question belongs to, built by app.conversations.context. Only Route
+    reads it. Resolve, Compute, Explain and Verify see the current turn
+    alone, and the rules are always resolved against the current snapshot.
+
+    `on_node`, when given, fires the instant each step actually finishes —
+    not a guess, not a timer. The streaming endpoint uses it to push real
+    progress to the client as the graph runs; the plain endpoint leaves it
+    unset and just gets the trace list at the end, as before.
     """
     settings = get_settings()
     started = time.perf_counter()
@@ -140,7 +146,10 @@ def run_answer_graph(
 
     def mark(node: str, status: str, detail: str | None = None, t0: float | None = None) -> None:
         ms = int((time.perf_counter() - (t0 or started)) * 1000)
-        trace.append(TraceEntry(node=node, status=status, detail=detail, ms=ms))
+        entry = TraceEntry(node=node, status=status, detail=detail, ms=ms)
+        trace.append(entry)
+        if on_node is not None:
+            on_node(entry)
 
     def finish() -> AnswerResult:
         result.latency_ms = int((time.perf_counter() - started) * 1000)

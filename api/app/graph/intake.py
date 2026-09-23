@@ -39,6 +39,23 @@ _MULTIPLIER = {
 _MONTHLY = re.compile(r"(?i)\b(per month|a month|monthly|pm|p\.m\.|each month)\b")
 _ANNUAL = re.compile(r"(?i)\b(per year|a year|per annum|annually|yearly|p\.a\.)\b")
 
+# A "what if I got a raise" question states a change, not a total — the
+# figure near these words is added to (or, for a cut, subtracted from) the
+# base salary rather than replacing it or being dropped. Without this,
+# "income is 3,000,000 ... with a 50,000 raise" silently loses the 50,000:
+# no keyword list below claims it, so it is never parsed at all and the
+# computation quietly answers the old salary. A bonus, overtime pay and
+# commission get the same additive treatment — for this calculation they
+# are all just more employment income, not a separate source.
+_INCREASE_KEYWORDS = [
+    "raise", "increase", "rise", "hike", "pay rise", "pay increase",
+    "salary increase", "salary hike", "bonus", "overtime", "commission",
+]
+_DECREASE_KEYWORDS = [
+    "pay cut", "salary cut", "decrease", "reduction", "reduced by",
+    "cut by", "dropped by", "lower by",
+]
+
 _YA = re.compile(r"\b(20\d{2})\s*[/\-–]\s*(20\d{2})\b")
 _SINGLE_YEAR = re.compile(r"(?i)\b(?:ya|year of assessment|for)\s*(20\d{2})\b")
 
@@ -159,11 +176,35 @@ def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
             salary *= 12
         facts.employment_income = salary
 
+    increase_hit = _find_amount(text, _INCREASE_KEYWORDS, claimed=claimed)
+    if increase_hit is not None:
+        amount, pos = increase_hit
+        claimed.add(pos)
+        if _MONTHLY.search(text) and not _ANNUAL.search(text):
+            amount *= 12
+        facts.employment_income = (facts.employment_income or Decimal(0)) + amount
+
+    decrease_hit = _find_amount(text, _DECREASE_KEYWORDS, claimed=claimed)
+    if decrease_hit is not None:
+        amount, pos = decrease_hit
+        claimed.add(pos)
+        if _MONTHLY.search(text) and not _ANNUAL.search(text):
+            amount *= 12
+        # A cut larger than the stated salary is a nonsensical input, not a
+        # negative-income scenario the compute engine needs to handle.
+        facts.employment_income = max(
+            Decimal(0), (facts.employment_income or Decimal(0)) - amount
+        )
+
     for keywords, field_name in (
         (["epf", "provident"], "epf_employee"),
         (["apit", "paye", "withheld", "deducted at source"], "apit_withheld"),
         (["business income", "freelance", "self-employed"], "business_income"),
         (["interest", "dividend", "rent", "investment"], "investment_income"),
+        (["qualifying payment"], "qualifying_payments"),
+        (["foreign tax credit", "tax paid abroad", "foreign tax paid"], "foreign_tax_credit"),
+        (["withholding tax credit", "wht credit"], "wht_credit"),
+        (["other income", "miscellaneous income", "misc income"], "other_income"),
     ):
         found = _find_amount(text, keywords, claimed=claimed)
         if found is not None:

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import queue
+import threading
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
 from app.compute.engine import REQUIRED_RULE_KEYS, compute
@@ -30,6 +34,56 @@ from app.rules.resolver import (
 
 router = APIRouter(prefix="/v1")
 logger = logging.getLogger(__name__)
+
+
+def _persist_run(
+    conn, result: AnswerResult, payload: dict[str, Any], user: User | None
+) -> None:
+    """Log the interaction so any answer is reproducible at its snapshot (spec
+    section 9) and the agent's routing decisions are measurable. A logging
+    failure must never cost the user their answer, but must not vanish
+    either — an unrecorded run breaks the reproducibility guarantee."""
+    if result.kind != "answer":
+        return
+    run_id = str(uuid.uuid4())
+    try:
+        settings = get_settings()
+        conn.execute(
+            text(
+                "insert into computation_run (id, user_id, ya, intent, plan, "
+                "question_redacted, facts_redacted_json, ledger_json, "
+                "rule_version_ids, corpus_snapshot_id, answer_text, verify_result, "
+                "latency_ms, model, llm_usage) values "
+                "(:id, :uid, :ya, :intent, cast(:plan as jsonb), :q, "
+                "cast(:facts as jsonb), cast(:ledger as jsonb), cast(:rvids as uuid[]), "
+                ":snap, :ans, cast(:vr as jsonb), :ms, :model, cast(:llm as jsonb))"
+            ),
+            {
+                "id": run_id,
+                "uid": user.id if user else None,
+                "ya": result.ya or "",
+                "intent": result.intent,
+                "plan": _json(result.plan),
+                "q": result.redacted_question,
+                "facts": _json(result.facts.model_dump(mode="json"))
+                if result.facts
+                else "{}",
+                "ledger": _json(payload.get("computation") or {}),
+                "rvids": _rule_version_ids(result),
+                "snap": result.snapshot["id"] if result.snapshot else None,
+                "ans": result.prose,
+                "vr": _json(payload.get("verify") or {}),
+                "ms": result.latency_ms,
+                "model": settings.groq_model if result.llm_budget.calls else None,
+                "llm": _json(payload.get("llm") or {}),
+            },
+        )
+        conn.commit()
+        payload["run_id"] = run_id
+    except Exception as exc:  # noqa: BLE001
+        conn.rollback()
+        logger.warning("computation_run insert failed: %s", exc)
+        payload["run_id"] = None
 
 
 def _require_snapshot(conn) -> dict[str, Any]:
@@ -93,65 +147,119 @@ def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
             facts_override=facts_override, context=context,
         )
         payload = serialise_answer(result)
-
-        # Persist every answered question, whatever path the planner took, so
-        # any answer is reproducible at its snapshot (spec section 9) and the
-        # agent's routing decisions are measurable.
-        if result.kind == "answer":
-            run_id = str(uuid.uuid4())
-            try:
-                settings = get_settings()
-                conn.execute(
-                    text(
-                        "insert into computation_run (id, user_id, ya, intent, plan, "
-                        "question_redacted, facts_redacted_json, ledger_json, "
-                        "rule_version_ids, "
-                        "corpus_snapshot_id, answer_text, verify_result, latency_ms, "
-                        "model, llm_usage) values "
-                        "(:id, :uid, :ya, :intent, cast(:plan as jsonb), :q, "
-                        "cast(:facts as jsonb), cast(:ledger as jsonb), "
-                        "cast(:rvids as uuid[]), :snap, :ans, "
-                        "cast(:vr as jsonb), :ms, :model, cast(:llm as jsonb))"
-                    ),
-                    {
-                        "id": run_id,
-                        "uid": user.id if user else None,
-                        "ya": result.ya or "",
-                        "intent": result.intent,
-                        "plan": _json(result.plan),
-                        # Redacted text only. No name, employer or ID reaches
-                        # this table (spec section 9 retention).
-                        "q": result.redacted_question,
-                        "facts": _json(result.facts.model_dump(mode="json"))
-                        if result.facts
-                        else "{}",
-                        "ledger": _json(payload.get("computation") or {}),
-                        # Exactly which rule versions this answer used, so it
-                        # can be reproduced even if the snapshot is rolled back.
-                        "rvids": _rule_version_ids(result),
-                        "snap": result.snapshot["id"] if result.snapshot else None,
-                        "ans": result.prose,
-                        "vr": _json(payload.get("verify") or {}),
-                        "ms": result.latency_ms,
-                        "model": settings.groq_model if result.llm_budget.calls else None,
-                        "llm": _json(payload.get("llm") or {}),
-                    },
-                )
-                conn.commit()
-                payload["run_id"] = run_id
-            except Exception as exc:  # noqa: BLE001
-                # A logging failure must never cost the user their answer, but
-                # it must not vanish either — an unrecorded run breaks the
-                # reproducibility guarantee and needs to be visible.
-                conn.rollback()
-                logger.warning("computation_run insert failed: %s", exc)
-                payload["run_id"] = None
-
-        if user is not None:
-            payload.update(_save_turn(conn, user, conversation_id, result, payload))
-
+        _persist_run(conn, result, payload, user)
         return payload
 
+
+@router.post("/ask/stream")
+def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingResponse:
+    """Same question-in, answer-out contract as /ask, except each trace step
+    is pushed the instant it actually finishes instead of arriving all at
+    once at the end.
+
+    Newline-delimited JSON over a plain POST response, not text/event-stream:
+    a browser's native EventSource cannot attach an Authorization header, and
+    this API is bearer-token authenticated. A plain fetch() reading the
+    response body as a stream has no such limitation.
+
+    Signed-in conversation behavior mirrors /ask: context is bounded and
+    redacted, re-ask uses the stored facts, and the new answer is saved as a
+    new turn. Anonymous streaming remains a one-off answer.
+    """
+
+    if (req.conversation_id or req.reask_message_id) and user is None:
+        raise HTTPException(401, "Sign in to continue this conversation")
+    if req.reask_message_id and not req.conversation_id:
+        raise HTTPException(422, "reask_message_id needs its conversation_id")
+
+    conversation_id = str(req.conversation_id) if req.conversation_id else None
+
+    def generate():
+        q: "queue.Queue[dict[str, Any]]" = queue.Queue()
+
+        def on_node(entry) -> None:
+            q.put({"type": "step", **entry.to_json()})
+
+        def worker() -> None:
+            try:
+                with db_conn() as conn:
+                    question = req.question
+                    facts_override: TaxFacts | None = None
+                    context = None
+
+                    if user is not None and conversation_id:
+                        before_seq = None
+                        if req.reask_message_id:
+                            source = store.reask_source(
+                                conn,
+                                user.id,
+                                conversation_id,
+                                str(req.reask_message_id),
+                            )
+                            if source is None:
+                                raise HTTPException(404, "Message not found")
+                            try:
+                                facts_override = TaxFacts.model_validate(source.facts)
+                            except ValidationError as exc:
+                                raise HTTPException(
+                                    409, "That answer cannot be asked again"
+                                ) from exc
+                            question = source.question
+                            before_seq = source.question_seq
+
+                        rows = store.context_rows(
+                            conn,
+                            user.id,
+                            conversation_id,
+                            before_seq=before_seq,
+                        )
+                        if rows is None:
+                            raise HTTPException(404, "Conversation not found")
+                        context = build_context(rows)
+
+                    result = run_answer_graph(
+                        conn,
+                        question,
+                        ya_override=req.ya,
+                        facts_override=facts_override,
+                        context=context,
+                        on_node=on_node,
+                    )
+                    payload = serialise_answer(result)
+                    _persist_run(conn, result, payload, user)
+
+                    if user is not None:
+                        payload.update(
+                            _save_turn(
+                                conn,
+                                user,
+                                conversation_id,
+                                result,
+                                payload,
+                            )
+                        )
+
+                q.put({"type": "done", "payload": payload})
+            except HTTPException as exc:
+                logger.warning("ask/stream request failed: %s", exc.detail)
+                q.put(
+                    {
+                        "type": "error",
+                        "status": exc.status_code,
+                        "message": str(exc.detail),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 — surfaced to the client
+                logger.exception("ask/stream worker failed")
+                q.put({"type": "error", "message": str(exc)[:300]})
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        while True:
+            item = q.get()
+            yield json.dumps(item, default=str) + "\n"
+            if item["type"] in ("done", "error"):
+                break
 
 def _save_turn(
     conn,
@@ -237,9 +345,9 @@ def _rule_version_ids(result: AnswerResult) -> list[str]:
 
 
 def _json(obj: Any) -> str:
-    import json
-
     return json.dumps(obj, default=str)
+
+
 
 
 @router.post("/compute")
@@ -253,7 +361,7 @@ def compute_endpoint(req: ComputeRequest) -> dict[str, Any]:
             f"Supported: {', '.join(settings.supported_yas)}",
         )
 
-    facts = TaxFacts(source="structured", **req.model_dump(exclude={"ya"}), ya=req.ya)
+    facts = TaxFacts(**req.model_dump(exclude={"ya"}), ya=req.ya)
 
     with db_conn() as conn:
         snap = _require_snapshot(conn)
