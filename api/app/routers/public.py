@@ -10,11 +10,14 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
 from app.compute.engine import REQUIRED_RULE_KEYS, compute
 from app.compute.types import TaxFacts
+from app.conversations import envelope, store, titles
+from app.conversations.context import build_context
 from app.core.auth import CurrentUserDep, OptionalUserDep, User
 from app.core.config import get_settings
 from app.db.session import db_conn
@@ -49,11 +52,11 @@ def _persist_run(
             text(
                 "insert into computation_run (id, user_id, ya, intent, plan, "
                 "question_redacted, facts_redacted_json, ledger_json, "
-                "corpus_snapshot_id, answer_text, verify_result, latency_ms, "
-                "model, llm_usage) values "
+                "rule_version_ids, corpus_snapshot_id, answer_text, verify_result, "
+                "latency_ms, model, llm_usage) values "
                 "(:id, :uid, :ya, :intent, cast(:plan as jsonb), :q, "
-                "cast(:facts as jsonb), cast(:ledger as jsonb), :snap, :ans, "
-                "cast(:vr as jsonb), :ms, :model, cast(:llm as jsonb))"
+                "cast(:facts as jsonb), cast(:ledger as jsonb), cast(:rvids as uuid[]), "
+                ":snap, :ans, cast(:vr as jsonb), :ms, :model, cast(:llm as jsonb))"
             ),
             {
                 "id": run_id,
@@ -66,6 +69,7 @@ def _persist_run(
                 if result.facts
                 else "{}",
                 "ledger": _json(payload.get("computation") or {}),
+                "rvids": _rule_version_ids(result),
                 "snap": result.snapshot["id"] if result.snapshot else None,
                 "ans": result.prose,
                 "vr": _json(payload.get("verify") or {}),
@@ -96,10 +100,52 @@ def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
     """Question → answer, ledger, citations, trace, snapshot id.
 
     Anonymous access is a supported tier, so a missing token is fine. A signed
-    in user gets the run attached to their account so History can show it.
+    in user gets the run attached to their account so History can show it, and
+    the question and answer become a turn in a conversation: the one named by
+    conversation_id, or a new one. Anonymous questions are never kept as
+    conversations and never carry context.
     """
+    if (req.conversation_id or req.reask_message_id) and user is None:
+        # An expired or invalid token reads as anonymous in optional_user.
+        # Continuing a conversation must not quietly become a fresh anonymous
+        # question, so it is refused and the client signs in again.
+        raise HTTPException(401, "Sign in to continue this conversation")
+    if req.reask_message_id and not req.conversation_id:
+        raise HTTPException(422, "reask_message_id needs its conversation_id")
+
+    conversation_id = str(req.conversation_id) if req.conversation_id else None
+
     with db_conn() as conn:
-        result = run_answer_graph(conn, req.question, ya_override=req.ya)
+        question = req.question
+        facts_override: TaxFacts | None = None
+        context = None
+
+        if user is not None and conversation_id:
+            before_seq = None
+            if req.reask_message_id:
+                # Same question, same stored facts, current law. The old turn
+                # and its run are not touched; this becomes a new turn.
+                source = store.reask_source(
+                    conn, user.id, conversation_id, str(req.reask_message_id)
+                )
+                if source is None:
+                    raise HTTPException(404, "Message not found")
+                try:
+                    facts_override = TaxFacts.model_validate(source.facts)
+                except ValidationError as exc:
+                    raise HTTPException(409, "That answer cannot be asked again") from exc
+                question = source.question
+                before_seq = source.question_seq
+
+            rows = store.context_rows(conn, user.id, conversation_id, before_seq=before_seq)
+            if rows is None:
+                raise HTTPException(404, "Conversation not found")
+            context = build_context(rows)
+
+        result = run_answer_graph(
+            conn, question, ya_override=req.ya,
+            facts_override=facts_override, context=context,
+        )
         payload = serialise_answer(result)
         _persist_run(conn, result, payload, user)
         return payload
@@ -116,10 +162,17 @@ def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingRespon
     this API is bearer-token authenticated. A plain fetch() reading the
     response body as a stream has no such limitation.
 
-    The graph itself is synchronous, so it runs on a background thread that
-    posts each step to a queue; this generator just drains that queue and
-    yields as items arrive.
+    Signed-in conversation behavior mirrors /ask: context is bounded and
+    redacted, re-ask uses the stored facts, and the new answer is saved as a
+    new turn. Anonymous streaming remains a one-off answer.
     """
+
+    if (req.conversation_id or req.reask_message_id) and user is None:
+        raise HTTPException(401, "Sign in to continue this conversation")
+    if req.reask_message_id and not req.conversation_id:
+        raise HTTPException(422, "reask_message_id needs its conversation_id")
+
+    conversation_id = str(req.conversation_id) if req.conversation_id else None
 
     def generate():
         q: "queue.Queue[dict[str, Any]]" = queue.Queue()
@@ -130,13 +183,73 @@ def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingRespon
         def worker() -> None:
             try:
                 with db_conn() as conn:
+                    question = req.question
+                    facts_override: TaxFacts | None = None
+                    context = None
+
+                    if user is not None and conversation_id:
+                        before_seq = None
+                        if req.reask_message_id:
+                            source = store.reask_source(
+                                conn,
+                                user.id,
+                                conversation_id,
+                                str(req.reask_message_id),
+                            )
+                            if source is None:
+                                raise HTTPException(404, "Message not found")
+                            try:
+                                facts_override = TaxFacts.model_validate(source.facts)
+                            except ValidationError as exc:
+                                raise HTTPException(
+                                    409, "That answer cannot be asked again"
+                                ) from exc
+                            question = source.question
+                            before_seq = source.question_seq
+
+                        rows = store.context_rows(
+                            conn,
+                            user.id,
+                            conversation_id,
+                            before_seq=before_seq,
+                        )
+                        if rows is None:
+                            raise HTTPException(404, "Conversation not found")
+                        context = build_context(rows)
+
                     result = run_answer_graph(
-                        conn, req.question, ya_override=req.ya, on_node=on_node,
+                        conn,
+                        question,
+                        ya_override=req.ya,
+                        facts_override=facts_override,
+                        context=context,
+                        on_node=on_node,
                     )
                     payload = serialise_answer(result)
                     _persist_run(conn, result, payload, user)
+
+                    if user is not None:
+                        payload.update(
+                            _save_turn(
+                                conn,
+                                user,
+                                conversation_id,
+                                result,
+                                payload,
+                            )
+                        )
+
                 q.put({"type": "done", "payload": payload})
-            except Exception as exc:  # noqa: BLE001 — surfaced to the client, not swallowed
+            except HTTPException as exc:
+                logger.warning("ask/stream request failed: %s", exc.detail)
+                q.put(
+                    {
+                        "type": "error",
+                        "status": exc.status_code,
+                        "message": str(exc.detail),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 — surfaced to the client
                 logger.exception("ask/stream worker failed")
                 q.put({"type": "error", "message": str(exc)[:300]})
 
@@ -148,11 +261,93 @@ def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingRespon
             if item["type"] in ("done", "error"):
                 break
 
-    return StreamingResponse(generate(), media_type="application/x-ndjson")
+def _save_turn(
+    conn,
+    user: User,
+    conversation_id: str | None,
+    result: AnswerResult,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Store the turn in its conversation, after the run has committed.
+
+    A failure here never costs the user the answer: it is returned with
+    message_persisted false, and the run is still in History.
+    """
+    run_id = payload.get("run_id")
+    kind, content, response_json = envelope.split(payload, run_id)
+    title = titles.title_for_turn(
+        intent=result.intent,
+        kind=result.kind,
+        ya=result.ya,
+        facts=result.facts.model_dump(mode="json") if result.facts else None,
+        compare=result.compare,
+        rule_keys=[rv.rule_key for rv in result.lookup],
+        redacted_question=result.redacted_question,
+    )
+    try:
+        saved = store.append_turn(
+            conn, user.id, conversation_id,
+            title=title,
+            question=result.redacted_question,
+            kind=kind,
+            content=content,
+            run_id=run_id,
+            response_json=response_json,
+        )
+    except store.ConversationNotFound:
+        # Deleted while the question was running.
+        logger.info("conversation %s gone before its turn was saved", conversation_id)
+        return {"conversation_id": None, "message_persisted": False}
+    except Exception as exc:  # noqa: BLE001
+        # Ids and the error type only. The message may carry the question.
+        logger.warning(
+            "conversation turn not saved (conversation %s, run %s): %s",
+            conversation_id, run_id, type(exc).__name__,
+        )
+        return {"conversation_id": conversation_id, "message_persisted": False}
+
+    return {
+        "conversation_id": saved.conversation["id"],
+        "conversation": saved.conversation,
+        "conversation_created": saved.created,
+        "message_id": saved.reply_id,
+        "question_message_id": saved.question_id,
+        "seq": saved.seq,
+        # What was stored, which is what a reload will show: redacted.
+        "user_message": result.redacted_question,
+        "message_persisted": True,
+        "snapshot_is_current": True if payload.get("snapshot") else None,
+        "reaskable": bool(run_id) and kind == "answer",
+    }
+
+
+def _rule_version_ids(result: AnswerResult) -> list[str]:
+    ids: list[str] = []
+    if result.rules:
+        ids += [rv.id for rv in result.rules.rules.values()]
+    ids += [rv.id for rv in result.lookup]
+    if result.compare:
+        for change in result.compare.get("changes", []):
+            for side in ("from", "to"):
+                rid = (change.get(side) or {}).get("rule_version_id")
+                if rid:
+                    ids.append(rid)
+
+    out: list[str] = []
+    for rid in ids:
+        try:
+            norm = str(uuid.UUID(str(rid)))
+        except ValueError:
+            continue
+        if norm not in out:
+            out.append(norm)
+    return out
 
 
 def _json(obj: Any) -> str:
     return json.dumps(obj, default=str)
+
+
 
 
 @router.post("/compute")

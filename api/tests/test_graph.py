@@ -105,15 +105,17 @@ def test_in_scope_questions_pass(question):
 def test_scope_gate_is_not_blinded_by_redaction():
     """Regression: spaCy tags 'VAT' as an ORG, so redacting before the scope
     gate rewrote the question to 'How do I register for <EMPLOYER_1>?' and the
-    gate let it through. The gate must classify the original text."""
+    gate let it through. The redactor now keeps tax vocabulary, but the gate
+    must still classify the original text: NER can hide words the
+    vocabulary list does not cover."""
     from app.privacy.redactor import CodedRedactor
 
     q = "How do I register for VAT?"
     redacted = CodedRedactor(use_ner=True).redact(q).text
 
     assert check_scope(q, None, SUPPORTED).category == "VAT"
-    # If this ever stops differing, the ordering no longer matters — but while
-    # it does, the graph must use the original string.
+    # Whenever redaction does hide the tax type, the graph must use the
+    # original string.
     if "VAT" not in redacted:
         assert check_scope(redacted, None, SUPPORTED).in_scope is True, (
             "redaction hides the tax type, so the gate must see the original"

@@ -167,6 +167,10 @@ def main() -> None:
         # duplicate versions, which resolve() would correctly report as an
         # AmbiguousRule integrity alarm.
         conn.execute(text("delete from snapshot_rule_version"))
+        # Conversation messages point at runs without a cascade, so the
+        # conversations go first. A reseed wipes every run, and a thread whose
+        # answers no longer exist has nothing left to show.
+        conn.execute(text("delete from conversation"))
         conn.execute(text("delete from computation_run"))
         conn.execute(text("delete from rule_version"))
         conn.execute(text("delete from corpus_snapshot"))

@@ -36,7 +36,7 @@ async function ask(page, q) {
   await ask(page, "What is the personal relief for 2026/2027?");
   check("an answer is on screen", (await page.locator(SETTLED).count()) > 0);
 
-  await page.locator("aside >> text=New question").click();
+  await page.locator("aside >> text=+ New chat").click();
   await page.waitForTimeout(700);
   const backToComposer = await page.locator("text=What would you like checked?").count();
   check("New question returns to the composer", backToComposer > 0);
@@ -54,7 +54,7 @@ async function ask(page, q) {
   await page.screenshot({ path: `${OUT}\\c2-prose-full-width.png`, fullPage: true });
 
   console.log("\n=== rail still present where a table needs it ===");
-  await page.locator("aside >> text=New question").click();
+  await page.locator("aside >> text=+ New chat").click();
   await page.waitForTimeout(500);
   await ask(page, "What do I owe for 2026/2027 on a salary of LKR 250,000 a month?");
   check("computation keeps the citations rail",
@@ -130,7 +130,7 @@ async function ask(page, q) {
 
   await page.getByLabel("Open menu").click();
   await page.waitForTimeout(400);
-  await page.locator("aside >> text=New question").click();
+  await page.locator("aside >> text=+ New chat").click();
   await page.waitForTimeout(500);
   check("choosing an item closes the drawer", (await railX()) < 0, `x=${await railX()}`);
 

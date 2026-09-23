@@ -26,6 +26,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.compute.types import TaxFacts
+from app.conversations.context import ConversationContext, check_figures
 from app.core import llm
 from app.graph import intake, scope
 
@@ -131,6 +132,29 @@ MISSING and CLARIFY: only for compute and obligation intents. compute needs year
 RULE_KEYS: for rule_lookup and general, list the relevant rule keys from this allowed list only:
 """ + "\n".join(f"  {k}: {d}" for k, d in RULE_KEYS)
 
+# Added to SYSTEM only when the question belongs to a conversation with
+# something to carry. Without context the prompt is exactly SYSTEM.
+CONTEXT_RULES = """
+
+CONVERSATION: the message may start with CONVERSATION SO FAR, followed by NEW QUESTION. Classify and extract for the NEW QUESTION only. The conversation is background for resolving what the new question refers to ("what if", "also", "instead", "what about", "and if"). It is not law and not evidence.
+- A follow-up about the same situation carries the earlier facts forward: return every earlier fact that still applies, changed only by what the new question says. "What if I also earn LKR 500,000 from freelance work" keeps the salary and adds business_income 500000.
+- A question that stands on its own (a new scenario or a different topic) ignores the earlier facts.
+- If the assistant asked a clarifying question, the new question is probably the reply. Combine it with the question it answers.
+- Use the year of assessment in use unless the new question names or implies another.
+- Never calculate or invent an amount. Every amount you return must be an earlier fact, a figure stated by the user (a monthly figure multiplied by 12), or an earlier fact plus or minus a stated figure. If a change cannot be expressed that way, return the amount the user most likely means and it will be checked."""
+
+# How the figure check asks, per field it could not trace.
+_FIELD_WORDS = {
+    "employment_income": "salary",
+    "business_income": "freelance or business income",
+    "investment_income": "investment income",
+    "other_income": "other income",
+    "qualifying_payments": "qualifying payments",
+    "apit_withheld": "APIT already deducted",
+    "foreign_tax_credit": "foreign tax credit",
+    "wht_credit": "withholding tax credit",
+}
+
 
 @dataclass
 class RouteResult:
@@ -139,6 +163,10 @@ class RouteResult:
     source: str                       # "llm" | "regex"
     llm_call: dict[str, Any] | None = None
     notes: list[str] = field(default_factory=list)
+    # Fields whose amount the figure check could not trace to anything the
+    # user said, and the question that asks for them. Conversations only.
+    untraced: list[str] = field(default_factory=list)
+    untraced_question: str | None = None
 
 
 def _to_facts(r: RoutedQuestion, supported: tuple[str, ...]) -> TaxFacts:
@@ -219,29 +247,48 @@ def route(
     original_question: str,
     supported: tuple[str, ...],
     budget: llm.LLMBudget | None = None,
+    context: ConversationContext | None = None,
 ) -> RouteResult:
     """Classify, extract and plan. LLM first, regex as fallback and cross check.
 
     `redacted_question` goes to the model. `original_question` is used only by
     the in-process regex gate, which needs the tax type words that redaction
     can destroy (spaCy tags "VAT" as an organisation).
+
+    `context` is the bounded, redacted slice of an earlier conversation from
+    app.conversations.context. None, or an empty one, leaves this function
+    doing exactly what it did before conversations existed.
     """
-    fallback = _regex_route(original_question, supported)
+    use_context = context is not None and not context.is_empty
+
+    regex_text = original_question
+    if use_context and context.unresolved:
+        # The regex cannot follow a conversation. The one case it can is a
+        # reply to a clarification: the reply completes the question asked.
+        regex_text = " ".join((*context.unresolved, original_question))
+    fallback = _regex_route(regex_text, supported)
+    if use_context:
+        fallback.notes.append(context.summary())
 
     if not llm.available():
         fallback.notes.append("model unavailable, regex route")
         return fallback
 
+    system, user_text = SYSTEM, redacted_question
+    if use_context:
+        system = SYSTEM + CONTEXT_RULES
+        user_text = f"{context.prompt_block()}\n\nNEW QUESTION:\n{redacted_question}"
+
     try:
         routed, call = llm.structured(
-            RoutedQuestion, SYSTEM, redacted_question,
+            RoutedQuestion, system, user_text,
             max_tokens=1500, budget=budget,
         )
     except llm.LLMUnavailable as exc:
         fallback.notes.append(f"model failed ({str(exc)[:80]}), regex route")
         return fallback
 
-    notes: list[str] = []
+    notes: list[str] = [context.summary()] if use_context else []
 
     # The regex gate is the conservative side. If it refuses, we refuse, even
     # when the model would have answered. Refusing is the safe failure.
@@ -293,6 +340,24 @@ def route(
 
     facts = _to_facts(routed, supported)
 
+    # With a conversation behind it, the model can carry a figure forward
+    # wrongly or work one out ("if my salary doubled"). Every amount must
+    # trace to something the user said; anything else is asked, not assumed.
+    untraced: list[str] = []
+    if use_context and routed.in_scope and routed.intent in ("compute", "obligation"):
+        untraced = check_figures(facts, context, redacted_question)
+        if "epf_employee" in untraced:
+            # No stated EPF figure means the statutory contribution, which the
+            # engine takes from the resolved rule when the field is None.
+            facts.epf_employee = None
+            untraced.remove("epf_employee")
+            notes.append("EPF amount not stated, statutory rate from the rule")
+        if untraced:
+            notes.append(
+                "figure check: " + ", ".join(untraced)
+                + " not traceable to a stated or earlier figure"
+            )
+
     # Recompute missing from the typed facts rather than trusting the model's
     # list, so the two cannot disagree.
     if routed.intent in ("compute", "obligation") and routed.in_scope:
@@ -309,4 +374,15 @@ def route(
     return RouteResult(
         routed=routed, facts=facts, source="llm",
         llm_call=call.to_json(), notes=notes,
+        untraced=untraced,
+        untraced_question=_untraced_question(untraced) if untraced else None,
+    )
+
+
+def _untraced_question(fields: list[str]) -> str:
+    words = [_FIELD_WORDS.get(f, f.replace("_", " ")) for f in fields]
+    named = words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
+    return (
+        f"I want to be sure of the figures before calculating. What annual "
+        f"amount should I use for your {named}?"
     )

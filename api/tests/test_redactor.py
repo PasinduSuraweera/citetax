@@ -9,10 +9,23 @@ from __future__ import annotations
 
 import pytest
 
-from app.privacy.redactor import CodedRedactor, EgressScanner, truncate_for_llm
+from app.privacy.redactor import (
+    CodedRedactor,
+    EgressScanner,
+    _is_tax_term,
+    truncate_for_llm,
+)
 
 # NER off in most tests: it is optional, and these assert the regex tier.
 R = CodedRedactor(use_ner=False)
+
+
+@pytest.fixture(scope="module")
+def ner():
+    r = CodedRedactor(use_ner=True)
+    if r._nlp_or_none() is None:
+        pytest.skip("en_core_web_sm not installed")
+    return r
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +112,75 @@ def test_gazetteer_does_not_eat_money():
     r = CodedRedactor(use_ner=False, gazetteer={"Nimal"})
     out = r.redact("Nimal earns Rs. 3,000,000")
     assert "3,000,000" in out.text
+
+
+# ---------------------------------------------------------------------------
+# Tax vocabulary is not an organisation
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "What about EPF?",
+        "What about APIT?",
+        "What about WHT?",
+        "What is the EPF deduction for 2026/2027?",
+        "EPF deducted 240000 and APIT withheld 57,600",
+        "LKR 250,000 monthly salary, what is my tax?",
+        "Can I claim AIT?",
+        "Do I pay IIT on foreign income?",
+        "Do I need a TIN to file?",
+        "Can I file through RAMIS?",
+        "What is the personal relief under the IRD rules?",
+        "Do I need to register with the Inland Revenue Department?",
+        "When do I file with the Department of Inland Revenue?",
+        "Is my Employees' Provident Fund contribution deductible?",
+        "What about the Employees' Trust Fund?",
+    ],
+)
+def test_tax_terms_survive_ner(ner, raw):
+    """Regression: spaCy tags EPF, APIT, WHT, TIN, IRD and a sentence-initial
+    LKR as ORG, so 'What about EPF?' reached the planner and retrieval as
+    'What about <EMPLOYER_1>?'. Every taxpayer shares these words, so they
+    identify no one."""
+    out = ner.redact(raw)
+    assert out.text == raw
+    assert out.clean
+
+
+@pytest.mark.parametrize(
+    "raw,gone,kept",
+    [
+        ("I work at Ceylon Textiles PLC and my EPF is 8%", "Ceylon Textiles", "EPF"),
+        ("I am Nimal Perera and my EPF is 10%", "Nimal", "EPF"),
+        ("Kamal Silva at Brandix said my APIT is wrong", "Brandix", "APIT"),
+        ("I work for John Keells Holdings and EPF is deducted", "Keells", "EPF"),
+    ],
+)
+def test_real_names_beside_tax_terms_are_still_redacted(ner, raw, gone, kept):
+    out = ner.redact(raw)
+    assert gone not in out.text
+    assert kept in out.text
+
+
+@pytest.mark.parametrize(
+    "span,expected",
+    [
+        ("EPF", True),
+        ("the IRD", True),
+        ("IRD's", True),
+        ("Employees' Trust Fund", True),
+        ("the Department of Inland Revenue", True),
+        ("Rs.", True),
+        # Anything more than tax vocabulary is redacted whole: fail-closed.
+        ("Ceylon Textiles EPF", False),
+        ("EPF 240000", False),
+        ("Perera Family Trust Fund", False),
+        ("Nimal", False),
+    ],
+)
+def test_only_a_whole_tax_term_is_exempt(span, expected):
+    assert _is_tax_term(span) is expected
 
 
 # ---------------------------------------------------------------------------

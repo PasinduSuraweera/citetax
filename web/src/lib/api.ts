@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Client for citetax-api.
  *
  * Money crosses the wire as a string and stays a string until it is formatted
@@ -157,6 +157,49 @@ export interface AnswerResponse {
   citations?: Citation[];
   refusal?: { reason: string; pointer: string | null; category?: string | null };
   clarify?: { question: string };
+
+  /* Signed in only: the conversation this turn was saved to. */
+  conversation_id?: string | null;
+  conversation?: ConversationSummary;
+  conversation_created?: boolean;
+  message_id?: string;
+  question_message_id?: string;
+  seq?: number;
+  /** The question as stored, which is redacted. A reload shows this. */
+  user_message?: string;
+  message_persisted?: boolean;
+
+  /* On a stored answer: whether the snapshot it ran against is still the
+     current one, and whether it can be asked again with its stored facts. */
+  snapshot_is_current?: boolean | null;
+  reaskable?: boolean;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ConversationTurn {
+  seq: number;
+  question: { id: string; content: string; created_at: string | null };
+  reply: {
+    id: string;
+    seq: number;
+    kind: AnswerResponse["kind"];
+    created_at: string | null;
+    answer: AnswerResponse;
+  } | null;
+}
+
+export interface ConversationPage {
+  conversation: ConversationSummary;
+  turns: ConversationTurn[];
+  has_more: boolean;
+  before_seq: number | null;
+  current_snapshot_id: string | null;
 }
 
 export interface ComputeResponse {
@@ -296,6 +339,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(detail ?? `Request failed (${res.status})`, res.status, detail);
   }
 
+  // 204 No Content has no body to parse.
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -373,11 +418,46 @@ async function askStream(
 }
 
 export const api = {
-  ask: (question: string, ya?: string) =>
+  /**
+   * Signed in, a question is saved as a turn: in `conversationId`, or in a new
+   * conversation when it is omitted. `reaskMessageId` asks an answered turn
+   * again with its stored facts, against the current snapshot.
+   */
+  ask: (
+    question: string,
+    ya?: string,
+    opts: { conversationId?: string | null; reaskMessageId?: string | null } = {},
+  ) =>
     request<AnswerResponse>("/v1/ask", {
       method: "POST",
-      body: JSON.stringify({ question, ya: ya ?? null }),
+      body: JSON.stringify({
+        question,
+        ya: ya ?? null,
+        conversation_id: opts.conversationId ?? null,
+        reask_message_id: opts.reaskMessageId ?? null,
+      }),
     }),
+
+  conversations: (cursor?: string | null, limit = 20) =>
+    request<{ conversations: ConversationSummary[]; next_cursor: string | null }>(
+      `/v1/conversations?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+    ),
+
+  conversation: (id: string, beforeSeq?: number | null, turns = 10) =>
+    request<ConversationPage>(
+      `/v1/conversations/${encodeURIComponent(id)}?turns=${turns}${
+        beforeSeq ? `&before_seq=${beforeSeq}` : ""
+      }`,
+    ),
+
+  renameConversation: (id: string, title: string) =>
+    request<ConversationSummary>(`/v1/conversations/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+    }),
+
+  deleteConversation: (id: string) =>
+    request<void>(`/v1/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   askStream,
 

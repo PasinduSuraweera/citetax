@@ -30,6 +30,7 @@ from sqlalchemy.engine import Connection
 
 from app.compute.engine import REQUIRED_RULE_KEYS, compute
 from app.compute.types import Computation, TaxFacts
+from app.conversations.context import ConversationContext
 from app.core import llm
 from app.core.config import get_settings
 from app.graph import comply, intent as intent_mod
@@ -122,12 +123,21 @@ def run_answer_graph(
     question: str,
     ya_override: str | None = None,
     facts_override: TaxFacts | None = None,
+    context: ConversationContext | None = None,
     on_node: Callable[[TraceEntry], None] | None = None,
 ) -> AnswerResult:
-    """`on_node`, when given, fires the instant each step actually finishes —
+    """Answer one question.
+
+    `context` is the bounded, redacted slice of the conversation the
+    question belongs to, built by app.conversations.context. Only Route
+    reads it. Resolve, Compute, Explain and Verify see the current turn
+    alone, and the rules are always resolved against the current snapshot.
+
+    `on_node`, when given, fires the instant each step actually finishes —
     not a guess, not a timer. The streaming endpoint uses it to push real
     progress to the client as the graph runs; the plain endpoint leaves it
-    unset and just gets the trace list at the end, as before."""
+    unset and just gets the trace list at the end, as before.
+    """
     settings = get_settings()
     started = time.perf_counter()
     result = AnswerResult(kind="answer")
@@ -167,13 +177,20 @@ def run_answer_graph(
 
     # --- Route: one model call decides intent, facts, scope, and the plan ---
     t0 = time.perf_counter()
-    routed = intent_mod.route(result.redacted_question, question, settings.supported_yas, budget)
+    routed = intent_mod.route(
+        result.redacted_question, question, settings.supported_yas, budget,
+        context=context,
+    )
     r = routed.routed
     result.intent = r.intent
     result.route_source = routed.source
     result.plan = list(PLANS.get(r.intent, PLANS["general"]))
 
     facts = facts_override if facts_override is not None else routed.facts
+    if context is not None and context.ya and not facts.ya:
+        # A year the question names wins, then the conversation's, then the
+        # sidebar's.
+        facts.ya = context.ya  # type: ignore[assignment]
     if ya_override and not facts.ya:
         # The sidebar year applies only when the question did not name one.
         facts.ya = ya_override  # type: ignore[assignment]
@@ -201,6 +218,13 @@ def run_answer_graph(
                 "income": "What was your total income for the year? A monthly figure is fine.",
             }.get(missing[0], "Could you give me a little more detail?")
             mark("Route", "ok", f"clarify: missing {missing[0]}", t0)
+            return finish()
+        if routed.untraced and facts_override is None:
+            # A conversation follow-up whose figures do not trace to anything
+            # the user said. Asking is the safe failure; guessing is not.
+            result.kind = "clarify"
+            result.clarify_question = routed.untraced_question
+            mark("Route", "ok", "clarify: figure not traceable", t0)
             return finish()
     elif not facts.ya:
         # Non-computational intents still need a year to resolve against.
