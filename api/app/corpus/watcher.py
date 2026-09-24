@@ -170,10 +170,11 @@ def _record_document(
 
     import json as _json
 
-    # A title from the first line of text reads better in the inbox than a
-    # URL slug, but a URL slug beats a 120 character wall of body text.
-    first_line = (raw_text or "").strip().split("\n", 1)[0].strip()
-    title = first_line[:120] if 8 <= len(first_line) <= 160 else url.rsplit("/", 1)[-1]
+    from app.corpus.titles import document_title
+
+    title = document_title(
+        body, raw_text, url, is_html=(text_meta or {}).get("kind") == "html"
+    )
 
     conn.execute(
         text(

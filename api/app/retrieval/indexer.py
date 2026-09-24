@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
@@ -141,20 +143,70 @@ def index_rule_versions(conn: Connection, report: IndexReport | None = None) -> 
     return report
 
 
-def index_document(conn: Connection, doc_id: str, report: IndexReport | None = None) -> IndexReport:
-    """Chunk and embed one source document's raw text."""
+# A line on this share of a site's pages is its template: menus, sidebar,
+# footer. Stored text is all that is kept of a page, so the template is found
+# by comparing pages rather than by reading the HTML.
+BOILERPLATE_SHARE = 0.3
+BOILERPLATE_MIN_PAGES = 5
+
+
+def _host(url: str | None) -> str:
+    return (urlparse(url or "").hostname or "").lower()
+
+
+def boilerplate_lines(conn: Connection, host: str) -> set[str]:
+    """Lines repeated across a site's pages. Empty for a site with too few
+    pages to tell template from content."""
+    if not host:
+        return set()
+    rows = conn.execute(
+        text(
+            "select distinct on (url) raw_text from source_document "
+            " where raw_text is not null and url like :pat "
+            " order by url, revision_no desc"
+        ),
+        {"pat": f"%://{host}/%"},
+    ).scalars().all()
+    if len(rows) < BOILERPLATE_MIN_PAGES:
+        return set()
+    counts: Counter[str] = Counter()
+    for raw in rows:
+        counts.update({ln.strip() for ln in raw.split("\n") if ln.strip()})
+    threshold = max(3, int(BOILERPLATE_SHARE * len(rows)))
+    return {ln for ln, c in counts.items() if c >= threshold}
+
+
+def strip_boilerplate(raw: str, boiler: set[str]) -> str:
+    if not boiler:
+        return raw
+    return "\n".join(ln for ln in raw.split("\n") if ln.strip() not in boiler)
+
+
+def index_document(
+    conn: Connection,
+    doc_id: str,
+    report: IndexReport | None = None,
+    boiler_cache: dict[str, set[str]] | None = None,
+) -> IndexReport:
+    """Chunk and embed one source document's raw text, less its site's template."""
     report = report or IndexReport()
     provider = embeddings.get_provider()
 
     row = conn.execute(
-        text("select id, raw_text from source_document where id = :id"), {"id": doc_id}
+        text("select id, url, raw_text from source_document where id = :id"), {"id": doc_id}
     ).mappings().first()
     if not row or not row["raw_text"]:
         report.skipped += 1
         return report
 
+    host = _host(row["url"])
+    cache = boiler_cache if boiler_cache is not None else {}
+    if host not in cache:
+        cache[host] = boilerplate_lines(conn, host)
+    body = strip_boilerplate(row["raw_text"], cache[host])
+
     conn.execute(text("delete from chunk where source_document_id = :id"), {"id": doc_id})
-    pieces = chunk_text(row["raw_text"])
+    pieces = chunk_text(body)
     _write_chunks(conn, doc_id, None, [p.text for p in pieces], provider, report)
     report.documents += 1
     conn.commit()
@@ -173,9 +225,10 @@ def index_unindexed_documents(conn: Connection, limit: int = 20) -> IndexReport:
         ),
         {"n": limit},
     ).scalars().all()
+    cache: dict[str, set[str]] = {}
     for doc_id in ids:
         try:
-            index_document(conn, str(doc_id), report)
+            index_document(conn, str(doc_id), report, cache)
         except Exception as exc:  # noqa: BLE001
             conn.rollback()
             report.errors.append(f"{doc_id}: {str(exc)[:140]}")
@@ -193,9 +246,10 @@ def rebuild_all(conn: Connection) -> IndexReport:
             "  and length(raw_text) > 200 order by fetched_at desc limit 200"
         )
     ).scalars().all()
+    cache: dict[str, set[str]] = {}
     for doc_id in ids:
         try:
-            index_document(conn, str(doc_id), report)
+            index_document(conn, str(doc_id), report, cache)
         except Exception as exc:  # noqa: BLE001
             conn.rollback()
             report.errors.append(f"{doc_id}: {str(exc)[:140]}")
