@@ -8,23 +8,26 @@
  * Citetax design tokens, taken from the brand artwork (public/brand/).
  *
  * Navy, the "Cite" of the wordmark, is the primary colour: text and the main
- * actions. Teal, the "tax", is the accent: links, citation markers, focus.
+ * actions. The ribbon blue is the accent on white: links, citation markers,
+ * focus. The cyan of "tax" is too light to read on white, so it is used on
+ * the navy sidebar only.
  * Green is kept apart for "released", and red for refusals and failures.
  * The legacy names (ink, brand, line, good, warn ...) are kept so every
  * screen draws from the same palette; shadcn's semantic tokens map onto them.
  */
 @theme {
-  --color-ink-900: #10224a;   /* navy: headings, figures */
-  --color-ink-700: #33415c;   /* strong body */
-  --color-ink-500: #546079;   /* body */
-  --color-ink-400: #69748b;   /* secondary */
-  --color-ink-300: #8993a6;   /* quiet labels */
-  --color-ink-200: #adb5c4;   /* faint */
+  --color-ink-900: #012151;   /* navy: headings, figures */
+  --color-ink-700: #2c3d5e;   /* strong body */
+  --color-ink-500: #4f5d7a;   /* body */
+  --color-ink-400: #66728c;   /* secondary */
+  --color-ink-300: #8791a7;   /* quiet labels */
+  --color-ink-200: #aab3c5;   /* faint */
 
-  --color-brand-600: #0f7d86; /* teal accent: links, markers, focus */
-  --color-brand-700: #0b6169; /* hover, pressed */
-  --color-brand-100: #dcf0f1; /* marker background */
-  --color-brand-050: #eef8f8; /* quiet info */
+  --color-brand-600: #0766d6; /* ribbon blue: links, markers, focus */
+  --color-brand-700: #0551ad; /* hover, pressed */
+  --color-brand-100: #e2edfc; /* marker background */
+  --color-brand-050: #f0f6fe; /* quiet info */
+  --color-cyan-400: #22d3e0;  /* "tax"; on navy only */
   --color-gold-500: #d9a441;  /* the check in the mark */
 
   --color-surface: #f5f7fa;   /* app background */
@@ -110,38 +113,38 @@
 :root {
   --radius: 8px;
   --background: #ffffff;
-  --foreground: #10224a;
+  --foreground: #012151;
   --card: #ffffff;
-  --card-foreground: #10224a;
+  --card-foreground: #012151;
   --popover: #ffffff;
-  --popover-foreground: #10224a;
-  --primary: #10224a;
+  --popover-foreground: #012151;
+  --primary: #012151;
   --primary-foreground: #ffffff;
   --secondary: #eef2f7;
-  --secondary-foreground: #10224a;
+  --secondary-foreground: #012151;
   --muted: #f2f5f9;
   --muted-foreground: #69748b;
   --accent: #edf1f6;
-  --accent-foreground: #10224a;
+  --accent-foreground: #012151;
   --destructive: #a4271c;
   --border: #e2e7ef;
   --input: #d0d8e3;
-  --ring: #0f7d86;
-  --chart-1: #10224a;
-  --chart-2: #0f7d86;
-  --chart-3: #0aaab4;
+  --ring: #0766d6;
+  --chart-1: #012151;
+  --chart-2: #0766d6;
+  --chart-3: #01c2d0;
   --chart-4: #d9a441;
   --chart-5: #a4271c;
   /* The sidebar is the brand navy; text and states on it are white at
      varying strength, with the lifted teal for the current page. */
-  --sidebar: #10224a;
+  --sidebar: #0a1f4c;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #3cc7cf;
-  --sidebar-primary-foreground: #10224a;
+  --sidebar-primary: #22d3e0;
+  --sidebar-primary-foreground: #012151;
   --sidebar-accent: rgb(255 255 255 / 0.09);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgb(255 255 255 / 0.1);
-  --sidebar-ring: #3cc7cf;
+  --sidebar-ring: #22d3e0;
 }
 
 @layer base {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { continueAsGuest } from "@/app/actions";
 import { auth, signIn } from "@/auth";
-import { LogoFull, Logo } from "@/components/Logo";
+import { Logo } from "@/components/Logo";
 import { money } from "@/lib/api";
 import { safeNext } from "@/lib/guest";
 import { SAMPLE_MONTHLY, sampleLedger } from "@/lib/sample";
@@ -39,8 +39,8 @@ export default async function SignInPage({
           on the first screen. */}
       <aside className="relative flex flex-none flex-col bg-sidebar px-6 py-6 text-white sm:px-10 lg:w-[46%] lg:max-w-[640px] lg:px-14 lg:py-12">
         <Link href="/" className="self-start" aria-label="Citetax home">
-          <LogoFull height={52} tone="dark" priority className="hidden lg:block" />
-          <Logo height={34} tone="dark" priority className="lg:hidden" />
+          <Logo height={44} tone="dark" priority className="hidden lg:block" />
+          <Logo height={32} tone="dark" priority className="lg:hidden" />
         </Link>
 
         <div className="hidden flex-1 flex-col justify-center py-12 lg:flex">
