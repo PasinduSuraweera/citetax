@@ -19,15 +19,14 @@ import { AnswerView } from "@/components/AnswerView";
 import { Composer } from "@/components/Composer";
 import { LiveTrace } from "@/components/LiveTrace";
 import { PayslipConfirm } from "@/components/PayslipConfirm";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
 import { SnapshotNote, TurnSummary } from "@/components/TurnSummary";
-import { SnapshotPanel } from "@/components/SnapshotPanel";
 import {
   api,
   ApiError,
   type AnswerResponse,
   type ConversationSummary,
-  type Snapshot,
   type StreamStep,
 } from "@/lib/api";
 import { onNewQuestion, requestNewQuestion } from "@/lib/ask-store";
@@ -91,8 +90,6 @@ function AskPageInner() {
   const store = useConversations();
 
   const [ya, setYa] = useState<YA>("2026/2027");
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [snapshotOpen, setSnapshotOpen] = useState(false);
   // Each "+ New chat" is a fresh draft with its own key, so an answer still
   // running for the previous draft cannot land in the new one.
   const [draftGen, setDraftGen] = useState(0);
@@ -123,10 +120,6 @@ function AskPageInner() {
   const failure = store.failures[key] ?? null;
   const liveRun = live[key] ?? null;
   const payslipFile = payslip?.key === key ? payslip.file : null;
-
-  useEffect(() => {
-    api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -571,12 +564,7 @@ function AskPageInner() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <Shell
-        ya={ya}
-        onYaChange={setYa}
-        snapshot={snapshot}
-        onSnapshotClick={() => setSnapshotOpen(true)}
-      />
+      <Shell ya={ya} onYaChange={setYa} />
 
       <main
         ref={mainRef}
@@ -585,9 +573,6 @@ function AskPageInner() {
         {body}
       </main>
 
-      {snapshotOpen && snapshot && (
-        <SnapshotPanel snapshot={snapshot} onClose={() => setSnapshotOpen(false)} />
-      )}
     </div>
   );
 }
@@ -623,9 +608,7 @@ function PendingTurn({
 function QuestionOnly({ question }: { question: string }) {
   return (
     <div className="flex items-start gap-[14px] rounded-xl border border-line bg-white px-[18px] py-4">
-      <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-ink-900 text-[11px] font-semibold text-white">
-        You
-      </span>
+      <UserAvatar />
       <p className="flex-1 text-[16px] leading-[1.5] text-ink-900">{question}</p>
     </div>
   );

@@ -201,6 +201,8 @@ await ctxB.close();
 // ---------------------------------------------------------------- anonymous
 console.log("\n=== signed out ===");
 const anon = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+// A guest who chose "Continue without an account" on the sign-in screen.
+await anon.addCookies([{ name: "citetax_guest", value: "1", url: BASE }]);
 const pa = await anon.newPage();
 watchErrors(pa, errors);
 await pa.goto(BASE, { waitUntil: "networkidle" });

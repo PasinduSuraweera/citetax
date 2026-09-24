@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
-import { api, formatDate, type DeadlinesResponse, type Snapshot } from "@/lib/api";
+import { api, formatDate, type DeadlinesResponse } from "@/lib/api";
 
 export default function DeadlinesPage() {
   const [ya, setYa] = useState<YA>("2026/2027");
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [data, setData] = useState<Record<string, DeadlinesResponse | null>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
     Promise.all(
       SUPPORTED_YAS.map((y) => api.deadlines(y).then((d) => [y, d] as const).catch(() => [y, null] as const)),
     )
@@ -26,7 +24,7 @@ export default function DeadlinesPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <Shell ya={ya} onYaChange={setYa} snapshot={snapshot} />
+      <Shell ya={ya} onYaChange={setYa} />
       <main className="flex-1 overflow-y-auto px-4 pb-10 pt-[72px] sm:px-6 lg:px-11 lg:pb-9 lg:pt-9">
         <div className="max-w-[1000px]">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:gap-6">

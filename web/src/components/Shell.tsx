@@ -11,11 +11,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import type { Snapshot } from "@/lib/api";
 import { admin, type Me } from "@/lib/admin";
 import { requestNewQuestion } from "@/lib/ask-store";
-import { initials, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 import { ConversationList } from "./ConversationList";
+import { UserAvatar } from "./UserAvatar";
 
 const NAV = [
   { label: "Ask", href: "/" },
@@ -31,9 +31,6 @@ export type YA = (typeof SUPPORTED_YAS)[number];
 interface Props {
   ya: YA;
   onYaChange: (ya: YA) => void;
-  snapshot: Snapshot | null;
-  ruleCount?: number | null;
-  onSnapshotClick?: () => void;
 }
 
 // One fetch of the API role per page load, shared by every Shell instance.
@@ -118,7 +115,7 @@ export function Shell(props: Props) {
 }
 
 function RailContent({
-  ya, onYaChange, snapshot, ruleCount, onSnapshotClick, onNavigate,
+  ya, onYaChange, onNavigate,
 }: Props & { onNavigate: () => void }) {
   const pathname = usePathname();
   const { user, loading, signOut } = useSession();
@@ -282,10 +279,10 @@ function RailContent({
         <div className="flex-1" />
       )}
 
-      {/* Account */}
-      <div className="relative mb-3 mt-6">
+      {/* Account: the foot of the rail. */}
+      <div className="relative mt-5 border-t border-white/10 pt-4">
         {loading ? (
-          <div className="h-[46px] animate-pulse rounded-lg bg-white/[0.04]" />
+          <div className="h-[52px] animate-pulse rounded-[10px] bg-white/[0.04]" />
         ) : user ? (
           <>
             <button
@@ -293,18 +290,33 @@ function RailContent({
               onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="flex w-full items-center gap-[10px] rounded-lg border border-white/10 px-[10px] py-2 text-left transition-colors hover:border-white/25 hover:bg-white/[0.04]"
+              className={`flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-colors hover:bg-white/[0.06] ${
+                menuOpen ? "bg-white/[0.06]" : ""
+              }`}
             >
-              <Avatar user={user} />
+              <UserAvatar user={user} size={34} tone="brand" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12.5px] font-medium text-white/85">
-                  {user.name ?? user.email}
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-[13.5px] font-semibold text-white">
+                    {user.name ?? user.email}
+                  </span>
+                  {me?.is_reviewer && (
+                    <span className="flex-none rounded-full bg-good-mint/15 px-[6px] py-[1px] text-[9.5px] font-semibold uppercase tracking-[0.06em] text-good-mintsoft">
+                      {me.role}
+                    </span>
+                  )}
                 </span>
-                <span className="block truncate font-mono text-[10px] text-white/40">
-                  {me?.role ?? user.email}
+                <span className="mt-[1px] block truncate text-[11.5px] text-white/45">
+                  {user.email}
                 </span>
               </span>
-              <span className="font-mono text-[10px] text-white/40">▾</span>
+              <svg
+                width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                className={`flex-none text-white/40 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+              >
+                <path d="M4 10l4-4 4 4" />
+              </svg>
             </button>
 
             {menuOpen && (
@@ -357,55 +369,7 @@ function RailContent({
           </div>
         )}
       </div>
-
-      {/* Spec section 6.2 addition 1: the snapshot is clickable, not a passive date. */}
-      <button
-        type="button"
-        onClick={onSnapshotClick}
-        disabled={!snapshot}
-        className="border-t border-white/10 pt-[14px] text-left disabled:cursor-default"
-      >
-        <div className="font-mono text-[10px] font-medium tracking-[0.14em] text-white/30">
-          CORPUS SNAPSHOT
-        </div>
-        <div className="mt-[6px] text-[13px] font-medium text-white/80">
-          {snapshot?.label ?? "not published"}
-        </div>
-        <div className="mt-[9px] flex items-center gap-[6px]">
-          <span
-            className={`h-[5px] w-[5px] flex-none rounded-full ${
-              snapshot ? "bg-good-mint" : "bg-warn-600"
-            }`}
-          />
-          <span className="text-[11.5px] text-white/45">
-            {ruleCount != null
-              ? `${ruleCount} rule versions indexed`
-              : snapshot
-                ? "what changed"
-                : "run the seed script"}
-          </span>
-        </div>
-      </button>
     </>
-  );
-}
-
-function Avatar({ user }: { user: { image: string | null; name: string | null; email: string } }) {
-  if (user.image) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={user.image}
-        alt=""
-        referrerPolicy="no-referrer"
-        className="h-[26px] w-[26px] flex-none rounded-full"
-      />
-    );
-  }
-  return (
-    <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-brand-600 text-[10.5px] font-semibold text-white">
-      {initials(user)}
-    </span>
   );
 }
 

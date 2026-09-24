@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { GUEST_COOKIE, GUEST_MAX_AGE, safeNext } from "@/lib/guest";
 
 /**
  * Sign in and create account. Ported from screen 01 of the Claude Design set.
@@ -16,12 +18,23 @@ export default async function SignInPage({
   searchParams: Promise<{ mode?: string; next?: string }>;
 }) {
   const session = await auth();
-  const { mode, next } = await searchParams;
+  const { mode, next: rawNext } = await searchParams;
+  // Only ever a path on this site, so the page cannot bounce anyone elsewhere.
+  const next = safeNext(rawNext);
   if (session?.user) redirect(next ?? "/");
 
   const signup = mode === "signup";
   // A new account lands on onboarding; a returning user goes where they meant.
   const destination = next ?? (signup ? "/welcome" : "/");
+
+  // Remembered, so a guest is not stopped at this screen on every visit.
+  async function continueAsGuest() {
+    "use server";
+    (await cookies()).set(GUEST_COOKIE, "1", {
+      maxAge: GUEST_MAX_AGE, path: "/", sameSite: "lax", httpOnly: true,
+    });
+    redirect(next ?? "/");
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas lg:h-screen lg:flex-row lg:overflow-hidden">
@@ -35,12 +48,14 @@ export default async function SignInPage({
             </div>
             <div className="mt-[6px] text-[13px] text-white/45">Every number, cited.</div>
           </Link>
-          <Link
-            href="/"
-            className="font-mono text-[11px] text-white/40 transition-colors hover:text-white/80 lg:hidden"
-          >
-            skip
-          </Link>
+          <form action={continueAsGuest} className="lg:hidden">
+            <button
+              type="submit"
+              className="font-mono text-[11px] text-white/40 transition-colors hover:text-white/80"
+            >
+              skip
+            </button>
+          </form>
         </div>
 
         <div className="hidden lg:block">
@@ -117,12 +132,14 @@ export default async function SignInPage({
             <div className="h-px flex-1 bg-[#DFE5F2]" />
           </div>
 
-          <Link
-            href="/"
-            className="block rounded-[9px] border border-line-strong bg-white py-3 text-center text-sm font-medium text-ink-700 transition-colors hover:border-brand-600"
-          >
-            Continue without an account
-          </Link>
+          <form action={continueAsGuest}>
+            <button
+              type="submit"
+              className="block w-full rounded-[9px] border border-line-strong bg-white py-3 text-center text-sm font-medium text-ink-700 transition-colors hover:border-brand-600"
+            >
+              Continue without an account
+            </button>
+          </form>
           <p className="mt-2 text-center text-[11.5px] leading-[1.5] text-ink-300">
             You can ask anything. Answers just are not saved to a history.
           </p>
