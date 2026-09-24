@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Citation cards with an in-force date bar per rule.
+ * The rules an answer used, each with the window it was in force.
  *
  * The bar is the August 2026 story rendered as UI (spec section 6.2 addition 2):
  * you can see the window a rule was in force, and the dashed overlay is the
@@ -9,6 +9,7 @@
  * version says so.
  */
 
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import type { Citation } from "@/lib/api";
 import { formatDate } from "@/lib/api";
@@ -43,90 +44,79 @@ export function CitationsPanel({ citations, ya, highlightRuleKey }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const window = yaWindow(ya);
 
+  if (citations.length === 0) {
+    return <p className="px-1 text-[14px] text-ink-400">No rules were needed for this answer.</p>;
+  }
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-line bg-white px-4 pb-2 pt-4">
-      <div className="flex items-center justify-between">
-        <span className="eyebrow">CITATIONS · {citations.length} USED</span>
-      </div>
+    <div className="flex flex-col gap-2">
+      {citations.map((c, i) => {
+        const isOpen = open === c.rule_version_id;
+        const highlighted = highlightRuleKey === c.rule_key;
+        const left = pct(c.effective_from, 0);
+        const right = pct(c.effective_to, 100);
 
-      <div className="mt-[13px] flex flex-col gap-2 overflow-y-auto pr-1">
-        {citations.map((c, i) => {
-          const isOpen = open === c.rule_version_id;
-          const highlighted = highlightRuleKey === c.rule_key;
-          const left = pct(c.effective_from, 0);
-          const right = pct(c.effective_to, 100);
-
-          return (
-            <div
-              key={c.rule_version_id}
-              id={`cite-${c.rule_key}`}
-              className={`rounded-[9px] border px-3 py-[11px] transition-colors ${
-                highlighted
-                  ? "border-brand-600 bg-brand-050"
-                  : "border-[#E9EDF7] bg-white"
-              }`}
+        return (
+          <article
+            key={c.rule_version_id}
+            id={`cite-${c.rule_key}`}
+            className={`scroll-mt-6 rounded-xl border bg-white px-4 py-3.5 transition-colors ${
+              highlighted ? "border-brand-600 ring-3 ring-brand-600/10" : "border-line"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(isOpen ? null : c.rule_version_id)}
+              aria-expanded={isOpen}
+              className="flex w-full items-start gap-3 text-left"
             >
-              <button
-                type="button"
-                onClick={() => setOpen(isOpen ? null : c.rule_version_id)}
-                className="flex w-full items-start gap-2 text-left"
-              >
-                <span className="mt-[1px] flex-none rounded-[3px] bg-brand-100 px-1 py-[2px] font-mono text-[10px] font-semibold text-brand-600">
-                  {i + 1}
+              <span className="tnum mt-[2px] flex h-5 min-w-5 flex-none items-center justify-center rounded bg-brand-100 px-1 text-[11px] font-semibold text-brand-700">
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="statute block text-[15px] font-semibold not-italic text-ink-900">{c.label ?? c.rule_key}</span>
+                <span className="mt-0.5 block text-[13px] text-ink-400">
+                  {c.revision_no > 1
+                    ? `Revision ${c.revision_no}, replacing an earlier version`
+                    : `In force from ${formatDate(c.effective_from)}`}
                 </span>
-                <div className="flex-1">
-                  <div className="text-[13px] font-semibold leading-[1.35] text-ink-900">
-                    {c.label ?? c.rule_key}
-                  </div>
-                  <div className="mt-[3px] text-[11.5px] leading-[1.4] text-ink-400">
-                    {c.revision_no > 1
-                      ? `Revision ${c.revision_no} · supersedes an earlier version`
-                      : `In force from ${formatDate(c.effective_from)}`}
-                  </div>
-                </div>
-                <span className="font-mono text-[10px] text-ink-200">
-                  {isOpen ? "▴" : "▾"}
-                </span>
-              </button>
+              </span>
+              <ChevronDown className={`mt-1 size-4 flex-none text-ink-300 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+            </button>
 
-              {/* In-force window against a fixed four-year track. */}
-              <div className="mt-[10px]">
-                <div className="relative h-[5px] rounded-sm bg-[#EFF2F9]">
+            {/* The in-force window against a fixed four-year track. */}
+            <div className="mt-3 pl-8">
+              <div className="relative h-1.5 rounded-full bg-canvas">
+                <div
+                  className="absolute inset-y-0 rounded-full bg-brand-600"
+                  style={{ left: `${left}%`, width: `${Math.max(right - left, 1)}%` }}
+                />
+                {window && (
                   <div
-                    className="absolute bottom-0 top-0 rounded-sm bg-brand-600"
-                    style={{ left: `${left}%`, width: `${Math.max(right - left, 1)}%` }}
+                    className="absolute -inset-y-[3px] rounded-sm border border-dashed border-good-600"
+                    style={{ left: `${window.left}%`, width: `${window.width}%` }}
                   />
-                  {window && (
-                    <div
-                      className="absolute -bottom-[3px] -top-[3px] rounded-sm border border-dashed border-good-600"
-                      style={{ left: `${window.left}%`, width: `${window.width}%` }}
-                    />
-                  )}
-                </div>
-                <div className="mt-[5px] flex justify-between font-mono text-[10px] text-ink-300">
-                  <span>{formatDate(c.effective_from)}</span>
-                  <span>{c.effective_to ? formatDate(c.effective_to) : "no end date"}</span>
-                </div>
+                )}
               </div>
-
-              {isOpen && c.quoted_text && (
-                <div className="fade-up mt-[10px] rounded-lg bg-panel px-3 py-[10px] text-[12px] leading-[1.55] text-ink-700">
-                  <span className="text-ink-300">“</span>
-                  {c.quoted_text}
-                  <span className="text-ink-300">”</span>
-                </div>
-              )}
+              <div className="tnum mt-1.5 flex justify-between text-[12px] text-ink-400">
+                <span>{formatDate(c.effective_from)}</span>
+                <span>{c.effective_to ? formatDate(c.effective_to) : "No end date"}</span>
+              </div>
             </div>
-          );
-        })}
-      </div>
 
-      <div className="mt-3 flex items-center gap-2 border-t border-[#EEF1F8] pb-2 pt-[11px]">
-        <span className="h-[5px] w-[9px] flex-none rounded-sm border border-dashed border-good-600" />
-        <span className="font-mono text-[10.5px] leading-[1.4] text-ink-400">
-          dashed window = Y/A {ya ?? "selected"}
-        </span>
-      </div>
+            {isOpen && c.quoted_text && (
+              <blockquote className="statute fade-up ml-8 mt-3 rounded-lg bg-panel px-3.5 py-3 text-[14px] italic text-ink-700">
+                &ldquo;{c.quoted_text}&rdquo;
+              </blockquote>
+            )}
+          </article>
+        );
+      })}
+
+      <p className="flex items-center gap-2 px-1 pt-1 text-[12.5px] text-ink-400">
+        <span className="h-1.5 w-3 flex-none rounded-sm border border-dashed border-good-600" />
+        The dashed box marks the year of assessment {ya ?? "you asked about"}.
+      </p>
     </div>
   );
 }

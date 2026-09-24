@@ -78,7 +78,7 @@ function SourceCard({ n, passage: p, highlighted }: { n: number; passage: Passag
     <article
       id={`source-${n}`}
       className={`scroll-mt-4 rounded-xl border bg-white px-5 py-4 transition-colors ${
-        highlighted ? "border-brand-600 shadow-[0_0_0_3px_rgba(43,68,199,0.09)]" : "border-line"
+        highlighted ? "border-brand-600 ring-3 ring-brand-600/10" : "border-line"
       }`}
     >
       <div className="flex items-start gap-3">
