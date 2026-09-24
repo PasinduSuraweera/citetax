@@ -59,6 +59,21 @@ export const PHASE_RING: Record<string, string> = {
   Verify: "bg-phase-verify/30",
 };
 
+// An actual light, not just a color — the step working right now casts a
+// soft glow in its own hue. Read via CSS var so one map covers every phase
+// without a shadow-[...] literal per color.
+export const PHASE_GLOW: Record<string, string> = {
+  Intake: "shadow-[0_0_16px_var(--color-brand-600)]",
+  Route: "shadow-[0_0_16px_var(--color-phase-route)]",
+  Resolve: "shadow-[0_0_16px_var(--color-phase-resolve)]",
+  Compute: "shadow-[0_0_16px_var(--color-good-mint)]",
+  Comply: "shadow-[0_0_16px_var(--color-phase-comply)]",
+  Compare: "shadow-[0_0_16px_var(--color-phase-compare)]",
+  Retrieve: "shadow-[0_0_16px_var(--color-phase-retrieve)]",
+  Explain: "shadow-[0_0_16px_var(--color-phase-explain)]",
+  Verify: "shadow-[0_0_16px_var(--color-phase-verify)]",
+};
+
 // What a step's status was, shown instead of its phase color whenever that
 // status was not a plain success — a failure needs to stand out, not blend
 // into the same palette as everything that went fine.
@@ -130,7 +145,9 @@ export function AgentTrace({ trace, plan, intent, routeSource, running, latencyM
             <li key={`${node}-${i}`} className="flex gap-[11px]">
               <div className="flex w-[11px] flex-none flex-col items-center">
                 <span
-                  className={`relative mt-[3px] h-[11px] w-[11px] flex-none rounded-full transition-colors duration-300 ${dotClass}`}
+                  className={`relative mt-[3px] h-[11px] w-[11px] flex-none rounded-full transition-[background-color,box-shadow] duration-300 ${dotClass} ${
+                    isNext ? (PHASE_GLOW[node] ?? PHASE_GLOW.Intake) : ""
+                  }`}
                 >
                   {entry?.status === "ok" && (
                     <svg
