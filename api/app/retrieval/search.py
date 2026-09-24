@@ -13,6 +13,7 @@ in code rather than by convention.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -25,6 +26,26 @@ logger = logging.getLogger(__name__)
 
 TOP_K = 6           # passages handed to the model
 CANDIDATES = 20     # per retriever, before fusion (spec: reranker sees 20)
+# Dense similarity always returns its top N, however weak, and on this corpus
+# scores bunch between about 0.63 and 0.74. A fixed floor would cut good
+# matches for some questions and keep noise for others, so a dense match must
+# instead sit within this margin of the question's best dense match.
+DENSE_MARGIN = 0.04
+# Index pages ("... Read More ... Read More") match nearly every question and
+# say nothing on their own.
+_LISTING = re.compile(r"\bRead More\b", re.I)
+
+
+def _readable(text_: str | None) -> bool:
+    """False for index pages and for PDF text that came out letter-spaced
+    ("N O T I C E T O T A X P A Y E R S"), which no reader can use."""
+    t = text_ or ""
+    if len(_LISTING.findall(t)) >= 2:
+        return False
+    words = t.split()
+    if len(words) >= 20 and sum(len(w) == 1 for w in words) / len(words) > 0.5:
+        return False
+    return True
 
 
 @dataclass
@@ -88,6 +109,15 @@ _DENSE = text(
 )
 
 
+_SIM = text(
+    """
+    select c.id, 1 - (c.embedding <=> cast(:v as vector)) as score
+      from chunk c
+     where c.id = any(cast(:ids as uuid[])) and c.embedding is not null
+    """
+)
+
+
 def search(
     conn: Connection,
     query: str,
@@ -103,17 +133,35 @@ def search(
     meta["fts"] = len(fts_rows)
 
     dense_rows: list[Any] = []
+    sim: dict[str, float] = {}
     if embeddings.dense_enabled():
         meta["dense_enabled"] = True
         try:
             vec = embeddings.get_provider().embed_query(query)
-            dense_rows = conn.execute(
-                _DENSE, {**params, "v": "[" + ",".join(f"{x:.6f}" for x in vec) + "]"}
-            ).mappings().all()
+            v = "[" + ",".join(f"{x:.6f}" for x in vec) + "]"
+            dense_rows = conn.execute(_DENSE, {**params, "v": v}).mappings().all()
             meta["dense"] = len(dense_rows)
+            sim = {str(r["id"]): float(r["score"]) for r in dense_rows}
+            # Keyword hits get the same relevance test as dense ones, so a
+            # word shared with a page's boilerplate is not a way in.
+            missing = [str(r["id"]) for r in fts_rows if str(r["id"]) not in sim]
+            if missing:
+                for r in conn.execute(_SIM, {"ids": missing, "v": v}).mappings():
+                    sim[str(r["id"])] = float(r["score"])
         except Exception as exc:  # noqa: BLE001 — dense is optional, fts still answers
             meta["dense_error"] = str(exc)[:160]
             logger.warning("dense retrieval failed: %s", exc)
+
+    def relevant(r) -> bool:
+        s = sim.get(str(r["id"]))
+        # No similarity (dense off, or the chunk has no embedding): only the
+        # keyword match speaks for it.
+        return s is None or s >= floor
+
+    floor = (max(sim.values()) - DENSE_MARGIN) if sim else 0.0
+    fts_rows = [r for r in fts_rows if relevant(r) and _readable(r["text"])]
+    dense_rows = [r for r in dense_rows if relevant(r) and _readable(r["text"])]
+    meta["kept"] = len({str(r["id"]) for r in [*fts_rows, *dense_rows]})
 
     # Reciprocal rank fusion. k=60 is the conventional constant.
     fused: dict[str, dict[str, Any]] = {}
@@ -131,7 +179,25 @@ def search(
     add(fts_rows, "fts")
     add(dense_rows, "dense")
 
-    ordered = sorted(fused.values(), key=lambda e: e["score"], reverse=True)[:top_k]
+    # One passage per document, and per rule: three chunks of one article are
+    # one source, and the next best document gets the slot instead.
+    ordered = []
+    seen: set[str] = set()
+    for e in sorted(fused.values(), key=lambda e: e["score"], reverse=True):
+        r = e["row"]
+        # By URL first: two revisions of one page are one source.
+        group = (
+            f"url:{r['url']}" if r["url"]
+            else f"doc:{r['source_document_id']}" if r["source_document_id"]
+            else f"rule:{r['rule_key']}" if r["rule_key"]
+            else f"chunk:{r['id']}"
+        )
+        if group in seen:
+            continue
+        seen.add(group)
+        ordered.append(e)
+        if len(ordered) == top_k:
+            break
     meta["fused"] = len(ordered)
 
     out = []
