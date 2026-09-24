@@ -132,7 +132,7 @@ export function AdminShell({ me, snapshotLabel, urgentCount, children }: Props) 
         <div className="flex-1" />
 
         <Link
-          href="/"
+          href="/chat"
           className="mb-3 rounded-lg border border-white/10 px-[11px] py-2 text-center text-[12.5px] text-white/60 transition-colors hover:border-white/25 hover:text-white"
         >
           Back to the app
@@ -184,7 +184,7 @@ export function NoAccess({ me }: { me: Me | null }) {
         </p>
         <div className="mt-6 flex gap-3">
           <Link
-            href="/"
+            href="/chat"
             className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 hover:border-brand-600"
           >
             Back to the app

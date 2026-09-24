@@ -1,88 +1,187 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-/* Design tokens taken from UI/Citetax UI.dc.html (Claude Design export).
-   Figures are set in IBM Plex Mono throughout: a tax figure is a quantity,
-   and tabular mono makes columns of them line up and stay comparable. */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Citetax design tokens, taken from the brand artwork (public/brand/).
+ *
+ * Navy, the "Cite" of the wordmark, is the primary colour: text and the main
+ * actions. Teal, the "tax", is the accent: links, citation markers, focus.
+ * Green is kept apart for "released", and red for refusals and failures.
+ * The legacy names (ink, brand, line, good, warn ...) are kept so every
+ * screen draws from the same palette; shadcn's semantic tokens map onto them.
+ */
 @theme {
-  --color-ink-900: #0E1430;   /* sidebar, headline figures, balance row */
-  --color-ink-700: #41496B;   /* body strong */
-  --color-ink-500: #5C6683;   /* body */
-  --color-ink-400: #6A7490;   /* secondary body */
-  --color-ink-300: #8A93AC;   /* eyebrow labels, table headers */
-  --color-ink-200: #9BA4BC;   /* faint mono */
+  --color-ink-900: #10224a;   /* navy: headings, figures */
+  --color-ink-700: #33415c;   /* strong body */
+  --color-ink-500: #546079;   /* body */
+  --color-ink-400: #69748b;   /* secondary */
+  --color-ink-300: #8993a6;   /* quiet labels */
+  --color-ink-200: #adb5c4;   /* faint */
 
-  --color-brand-600: #2B44C7; /* primary action, citation markers */
-  --color-brand-700: #1B2FA0; /* hover */
-  --color-brand-100: #E8ECFC; /* citation marker background */
-  --color-brand-050: #EDF1FC; /* info panels */
+  --color-brand-600: #0f7d86; /* teal accent: links, markers, focus */
+  --color-brand-700: #0b6169; /* hover, pressed */
+  --color-brand-100: #dcf0f1; /* marker background */
+  --color-brand-050: #eef8f8; /* quiet info */
+  --color-gold-500: #d9a441;  /* the check in the mark */
 
-  --color-surface: #F5F7FC;   /* app background */
-  --color-canvas: #E9EDF6;    /* outermost canvas */
-  --color-panel: #F7F9FD;     /* inset panels */
-  --color-line: #E4E9F5;      /* card borders */
-  --color-line-strong: #D8DFF0;
-  --color-line-faint: #F4F6FC;
+  --color-surface: #f5f7fa;   /* app background */
+  --color-canvas: #eaeef4;
+  --color-panel: #f8fafc;     /* inset areas */
+  --color-line: #e2e7ef;
+  --color-line-strong: #d0d8e3;
+  --color-line-faint: #eff2f7;
 
-  --color-good-700: #08483B;  /* released by guardrail */
-  --color-good-600: #0B6B57;
-  --color-good-500: #2C6659;
-  --color-good-300: #B9DED3;
-  --color-good-100: #E2F2EE;
-  --color-good-mint: #3CCF9E;
-  --color-good-mintsoft: #8FE3CE;
+  --color-good-700: #145c3b;  /* released */
+  --color-good-600: #1c7a4f;
+  --color-good-500: #2f6b52;
+  --color-good-300: #b7dcc8;
+  --color-good-100: #e7f4ec;
+  --color-good-mint: #3aa06e;
+  --color-good-mintsoft: #9fd8b9;
 
-  --color-warn-700: #7A2018;
-  --color-warn-600: #A22B23;
-  --color-warn-500: #8C3D33;
-  --color-warn-300: #F1CFCA;
-  --color-warn-100: #FBE9E7;
+  --color-warn-700: #7a1f17;
+  --color-warn-600: #a4271c;
+  --color-warn-500: #8e3b30;
+  --color-warn-300: #efcdc7;
+  --color-warn-100: #fbefec;
 
-  /* Agent trace: each step gets its own identity color, distinct from the
-     status colors above (ok/failed/etc), which still take over when a step
-     did not simply succeed. Intake and Compute reuse brand/good rather than
-     add two more hues, since "entry point" and "verified arithmetic" already
-     have an established color in this app. */
-  --color-phase-route: #6E56CF;
-  --color-phase-resolve: #0E8F8A;
-  --color-phase-comply: #C4832B;
-  --color-phase-compare: #2A8FC7;
-  --color-phase-retrieve: #8B6FD9;
-  --color-phase-explain: #C24F87;
-  --color-phase-verify: #1F8F4C;
+  /* Agent trace phases (DIpna's palette): each step keeps its own hue;
+     status colours still take over when a step did not succeed. */
+  --color-phase-route: #6e56cf;
+  --color-phase-resolve: #0e8f8a;
+  --color-phase-comply: #c4832b;
+  --color-phase-compare: #2a8fc7;
+  --color-phase-retrieve: #8b6fd9;
+  --color-phase-explain: #c24f87;
+  --color-phase-verify: #1f8f4c;
 
-  /* next/font injects these variables on <html>. */
-  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
-* { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  background: var(--color-surface);
-  color: var(--color-ink-900);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+@theme inline {
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* Three radii: 4 for small controls and markers, 8 for buttons, inputs and
+     cards, 12 for the few large surfaces. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: var(--radius);
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+  --radius-3xl: 12px;
+  --radius-4xl: 12px;
 }
 
-/* Figures use tabular lining numerals so digits occupy equal width and
-   columns of money stay aligned down the table. */
+:root {
+  --radius: 8px;
+  --background: #ffffff;
+  --foreground: #10224a;
+  --card: #ffffff;
+  --card-foreground: #10224a;
+  --popover: #ffffff;
+  --popover-foreground: #10224a;
+  --primary: #10224a;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f7;
+  --secondary-foreground: #10224a;
+  --muted: #f2f5f9;
+  --muted-foreground: #69748b;
+  --accent: #edf1f6;
+  --accent-foreground: #10224a;
+  --destructive: #a4271c;
+  --border: #e2e7ef;
+  --input: #d0d8e3;
+  --ring: #0f7d86;
+  --chart-1: #10224a;
+  --chart-2: #0f7d86;
+  --chart-3: #0aaab4;
+  --chart-4: #d9a441;
+  --chart-5: #a4271c;
+  /* The sidebar is the brand navy; text and states on it are white at
+     varying strength, with the lifted teal for the current page. */
+  --sidebar: #10224a;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #3cc7cf;
+  --sidebar-primary-foreground: #10224a;
+  --sidebar-accent: rgb(255 255 255 / 0.09);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.1);
+  --sidebar-ring: #3cc7cf;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    margin: 0;
+  }
+}
+
+/* Figures use tabular lining numerals so money lines up down a column. */
 .tnum { font-variant-numeric: tabular-nums lining-nums; }
 
+/* A quiet section label. Sentence case in new copy; the admin screens still
+   carry upper case text and get the same size and colour. */
 .eyebrow {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  color: var(--color-ink-300);
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: var(--color-ink-400);
+}
+
+/* Words quoted from the Act and circulars: set apart from the app's own voice. */
+.statute {
+  font-family: var(--font-serif);
+  font-size: 1.02em;
+  line-height: 1.6;
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
-.fade-up { animation: fadeUp 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade-up { animation: fadeUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes pulseDot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -90,9 +189,6 @@ html, body {
 }
 .pulse-dot { animation: pulseDot 1.1s ease-in-out infinite; }
 
-/* The three dots after "Reading the question..." while a step is in
-   progress — the same beat most modern AI chat UIs use for "still working",
-   staggered so they read as a wave rather than three dots blinking in sync. */
 @keyframes thinkingDot {
   0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
   40%           { opacity: 1; transform: translateY(-1.5px); }
@@ -103,9 +199,8 @@ html, body {
   .fade-up, .pulse-dot, .thinking-dot { animation: none; }
 }
 
-/* "Download PDF" is the browser's own print-to-PDF, not a server-generated
-   file. .print-area isolates the printed content; .no-print hides controls
-   (buttons, nav) that would otherwise print along with it. */
+/* "Download PDF" is the browser's own print to PDF. .print-area isolates the
+   printed content; .no-print hides controls that would otherwise print. */
 @media print {
   body * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
@@ -113,10 +208,13 @@ html, body {
   .no-print { display: none !important; }
 }
 
-::selection { background: var(--color-brand-100); color: var(--color-ink-900); }
+/* In the base layer so a component can turn it off with a utility (the
+   composer shows focus on its frame, not on the textarea inside it). */
+@layer base {
+  ::selection { background: var(--color-brand-100); color: var(--color-ink-900); }
 
-:focus-visible {
-  outline: 2px solid var(--color-brand-600);
-  outline-offset: 2px;
-  border-radius: 6px;
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
 }

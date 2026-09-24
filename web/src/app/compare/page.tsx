@@ -41,7 +41,7 @@ export default function ComparePage() {
               </p>
             </div>
             <Link
-              href={`/?q=${encodeURIComponent(question)}`}
+              href={`/chat?q=${encodeURIComponent(question)}`}
               className="flex-none rounded-lg bg-brand-600 px-4 py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-brand-700"
             >
               Ask the agent to explain

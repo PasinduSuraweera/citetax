@@ -3,65 +3,83 @@
 /**
  * The question box. The empty page and the follow-up box under a thread use
  * the same one, so asking looks and behaves the same either way: Enter sends,
- * Shift+Enter adds a line.
+ * Shift+Enter adds a line. It grows with what is typed, up to a limit.
  */
 
-import { useRef, type RefObject } from "react";
+import { ArrowUp, CalendarDays, Check, ChevronDown, Loader2, Paperclip } from "lucide-react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { SUPPORTED_YAS, type YA } from "./Shell";
 
 const PAYSLIP_TYPES = "image/jpeg,image/png,image/webp,application/pdf";
+const MAX_HEIGHT = 240;
 
 interface Props {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
   ya: string;
+  /** Lets the year be switched from the box itself. */
+  onYaChange?: (ya: YA) => void;
   /** Shows "Upload payslip" and hands the chosen file over. */
   onAttach?: (file: File) => void;
   inputRef?: RefObject<HTMLTextAreaElement | null>;
   placeholder?: string;
   /** A question is already running here. */
   busy?: boolean;
-  rows?: number;
   autoFocus?: boolean;
-  submitLabel?: string;
   className?: string;
 }
 
 export function Composer({
-  value, onChange, onSubmit, ya, onAttach, inputRef, placeholder, busy = false,
-  rows = 3, autoFocus = false, submitLabel = "Ask", className = "",
+  value, onChange, onSubmit, ya, onYaChange, onAttach, inputRef, placeholder, busy = false,
+  autoFocus = false, className = "",
 }: Props) {
   const disabled = busy || !value.trim();
   const fileRef = useRef<HTMLInputElement>(null);
+  const ownRef = useRef<HTMLTextAreaElement>(null);
+  const ref = inputRef ?? ownRef;
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
+  }, [value, ref]);
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         if (!disabled) onSubmit(value);
       }}
-      className={`rounded-[13px] border-[1.5px] border-brand-600 bg-white shadow-[0_0_0_4px_rgba(43,68,199,0.09)] ${className}`}
+      className={`rounded-2xl border border-line-strong bg-white shadow-[0_1px_2px_rgba(26,29,33,0.04),0_10px_28px_-16px_rgba(26,29,33,0.18)] transition-[border-color,box-shadow] focus-within:border-brand-600/50 focus-within:ring-4 focus-within:ring-brand-600/10 ${className}`}
     >
       <textarea
-        ref={inputRef}
+        ref={ref}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             if (!disabled) onSubmit(value);
           }
         }}
-        rows={rows}
+        rows={2}
         autoFocus={autoFocus}
         aria-label="Your question"
         placeholder={placeholder ?? "What do I owe for 2026/2027 on a salary of LKR 250,000 a month?"}
-        className="w-full resize-none bg-transparent px-4 pb-[6px] pt-5 text-[16px] leading-[1.5] text-ink-900 outline-none placeholder:text-ink-200 sm:px-[22px] sm:text-[17px]"
+        className="block max-h-[240px] w-full resize-none bg-transparent px-4 pb-1 pt-4 text-[16px] leading-[1.5] text-ink-900 outline-none placeholder:text-ink-300 focus-visible:outline-none"
       />
-      <div className="flex items-center justify-between px-3 pb-[14px] pl-4 pt-3 sm:px-4 sm:pl-[22px]">
-        <div className="flex items-center gap-2">
-          <span className="rounded-lg border border-line-strong px-[11px] py-[7px] text-[12.5px] font-medium text-ink-700">
-            Y/A {ya.replace("/", " / ")}
-          </span>
+      <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1">
+        <div className="flex min-w-0 items-center gap-1">
           {onAttach && (
             <>
               <input
@@ -80,22 +98,46 @@ export function Composer({
                 type="button"
                 disabled={busy}
                 onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-[6px] rounded-lg border border-line-strong px-[11px] py-[7px] text-[12.5px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600 disabled:opacity-40"
+                className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[13.5px] text-ink-500 transition-colors hover:bg-muted hover:text-ink-900 disabled:opacity-40"
               >
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M13.5 7.5l-5.6 5.6a3.3 3.3 0 01-4.7-4.7l5.9-5.9a2.2 2.2 0 013.1 3.1l-5.9 5.9a1.1 1.1 0 01-1.6-1.6l5.3-5.3" />
-                </svg>
-                Upload payslip
+                <Paperclip className="size-4" />
+                <span className="hidden sm:inline">Upload payslip</span>
               </button>
             </>
+          )}
+          {onYaChange ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={`Year of assessment ${ya}. Change year`}
+                className="tnum flex h-8 items-center gap-1.5 rounded-md px-2 text-[13.5px] text-ink-500 transition-colors hover:bg-muted hover:text-ink-900 data-popup-open:bg-muted"
+              >
+                <CalendarDays className="size-4" />
+                {ya}
+                <ChevronDown className="size-3.5 text-ink-300" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-[12px] font-normal text-ink-400">Year of assessment</DropdownMenuLabel>
+                  {SUPPORTED_YAS.map((y) => (
+                    <DropdownMenuItem key={y} onClick={() => onYaChange(y)} className="tnum justify-between">
+                      {y}
+                      {y === ya && <Check className="text-brand-600" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <span className="tnum hidden px-2 text-[13px] text-ink-400 sm:inline">Year {ya}</span>
           )}
         </div>
         <button
           type="submit"
           disabled={disabled}
-          className="rounded-lg bg-brand-600 px-[18px] py-[9px] text-[13.5px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="Ask"
+          className="flex size-9 flex-none items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/85 disabled:bg-canvas disabled:text-ink-300"
         >
-          {busy ? "Working..." : submitLabel}
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
         </button>
       </div>
     </form>

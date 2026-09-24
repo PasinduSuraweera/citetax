@@ -151,7 +151,7 @@ export default function WelcomePage() {
 
   const handOver = (q: string) => {
     setLeaving(true);
-    router.push(q ? `/?draft=${encodeURIComponent(q)}` : "/");
+    router.push(q ? `/chat?draft=${encodeURIComponent(q)}` : "/chat");
   };
 
   const chooseGoal = (g: Goal) => {
@@ -190,7 +190,7 @@ export default function WelcomePage() {
               />
             ))}
           </div>
-          <Link href="/" className="text-[13px] font-medium text-ink-300 transition-colors hover:text-ink-700">
+          <Link href="/chat" className="text-[13px] font-medium text-ink-300 transition-colors hover:text-ink-700">
             Skip
           </Link>
         </div>

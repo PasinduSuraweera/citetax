@@ -84,7 +84,7 @@ export default function HistoryPage() {
               <p className="mx-auto mt-3 max-w-[400px] text-[14px] leading-[1.6] text-ink-400">
                 Ask a question and it will appear here, stamped with the snapshot it was computed against.
               </p>
-              <Link href="/" className="mt-5 inline-block rounded-lg bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-brand-700">
+              <Link href="/chat" className="mt-5 inline-block rounded-lg bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-brand-700">
                 Ask a question
               </Link>
             </div>
@@ -173,7 +173,7 @@ export default function HistoryPage() {
                     )}
 
                     <Link
-                      href={`/?q=${encodeURIComponent(open.question ?? "")}`}
+                      href={`/chat?q=${encodeURIComponent(open.question ?? "")}`}
                       className="rounded-lg border border-line-strong bg-white px-4 py-2 text-center text-[13px] font-medium text-ink-700 hover:border-brand-600 hover:text-brand-600"
                     >
                       Ask again against the current snapshot

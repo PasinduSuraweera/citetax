@@ -38,7 +38,7 @@ export default function DeadlinesPage() {
               </p>
             </div>
             <Link
-              href={`/?q=${encodeURIComponent(`When is my return due for ${ya}?`)}`}
+              href={`/chat?q=${encodeURIComponent(`When is my return due for ${ya}?`)}`}
               className="flex-none rounded-lg border border-line-strong bg-white px-4 py-[9px] text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
             >
               Ask the agent
