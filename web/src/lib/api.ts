@@ -72,6 +72,8 @@ export interface Passage {
   url: string | null;
   score: number;
   matched_by: "fts" | "dense" | "both";
+  /** The rule's plain name. Absent on answers stored before it existed. */
+  rule_title?: string | null;
 }
 
 export interface LlmUsage {
