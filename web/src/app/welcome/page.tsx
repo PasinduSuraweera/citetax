@@ -19,6 +19,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { type YA } from "@/components/Shell";
+import { Loader2 } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { useSession } from "@/lib/session";
 
 type Work = "employed" | "freelance" | "both" | "investments";
@@ -163,8 +165,9 @@ export default function WelcomePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface">
-        <span className="font-mono text-[12px] text-ink-300">Loading...</span>
+      <div className="flex min-h-screen items-center justify-center gap-2 bg-surface text-[14px] text-ink-400">
+        <Loader2 className="size-4 animate-spin" />
+        Loading
       </div>
     );
   }
@@ -175,8 +178,8 @@ export default function WelcomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <header className="flex h-[62px] flex-none items-center justify-between border-b border-line bg-white px-5 sm:px-8">
-        <Link href="/" className="text-[19px] font-bold tracking-[-0.025em] text-ink-900">
-          Citetax
+        <Link href="/" aria-label="Citetax home">
+          <Logo height={30} priority />
         </Link>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-[6px]" aria-label={`Step ${step} of ${totalSteps}`}>
@@ -264,9 +267,9 @@ export default function WelcomePage() {
                 {money.hint}. An estimate is fine, you can correct it in a moment.
               </p>
 
-              <div className="mt-8 rounded-2xl border border-line bg-white p-5 sm:p-6">
+              <div className="mt-8 rounded-xl border border-line bg-white p-5 transition-[border-color,box-shadow] focus-within:border-brand-600/50 focus-within:ring-4 focus-within:ring-brand-600/10 sm:p-6">
                 <div className="flex items-center gap-3">
-                  <span className="flex-none font-mono text-[15px] font-medium text-ink-300">LKR</span>
+                  <span className="flex-none text-[20px] font-medium text-ink-300">LKR</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -280,7 +283,7 @@ export default function WelcomePage() {
                     }}
                     placeholder="250,000"
                     aria-label={`Amount in LKR, ${monthly ? "per month" : "per year"}`}
-                    className="tnum min-w-0 flex-1 bg-transparent font-mono text-[28px] font-semibold tracking-[-0.02em] text-ink-900 outline-none placeholder:text-ink-200 sm:text-[32px]"
+                    className="tnum min-w-0 flex-1 bg-transparent text-[30px] font-semibold tracking-[-0.02em] text-ink-900 outline-none placeholder:text-ink-200 focus-visible:outline-none sm:text-[34px]"
                   />
                 </div>
 
@@ -309,10 +312,8 @@ export default function WelcomePage() {
               {/* What will land in the box. Shown so nothing is a surprise. */}
               {amount.trim() && (
                 <div className="fade-up mt-4 rounded-xl border border-line bg-panel px-4 py-3">
-                  <div className="font-mono text-[10px] tracking-[0.14em] text-ink-300">
-                    YOUR QUESTION
-                  </div>
-                  <p className="mt-2 text-[14px] leading-[1.55] text-ink-700">{draft}</p>
+                  <div className="text-[13px] font-medium text-ink-400">Your question</div>
+                  <p className="mt-1 text-[15px] leading-[1.55] text-ink-900">{draft}</p>
                 </div>
               )}
 
@@ -321,7 +322,7 @@ export default function WelcomePage() {
                   type="button"
                   onClick={() => handOver(draft)}
                   disabled={!amount.trim() || leaving}
-                  className="flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-[12px] text-[14px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-10 items-center gap-2 rounded-lg bg-primary px-5 text-[14.5px] font-medium text-primary-foreground transition-colors hover:bg-primary/85 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Continue
                   <Arrow />
@@ -363,9 +364,9 @@ function Card({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="group flex items-center gap-4 rounded-2xl border border-line bg-white px-4 py-4 text-left transition-all hover:-translate-y-[1px] hover:border-brand-600 hover:shadow-[0_6px_20px_-12px_rgba(14,20,48,0.35)] disabled:cursor-wait disabled:opacity-60 sm:px-5"
+      className="group flex items-center gap-4 rounded-xl border border-line bg-white px-4 py-4 text-left transition-colors hover:border-brand-600/60 hover:bg-panel disabled:cursor-wait disabled:opacity-60 sm:px-5"
     >
-      <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-brand-050 text-brand-600 transition-colors group-hover:bg-brand-600 group-hover:text-white">
+      <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-brand-050 text-brand-600">
         <Icon name={icon} />
       </span>
       <span className="min-w-0 flex-1">
@@ -388,10 +389,10 @@ function BackLink({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="mb-5 flex items-center gap-[6px] font-mono text-[11.5px] text-ink-300 transition-colors hover:text-ink-700"
+      className="mb-5 flex items-center gap-1.5 text-[13.5px] text-ink-400 transition-colors hover:text-ink-900"
     >
       <Arrow back />
-      back
+      Back
     </button>
   );
 }

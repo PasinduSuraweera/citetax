@@ -34,6 +34,8 @@ export default function AgentPage() {
   }, []);
 
   useEffect(() => {
+    // load() only sets state once its requests resolve.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // Live enough to watch a cycle finish without pressing refresh.
     const t = setInterval(() => {
@@ -191,7 +193,7 @@ export default function AgentPage() {
             <div className="mt-4 rounded-xl border border-line bg-panel px-5 py-4 text-[13px] leading-[1.6] text-ink-500">
               Pre-filled proposals land in the{" "}
               <Link href="/admin" className="font-medium text-brand-600 hover:underline">review inbox</Link>{" "}
-              with the extractor's confidence and rationale beside each field. The
+              with the extractor&apos;s confidence and rationale beside each field. The
               reviewer compares, corrects and signs. Corrections are recorded against
               the extractor and shown on{" "}
               <Link href="/admin/health" className="font-medium text-brand-600 hover:underline">corpus health</Link>.

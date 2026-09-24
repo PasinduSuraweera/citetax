@@ -44,7 +44,11 @@ export function AdminShell({ me, snapshotLabel, urgentCount, children }: Props) 
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => setOpen(false), [pathname]);
+  const [shownPath, setShownPath] = useState(pathname);
+  if (pathname !== shownPath) {
+    setShownPath(pathname);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;

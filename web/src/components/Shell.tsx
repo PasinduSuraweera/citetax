@@ -65,7 +65,11 @@ export function Shell(props: Props) {
   }, []);
 
   // Any navigation closes the drawer, otherwise it hangs over the new page.
-  useEffect(() => setOpen(false), [pathname]);
+  const [shownPath, setShownPath] = useState(pathname);
+  if (pathname !== shownPath) {
+    setShownPath(pathname);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -123,12 +127,12 @@ export function Shell(props: Props) {
 function SidebarContent({ ya, onYaChange, onNavigate }: Props & { onNavigate: () => void }) {
   const pathname = usePathname();
   const { user, loading, signOut } = useSession();
-  const [me, setMe] = useState<Me | null>(meCache ?? null);
+  const [fetchedMe, setMe] = useState<Me | null>(meCache ?? null);
+  const me = user ? fetchedMe : null;
 
   useEffect(() => {
     if (!user) {
-      meCache = null;
-      setMe(null);
+      meCache = undefined;
       return;
     }
     if (meCache !== undefined) return;

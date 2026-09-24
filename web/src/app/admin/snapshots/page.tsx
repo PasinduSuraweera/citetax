@@ -35,6 +35,8 @@ export default function SnapshotsPage() {
   }, []);
 
   useEffect(() => {
+    // load() only sets state once its requests resolve.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

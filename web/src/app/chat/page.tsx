@@ -69,11 +69,35 @@ const EXAMPLES: Array<{ kind: string; icon: LucideIcon; question: string }> = [
   { kind: "How a scheme works", icon: Landmark, question: "How does APIT work for a salaried employee?" },
 ];
 
+/** The hour, day and month in Sri Lanka, whatever clock the server runs on,
+ *  so the server render and the browser agree. */
+function colomboNow(): { hour: number; day: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "numeric", day: "numeric", month: "numeric", hourCycle: "h23", timeZone: "Asia/Colombo",
+  }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return { hour: get("hour"), day: get("day"), month: get("month") };
+}
+
+/**
+ * A greeting with a little personality. The variant is picked by the date,
+ * not at random, so it holds for the day and never flickers between the
+ * server render and the browser.
+ */
 function greeting(name: string | null | undefined): string {
-  const h = new Date().getHours();
-  const part = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const first = name?.trim().split(/\s+/)[0];
-  return first ? `${part}, ${first}` : "What would you like checked?";
+  if (!first) return "What would you like checked?";
+  const { hour, day, month } = colomboNow();
+  const pick = (options: string[]) => options[day % options.length];
+
+  if (hour < 4) return pick([`Up late, ${first}?`, `Burning the midnight oil, ${first}?`]);
+  if (hour < 6) return pick([`Early start, ${first}`, `Up with the sun, ${first}`]);
+  // Returns for the year are due on 30 November.
+  if (month === 11 && hour < 22) return pick([`Return season, ${first}`, `Filing month, ${first}`]);
+  if (hour < 12) return pick([`Good morning, ${first}`, `Morning, ${first}`]);
+  if (hour < 17) return pick([`Good afternoon, ${first}`, `Afternoon, ${first}`]);
+  if (hour < 22) return pick([`Good evening, ${first}`, `Evening, ${first}`]);
+  return pick([`Still at it, ${first}?`, `Winding down, ${first}?`]);
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -278,6 +302,8 @@ function AskPageInner() {
     const d = params.get("draft");
     if (q) {
       handedOff.current = true;
+      // A one time handoff from another page: the question starts on arrival.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void submit(q);
     } else if (d) {
       handedOff.current = true;
@@ -659,7 +685,7 @@ function ThreadMissing() {
     <Notice
       title="This chat is not available"
       action={
-        <Button render={<Link href="/chat" onClick={() => requestNewQuestion()} />}>Start a new chat</Button>
+        <Button nativeButton={false} render={<Link href="/chat" onClick={() => requestNewQuestion()} />}>Start a new chat</Button>
       }
     >
       It may have been deleted, or it belongs to another account.
@@ -671,7 +697,7 @@ function SignInToOpen() {
   return (
     <Notice
       title="Sign in to open this chat"
-      action={<Button render={<Link href="/signin" />}>Sign in with Google</Button>}
+      action={<Button nativeButton={false} render={<Link href="/signin" />}>Sign in with Google</Button>}
     >
       Chats are saved to an account, so only their owner can open them.
       Questions asked without an account still work, they are just not kept.
