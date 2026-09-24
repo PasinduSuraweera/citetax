@@ -148,6 +148,10 @@ def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
         )
         payload = serialise_answer(result)
         _persist_run(conn, result, payload, user)
+
+        if user is not None:
+            payload.update(_save_turn(conn, user, conversation_id, result, payload))
+
         return payload
 
 
