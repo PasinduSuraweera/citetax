@@ -17,6 +17,7 @@ import { AgentTrace } from "./AgentTrace";
 import { CitationsPanel } from "./CitationsPanel";
 import { ComputationTable } from "./ComputationTable";
 import { GuardrailBanner } from "./GuardrailBanner";
+import { ProseWithSources, SourcesList } from "./Sources";
 
 type Tab = "computation" | "comparison" | "sources" | "citations" | "trace" | "explanation";
 
@@ -46,6 +47,7 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
 
   const [tab, setTab] = useState<Tab>(defaultTab);
   const [highlight, setHighlight] = useState<string | null>(null);
+  const [sourceHighlight, setSourceHighlight] = useState<number | null>(null);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
 
   const citationIndex = useMemo(() => {
@@ -120,6 +122,15 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
     });
   };
 
+  const passageCount = answer.passages?.length ?? 0;
+  const goToSource = (n: number) => {
+    setTab("sources");
+    setSourceHighlight(n);
+    requestAnimationFrame(() => {
+      document.getElementById(`source-${n}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  };
+
   const handleFlag = async (step: LedgerStep) => {
     setFlagged((prev) => new Set(prev).add(step.step_no));
     if (!answer.run_id) return;
@@ -169,7 +180,7 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
           explanation is not squeezed into two thirds of the column. */}
       <div className={`flex flex-1 flex-col gap-[14px] ${showRail ? "xl:flex-row" : ""}`}>
         <div className="flex min-w-0 flex-1 flex-col gap-[14px]">
-          <Headline answer={answer} />
+          <Headline answer={answer} onSource={passageCount ? goToSource : undefined} />
 
           {/* Tabs. Six of these will not fit a phone, so the strip scrolls
               horizontally instead of shrinking each label to nothing. */}
@@ -214,11 +225,14 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
               {answer.explanation ? (
                 <>
                   <div className="eyebrow">EXPLANATION</div>
-                  {/* A measure cap keeps long prose readable, but 75ch is the
-                      readable maximum, not 720px, so the paragraph uses the
-                      width the layout gives it. */}
-                  <p className="mt-3 max-w-[75ch] text-[15.5px] leading-[1.75] text-ink-700">
-                    {answer.explanation}
+                  {/* No measure cap: the paragraph fills its card, so a wide
+                      screen does not leave half the card empty. */}
+                  <p className="mt-3 text-[15.5px] leading-[1.75] text-ink-700">
+                    <ProseWithSources
+                      text={answer.explanation}
+                      passages={answer.passages ?? []}
+                      onSource={passageCount ? goToSource : undefined}
+                    />
                   </p>
                   <p className="mt-5 border-t border-line pt-4 text-[12px] leading-[1.55] text-ink-400">
                     Every figure and date in this paragraph was checked against the
@@ -249,40 +263,7 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
           )}
 
           {tab === "sources" && answer.passages && (
-            <div className="flex flex-col gap-2">
-              {answer.passages.map((p, i) => (
-                <div key={p.chunk_id} className="rounded-xl border border-line bg-white px-5 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-[3px] bg-brand-100 px-1 py-[2px] font-mono text-[10px] font-semibold text-brand-600">
-                        {i + 1}
-                      </span>
-                      <span className="text-[13px] font-semibold text-ink-900">
-                        {p.title ?? p.rule_key ?? "Corpus passage"}
-                      </span>
-                    </div>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-300">
-                      {p.matched_by === "both" ? "keyword + semantic" : p.matched_by === "dense" ? "semantic" : "keyword"}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-[13px] leading-[1.6] text-ink-700">{p.text}</p>
-                  {p.url && (
-                    <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-block font-mono text-[11px] text-brand-600 hover:underline"
-                    >
-                      open source ↗
-                    </a>
-                  )}
-                </div>
-              ))}
-              <p className="px-1 text-[12px] leading-[1.5] text-ink-400">
-                Retrieved for the explanation only. No figure in any answer comes
-                from a passage; figures come from the rules table.
-              </p>
-            </div>
+            <SourcesList passages={answer.passages} highlight={sourceHighlight} />
           )}
 
           {tab === "citations" && (
@@ -326,7 +307,7 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
 
 /* ---------- headline, one per intent ---------- */
 
-function Headline({ answer }: { answer: AnswerResponse }) {
+function Headline({ answer, onSource }: { answer: AnswerResponse; onSource?: (n: number) => void }) {
   const { intent, computation: c, compliance, compare, lookup, ya } = answer;
 
   if ((intent === "compute" || (intent === "obligation" && c)) && c) {
@@ -492,8 +473,16 @@ function Headline({ answer }: { answer: AnswerResponse }) {
   return (
     <div className="rounded-xl border border-line bg-white px-6 py-[22px]">
       <div className="eyebrow">GROUNDED ANSWER · YEAR OF ASSESSMENT {ya}</div>
-      <p className="mt-3 max-w-[75ch] text-[16px] leading-[1.7] text-ink-900 sm:text-[17px] sm:leading-[1.65]">
-        {answer.explanation ?? answer.verify?.note ?? "The explanation was withheld."}
+      <p className="mt-3 text-[16px] leading-[1.7] text-ink-900 sm:text-[17px] sm:leading-[1.65]">
+        {answer.explanation ? (
+          <ProseWithSources
+            text={answer.explanation}
+            passages={answer.passages ?? []}
+            onSource={onSource}
+          />
+        ) : (
+          answer.verify?.note ?? "The explanation was withheld."
+        )}
       </p>
       <p className="mt-4 border-t border-line pt-3 text-[12px] leading-[1.55] text-ink-400">
         Written from the law text and the passages under Sources, and checked

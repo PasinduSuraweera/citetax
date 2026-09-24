@@ -37,6 +37,9 @@ class Passage:
     url: str | None
     score: float
     matched_by: str   # "fts" | "dense" | "both"
+    # The rule's plain name, for display. The model is still shown `title`
+    # or the key, so what it cites is unchanged.
+    rule_title: str | None = None
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -48,15 +51,18 @@ class Passage:
             "url": self.url,
             "score": round(self.score, 4),
             "matched_by": self.matched_by,
+            "rule_title": self.rule_title,
         }
 
 
 _FTS = text(
     """
     select c.id, c.text, c.source_document_id, c.rule_key, d.title, d.url,
+           r.title as rule_title,
            ts_rank_cd(c.tsv, plainto_tsquery('english', :q)) as score
       from chunk c
       left join source_document d on d.id = c.source_document_id
+      left join rule r on r.rule_key = c.rule_key
      where c.status = 'published'
        and c.tsv @@ plainto_tsquery('english', :q)
        and (:keys_empty or c.rule_key = any(:keys) or c.rule_key is null)
@@ -68,9 +74,11 @@ _FTS = text(
 _DENSE = text(
     """
     select c.id, c.text, c.source_document_id, c.rule_key, d.title, d.url,
+           r.title as rule_title,
            1 - (c.embedding <=> cast(:v as vector)) as score
       from chunk c
       left join source_document d on d.id = c.source_document_id
+      left join rule r on r.rule_key = c.rule_key
      where c.status = 'published'
        and c.embedding is not null
        and (:keys_empty or c.rule_key = any(:keys) or c.rule_key is null)
@@ -139,6 +147,7 @@ def search(
                 url=r["url"],
                 score=e["score"],
                 matched_by="both" if len(e["by"]) == 2 else next(iter(e["by"])),
+                rule_title=r["rule_title"],
             )
         )
     return out, meta

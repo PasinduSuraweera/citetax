@@ -29,6 +29,7 @@ BASE_RULES = """ABSOLUTE RULES:
 4. Write the year of assessment exactly as given, e.g. 2026/2027.
 5. Do not invent names, employers or personal details. Placeholders like <PERSON_1> mean a name was removed; do not refer to them.
 6. When you rely on a rule, name its citation label in brackets, e.g. (Act s.52).
+6a. When you rely on a retrieved passage, cite it by its number alone in square brackets, e.g. [2], placed before the full stop. Never write a passage's title, site name or bracketed label in the prose.
 7. Plain English for a Sri Lankan taxpayer. Short sentences. No headings, no bullet points, no markdown."""
 
 PROMPTS: dict[str, str] = {
