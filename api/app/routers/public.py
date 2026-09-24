@@ -184,6 +184,9 @@ def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingRespon
         def on_node(entry) -> None:
             q.put({"type": "step", **entry.to_json()})
 
+        def on_plan(plan: list[str]) -> None:
+            q.put({"type": "plan", "plan": plan})
+
         def worker() -> None:
             try:
                 with db_conn() as conn:
@@ -228,6 +231,7 @@ def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingRespon
                         facts_override=facts_override,
                         context=context,
                         on_node=on_node,
+                        on_plan=on_plan,
                     )
                     payload = serialise_answer(result)
                     _persist_run(conn, result, payload, user)
@@ -264,6 +268,21 @@ def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingRespon
             yield json.dumps(item, default=str) + "\n"
             if item["type"] in ("done", "error"):
                 break
+
+    # nosniff: without it Chromium holds back the first 1 KB to sniff the
+    # type, and every step event fits inside that, so the whole trace would
+    # arrive at once with the answer. no-transform/X-Accel-Buffering keep
+    # proxies from buffering it the same way.
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 
 def _save_turn(
     conn,

@@ -125,6 +125,7 @@ def run_answer_graph(
     facts_override: TaxFacts | None = None,
     context: ConversationContext | None = None,
     on_node: Callable[[TraceEntry], None] | None = None,
+    on_plan: Callable[[list[str]], None] | None = None,
 ) -> AnswerResult:
     """Answer one question.
 
@@ -136,7 +137,9 @@ def run_answer_graph(
     `on_node`, when given, fires the instant each step actually finishes —
     not a guess, not a timer. The streaming endpoint uses it to push real
     progress to the client as the graph runs; the plain endpoint leaves it
-    unset and just gets the trace list at the end, as before.
+    unset and just gets the trace list at the end, as before. `on_plan` fires
+    once, as soon as Route has chosen the plan, so the client knows which
+    steps are still to come.
     """
     settings = get_settings()
     started = time.perf_counter()
@@ -185,6 +188,8 @@ def run_answer_graph(
     result.intent = r.intent
     result.route_source = routed.source
     result.plan = list(PLANS.get(r.intent, PLANS["general"]))
+    if on_plan is not None:
+        on_plan(result.plan)
 
     facts = facts_override if facts_override is not None else routed.facts
     if context is not None and context.ya and not facts.ya:

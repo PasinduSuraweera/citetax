@@ -354,14 +354,20 @@ export interface StreamStep {
 /**
  * Same question-in, answer-out contract as api.ask, except onStep fires the
  * instant each step actually finishes on the backend — not a guess, not a
- * timer. Plain fetch() reading the body as a stream, not EventSource: a
- * browser's native EventSource cannot attach the Authorization header this
- * API needs, and NDJSON over POST has no such limitation.
+ * timer. onPlan fires once, when Route has chosen the steps still to come.
+ * Plain fetch() reading the body as a stream, not EventSource: a browser's
+ * native EventSource cannot attach the Authorization header this API needs,
+ * and NDJSON over POST has no such limitation.
  */
 async function askStream(
   question: string,
   ya: string | undefined,
   onStep: (step: StreamStep) => void,
+  opts: {
+    conversationId?: string | null;
+    reaskMessageId?: string | null;
+    onPlan?: (plan: string[]) => void;
+  } = {},
 ): Promise<AnswerResponse> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (typeof window !== "undefined") {
@@ -374,14 +380,26 @@ async function askStream(
     res = await fetch(`${API_BASE}/v1/ask/stream`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ question, ya: ya ?? null }),
+      body: JSON.stringify({
+        question,
+        ya: ya ?? null,
+        conversation_id: opts.conversationId ?? null,
+        reask_message_id: opts.reaskMessageId ?? null,
+      }),
       cache: "no-store",
     });
   } catch {
     throw new ApiError(`Cannot reach the Citetax API at ${API_BASE}. Is it running?`, 0);
   }
   if (!res.ok || !res.body) {
-    throw new ApiError(`Request failed (${res.status})`, res.status);
+    let detail: string | undefined;
+    try {
+      const body = await res.json();
+      detail = typeof body?.detail === "string" ? body.detail : undefined;
+    } catch {
+      /* body was not JSON; the status alone has to carry the message */
+    }
+    throw new ApiError(detail ?? `Request failed (${res.status})`, res.status, detail);
   }
 
   const reader = res.body.getReader();
@@ -401,15 +419,20 @@ async function askStream(
 
       const event = JSON.parse(line) as
         | ({ type: "step" } & StreamStep)
+        | { type: "plan"; plan: string[] }
         | { type: "done"; payload: AnswerResponse }
-        | { type: "error"; message: string };
+        | { type: "error"; message: string; status?: number };
 
       if (event.type === "step") {
         onStep(event);
+      } else if (event.type === "plan") {
+        opts.onPlan?.(event.plan);
       } else if (event.type === "done") {
         return event.payload;
       } else {
-        throw new ApiError(event.message, 0);
+        // A refused request (404, 409) keeps its status; an unexpected
+        // failure inside the run has none and reads as a generic error.
+        throw new ApiError(event.message, event.status ?? 500);
       }
     }
   }
