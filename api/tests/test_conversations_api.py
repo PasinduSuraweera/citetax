@@ -11,6 +11,7 @@ and their audit rows afterwards.
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 from decimal import Decimal
@@ -108,14 +109,22 @@ def pipeline(monkeypatch):
     """Replaces run_answer_graph in the ask route and records every call."""
     state: dict = {"calls": [], "builder": compute_answer, "snapshot": None, "hook": None}
 
-    def fake(conn, question, ya_override=None, facts_override=None, context=None):
+    def fake(conn, question, ya_override=None, facts_override=None, context=None,
+             on_node=None, on_plan=None):
         state["calls"].append({"question": question, "facts_override": facts_override,
                                "context": context, "ya": ya_override})
         if state["hook"]:
             state["hook"]()
         snapshot = state["snapshot"] or current_snapshot(conn)
         assert snapshot is not None, "seed the corpus first"
-        return state["builder"](conn, question, facts_override, snapshot)
+        result = state["builder"](conn, question, facts_override, snapshot)
+        # What the real graph reports to the streaming route as it runs.
+        if on_plan is not None:
+            on_plan(result.plan)
+        if on_node is not None:
+            for entry in result.trace:
+                on_node(entry)
+        return result
 
     monkeypatch.setattr(public_mod, "run_answer_graph", fake)
     return state
@@ -513,3 +522,38 @@ def test_old_answer_is_shown_as_given_and_asked_again_as_a_new_turn(
     assert ask(a, "x", conversation_id=cid,
                reask_message_id=turns[0]["question"]["id"]).status_code == 404
     assert ask(a, "x", reask_message_id=old_msg).status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Streaming
+# ---------------------------------------------------------------------------
+
+def ask_stream(headers, question="How much tax do I pay on LKR 5 million?", **extra):
+    body = {"question": question, "ya": "2026/2027", **{k: v for k, v in extra.items() if v}}
+    with client.stream("POST", "/v1/ask/stream", json=body, headers=headers or {}) as r:
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("application/x-ndjson")
+        return [json.loads(line) for line in r.iter_lines() if line]
+
+
+def test_stream_sends_plan_steps_then_the_saved_turn(pipeline, users):
+    a = users("a")
+    events = ask_stream(a)
+
+    assert [e["type"] for e in events] == ["plan", "step", "done"]
+    assert events[0]["plan"] == PLANS["compute"]
+    assert events[1]["node"] == "Route"
+    done = events[-1]["payload"]
+    assert done["kind"] == "answer" and done["message_persisted"] is True
+    cid = done["conversation_id"]
+
+    # A follow-up over the stream lands in the same conversation.
+    follow = ask_stream(a, "What about EPF?", conversation_id=cid)[-1]["payload"]
+    assert follow["conversation_id"] == cid and follow["seq"] == 3
+
+
+def test_stream_reports_a_missing_conversation_as_an_error_event(pipeline, users):
+    a = users("a")
+    events = ask_stream(a, conversation_id=str(uuid.uuid4()))
+    assert events == [{"type": "error", "status": 404, "message": "Conversation not found"}]
+    assert pipeline["calls"] == []

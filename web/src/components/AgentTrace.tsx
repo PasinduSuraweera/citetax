@@ -36,7 +36,7 @@ const BLURB: Record<string, string> = {
 // Each step's own identity color — what a step IS, shown once it succeeds.
 // Status colors below take over instead whenever a step did not simply
 // succeed, so a failure or refusal is never hidden behind its phase color.
-const PHASE_DOT: Record<string, string> = {
+export const PHASE_DOT: Record<string, string> = {
   Intake: "bg-brand-600",
   Route: "bg-phase-route",
   Resolve: "bg-phase-resolve",
@@ -47,7 +47,7 @@ const PHASE_DOT: Record<string, string> = {
   Explain: "bg-phase-explain",
   Verify: "bg-phase-verify",
 };
-const PHASE_RING: Record<string, string> = {
+export const PHASE_RING: Record<string, string> = {
   Intake: "bg-brand-600/30",
   Route: "bg-phase-route/30",
   Resolve: "bg-phase-resolve/30",

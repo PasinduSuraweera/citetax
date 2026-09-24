@@ -15,9 +15,10 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { AgentTrace } from "@/components/AgentTrace";
 import { AnswerView } from "@/components/AnswerView";
 import { Composer } from "@/components/Composer";
+import { LiveTrace } from "@/components/LiveTrace";
+import { PayslipConfirm } from "@/components/PayslipConfirm";
 import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
 import { SnapshotNote, TurnSummary } from "@/components/TurnSummary";
 import { SnapshotPanel } from "@/components/SnapshotPanel";
@@ -27,6 +28,7 @@ import {
   type AnswerResponse,
   type ConversationSummary,
   type Snapshot,
+  type StreamStep,
 } from "@/lib/api";
 import { onNewQuestion, requestNewQuestion } from "@/lib/ask-store";
 import {
@@ -71,6 +73,12 @@ interface LooseAnswer {
   answer: AnswerResponse;
 }
 
+/** What the stream has reported so far for the question running in a chat. */
+interface LiveRun {
+  steps: StreamStep[];
+  plan: string[] | null;
+}
+
 function AskPageInner() {
   const params = useSearchParams();
   const router = useRouter();
@@ -100,6 +108,9 @@ function AskPageInner() {
     () => Boolean(params.get("draft")) && !params.get("q"),
   );
   const [loose, setLoose] = useState<LooseAnswer | null>(null);
+  const [live, setLive] = useState<Record<string, LiveRun>>({});
+  // A payslip being read and confirmed, tied to the chat it was added in.
+  const [payslip, setPayslip] = useState<{ key: string; file: File } | null>(null);
   // Earlier turns are collapsed; these are the ones opened by hand.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -110,6 +121,8 @@ function AskPageInner() {
   const thread = activeId ? store.threads[activeId] ?? EMPTY : null;
   const pendingQuestion = store.pending[key] ?? null;
   const failure = store.failures[key] ?? null;
+  const liveRun = live[key] ?? null;
+  const payslipFile = payslip?.key === key ? payslip.file : null;
 
   useEffect(() => {
     api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
@@ -168,16 +181,26 @@ function AskPageInner() {
       const gen = draftGenRef.current;
 
       startPending(askKey, question);
+      setLive((l) => ({ ...l, [askKey]: { steps: [], plan: null } }));
       requestAnimationFrame(() =>
         document.getElementById("pending-turn")?.scrollIntoView({ behavior: "smooth", block: "start" }),
       );
 
+      const update = (f: (run: LiveRun) => LiveRun) =>
+        setLive((l) => (l[askKey] ? { ...l, [askKey]: f(l[askKey]) } : l));
+
       let res: AnswerResponse;
       try {
-        res = await api.ask(question, ya, {
-          conversationId,
-          reaskMessageId: opts.reaskMessageId,
-        });
+        res = await api.askStream(
+          question,
+          ya,
+          (step) => update((r) => ({ ...r, steps: [...r.steps, step] })),
+          {
+            conversationId,
+            reaskMessageId: opts.reaskMessageId,
+            onPlan: (plan) => update((r) => ({ ...r, plan })),
+          },
+        );
       } catch (e) {
         endPending(askKey, describeFailure(e));
         // Keep what they typed so they can send it again.
@@ -256,6 +279,7 @@ function AskPageInner() {
     draftGenRef.current += 1;
     setDraftGen(draftGenRef.current);
     setLoose(null);
+    setPayslip(null);
     setPrefilled(false);
     handedOff.current = true;
     // On "/?c=" the "+ New chat" link navigates to "/" itself. Only a
@@ -400,17 +424,26 @@ function AskPageInner() {
             })}
           </ol>
 
-          {pendingQuestion && <PendingTurn question={pendingQuestion} className="mt-4" />}
+          {pendingQuestion && (
+            <PendingTurn question={pendingQuestion} run={liveRun} className="mt-4" />
+          )}
 
           {failure && <FailureBanner failure={failure} />}
 
-          {!pendingQuestion && thread?.status === "ready" && (
+          {payslipFile && (
+            <div className="mt-6 max-w-[1000px]">
+              <PayslipConfirm file={payslipFile} ya={ya} onClose={() => setPayslip(null)} />
+            </div>
+          )}
+
+          {!pendingQuestion && !payslipFile && thread?.status === "ready" && (
             <div className="mt-6 max-w-[1000px]">
               <Composer
                 value={draft}
                 onChange={setDraft}
                 onSubmit={(v) => void submit(v)}
                 ya={ya}
+                onAttach={(file) => setPayslip({ key, file })}
                 inputRef={inputRef}
                 rows={2}
                 placeholder="Ask a follow-up, e.g. what if I also earn LKR 500,000 from freelance work?"
@@ -424,10 +457,12 @@ function AskPageInner() {
         </div>
       );
     }
+  } else if (payslipFile) {
+    body = <PayslipConfirm file={payslipFile} ya={ya} onClose={() => setPayslip(null)} />;
   } else if (pendingQuestion) {
     body = (
       <div className="mx-auto w-full max-w-[1000px]">
-        <PendingTurn question={pendingQuestion} />
+        <PendingTurn question={pendingQuestion} run={liveRun} />
       </div>
     );
   } else if (loose && loose.key === key) {
@@ -492,6 +527,7 @@ function AskPageInner() {
           onChange={setDraft}
           onSubmit={(v) => void submit(v)}
           ya={ya}
+          onAttach={(file) => setPayslip({ key, file })}
           inputRef={inputRef}
           autoFocus
           className={prefilled ? "mt-3" : "mt-6"}
@@ -569,22 +605,17 @@ function describeFailure(e: unknown): AskFailure {
 
 /* ---------- pieces ---------- */
 
-function PendingTurn({ question, className = "" }: { question: string; className?: string }) {
+function PendingTurn({
+  question, run, className = "",
+}: {
+  question: string;
+  run: LiveRun | null;
+  className?: string;
+}) {
   return (
     <div id="pending-turn" className={`scroll-mt-4 ${className}`}>
-      <div className="flex items-start gap-[14px] rounded-xl border border-line bg-white px-[18px] py-4">
-        <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-ink-900 text-[11px] font-semibold text-white">
-          You
-        </span>
-        <p className="flex-1 text-[16px] leading-[1.5] text-ink-900">{question}</p>
-      </div>
-      <div className="mt-[14px] max-w-[440px]">
-        <AgentTrace trace={[]} running />
-      </div>
-      <p className="mt-3 max-w-[440px] px-1 text-[12px] leading-[1.5] text-ink-400">
-        The model reads the question first and chooses the plan. A
-        deadline question will skip the computation; a figure will run it.
-      </p>
+      <QuestionOnly question={question} />
+      <LiveTrace steps={run?.steps ?? []} plan={run?.plan ?? null} />
     </div>
   );
 }

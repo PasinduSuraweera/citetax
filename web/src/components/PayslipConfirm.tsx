@@ -20,9 +20,9 @@ import {
   type PayslipExtractResponse,
   type StreamStep,
 } from "@/lib/api";
-import { AgentTrace } from "./AgentTrace";
 import { AnswerView } from "./AnswerView";
 import { ComputationTable } from "./ComputationTable";
+import { LiveTrace } from "./LiveTrace";
 
 interface Props {
   file: File;
@@ -48,6 +48,7 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [followUpTrace, setFollowUpTrace] = useState<StreamStep[]>([]);
+  const [followUpPlan, setFollowUpPlan] = useState<string[] | null>(null);
   const followUpRef = useRef<HTMLTextAreaElement>(null);
 
   const contextPrefix = () =>
@@ -62,10 +63,14 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
     setFollowUpAsked(question);
     setFollowUpAnswer(null);
     setFollowUpTrace([]);
+    setFollowUpPlan(null);
     try {
       setFollowUpAnswer(
-        await api.askStream(contextPrefix() + question, ya, (step) =>
-          setFollowUpTrace((t) => [...t, step]),
+        await api.askStream(
+          contextPrefix() + question,
+          ya,
+          (step) => setFollowUpTrace((t) => [...t, step]),
+          { onPlan: setFollowUpPlan },
         ),
       );
     } catch (e) {
@@ -275,9 +280,7 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
             </form>
 
             {followUpBusy && followUpAsked && (
-              <div className="mt-4 max-w-[440px]">
-                <AgentTrace trace={followUpTrace} running />
-              </div>
+              <LiveTrace steps={followUpTrace} plan={followUpPlan} />
             )}
 
             {followUpError && (
