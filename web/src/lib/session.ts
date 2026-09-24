@@ -74,7 +74,7 @@ export function useSession(): SessionState & { signOut: () => Promise<void>; ref
     clearToken();
     cache = null;
     listeners.forEach((fn) => fn(null));
-    await nextSignOut({ redirectTo: "/" });
+    await nextSignOut({ redirectTo: "/signin" });
   }, []);
 
   const refresh = useCallback(async () => {

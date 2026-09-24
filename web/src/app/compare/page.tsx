@@ -26,7 +26,7 @@ export default function ComparePage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <Shell ya={ya} onYaChange={setYa} snapshot={snapshot} />
+      <Shell ya={ya} onYaChange={setYa} />
       <main className="flex-1 overflow-y-auto px-4 pb-10 pt-[72px] sm:px-6 lg:px-11 lg:pb-9 lg:pt-9">
         <div className="max-w-[1060px]">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:gap-6">

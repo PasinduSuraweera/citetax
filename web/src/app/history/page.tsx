@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ComputationTable } from "@/components/ComputationTable";
 import { Shell, type YA } from "@/components/Shell";
-import { api, ApiError, formatDate, money, type Snapshot } from "@/lib/api";
+import { api, ApiError, formatDate, money } from "@/lib/api";
 
 type Run = Awaited<ReturnType<typeof api.history>>["runs"][number];
 type Detail = Awaited<ReturnType<typeof api.historyDetail>>;
@@ -20,7 +20,6 @@ const INTENT_LABEL: Record<string, string> = {
 
 export default function HistoryPage() {
   const [ya, setYa] = useState<YA>("2026/2027");
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
   const [open, setOpen] = useState<Detail | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
@@ -28,7 +27,6 @@ export default function HistoryPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
     (async () => {
       try {
         setRuns((await api.history()).runs);
@@ -51,7 +49,7 @@ export default function HistoryPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <Shell ya={ya} onYaChange={setYa} snapshot={snapshot} />
+      <Shell ya={ya} onYaChange={setYa} />
       <main className="flex-1 overflow-y-auto px-4 pb-10 pt-[72px] sm:px-6 lg:px-11 lg:pb-9 lg:pt-9">
         <div className="max-w-[1100px]">
           <h1 className="text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[32px]">History</h1>

@@ -11,6 +11,7 @@
 
 import type { AnswerResponse, ConversationTurn } from "@/lib/api";
 import { formatDate, money } from "@/lib/api";
+import { UserAvatar } from "./UserAvatar";
 
 const INTENT_LABEL: Record<string, string> = {
   compute: "Computation",
@@ -56,9 +57,7 @@ export function TurnSummary({ turn, onExpand }: { turn: ConversationTurn; onExpa
       aria-expanded={false}
       className="group flex w-full items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 text-left transition-colors hover:border-brand-600/40 hover:bg-panel"
     >
-      <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-ink-900 text-[9.5px] font-semibold text-white">
-        You
-      </span>
+      <UserAvatar size={22} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14px] text-ink-900">{turn.question.content}</span>
         <span className="mt-[2px] block truncate font-mono text-[10.5px] text-ink-300">{meta}</span>

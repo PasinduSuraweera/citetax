@@ -2,7 +2,10 @@ import { chromium } from "playwright";
 
 const OUT = process.env.SHOT_DIR ?? ".";
 const browser = await chromium.launch({ channel: "chromium" });
-const page = await browser.newPage({ viewport: { width: 1560, height: 1100 } });
+const ctx = await browser.newContext({ viewport: { width: 1560, height: 1100 } });
+// Past the sign-in screen as a guest.
+await ctx.addCookies([{ name: "citetax_guest", value: "1", url: "http://localhost:3000" }]);
+const page = await ctx.newPage();
 
 const errors = [];
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });

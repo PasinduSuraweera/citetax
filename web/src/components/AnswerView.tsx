@@ -18,6 +18,7 @@ import { CitationsPanel } from "./CitationsPanel";
 import { ComputationTable } from "./ComputationTable";
 import { GuardrailBanner } from "./GuardrailBanner";
 import { ProseWithSources, SourcesList } from "./Sources";
+import { UserAvatar } from "./UserAvatar";
 
 type Tab = "computation" | "comparison" | "sources" | "citations" | "trace" | "explanation";
 
@@ -617,9 +618,7 @@ function FilingCard({ compliance }: { compliance: NonNullable<AnswerResponse["co
 function QuestionCard({ question, facts, intent }: { question: string; facts?: string[]; intent?: string }) {
   return (
     <div className="flex items-start gap-[14px] rounded-xl border border-line bg-white px-[18px] py-4">
-      <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-ink-900 text-[11px] font-semibold text-white">
-        You
-      </span>
+      <UserAvatar />
       <div className="flex-1">
         <p className="text-[16px] leading-[1.5] text-ink-900">{question}</p>
         {(facts?.length || intent) && (

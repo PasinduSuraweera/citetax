@@ -26,7 +26,10 @@ async function ask(page, q) {
 
 // ---------------------------------------------------------------- desktop
 {
-  const page = await browser.newPage({ viewport: { width: 1560, height: 1100 } });
+  const desk = await browser.newContext({ viewport: { width: 1560, height: 1100 } });
+  // Past the sign-in screen as a guest.
+  await desk.addCookies([{ name: "citetax_guest", value: "1", url: "http://localhost:3000" }]);
+  const page = await desk.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
@@ -88,6 +91,7 @@ async function ask(page, q) {
 // ---------------------------------------------------------------- mobile
 {
   const ctx = await browser.newContext({ ...devices["iPhone 14"] });
+  await ctx.addCookies([{ name: "citetax_guest", value: "1", url: "http://localhost:3000" }]);
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));

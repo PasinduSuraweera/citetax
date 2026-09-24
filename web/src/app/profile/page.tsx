@@ -10,7 +10,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageBody, Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
 import { admin, type Me } from "@/lib/admin";
-import { api, type Snapshot } from "@/lib/api";
 import { initials, useSession } from "@/lib/session";
 
 const NEVER_STORED = [
@@ -32,13 +31,8 @@ const ROLE_MEANING: Record<string, string> = {
 
 export default function AccountPage() {
   const [ya, setYa] = useState<YA>("2026/2027");
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const { user, loading, signOut } = useSession();
-
-  useEffect(() => {
-    api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
-  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -47,7 +41,7 @@ export default function AccountPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <Shell ya={ya} onYaChange={setYa} snapshot={snapshot} />
+      <Shell ya={ya} onYaChange={setYa} />
       <PageBody>
         <h1 className="text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[32px]">
           My account
