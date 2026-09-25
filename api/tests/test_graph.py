@@ -273,6 +273,16 @@ def test_verify_blocks_a_figure_truncated_mid_number():
     assert any("3" in u for u in r.unmatched_numbers)
 
 
+def test_verify_accepts_a_zero_the_ledger_holds():
+    """Regression: 'qualifying payments of LKR 0.00' withheld the whole
+    explanation, because zero is on the small number allowlist and that list
+    was subtracted from the money set, ledger zeros included."""
+    c = _computation()
+    assert any(s.value == 0 for s in c.steps), "fixture needs a zero step"
+    r = verify("Qualifying payments come to LKR 0.00 this year.", c, _rules(), attempt=2)
+    assert r.ok is True, r.unmatched_numbers
+
+
 def test_verify_still_accepts_a_correct_currency_figure():
     c = _computation()
     assert verify(
