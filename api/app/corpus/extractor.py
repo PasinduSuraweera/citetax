@@ -150,6 +150,21 @@ def _why_not(conn: Connection, document_id: str, p: ProposedChange, value_json: 
         params,
     ).first():
         return "already published"
+    # The same value as the version already in force on that date restates
+    # the law rather than changing it, whatever start date the page gives.
+    if ef and conn.execute(
+        text(
+            "select 1 from rule_version x "
+            "  join snapshot_rule_version s on s.rule_version_id = x.id "
+            "  join corpus_snapshot c on c.id = s.snapshot_id and c.is_current "
+            " where x.rule_key = :k and x.status = 'published' "
+            "   and (x.value_json - 'citation_label') = cast(:v as jsonb) "
+            "   and x.effective_from <= :ef and (x.effective_to is null or x.effective_to >= :ef) "
+            " limit 1"
+        ),
+        params,
+    ).first():
+        return "already in force"
     if conn.execute(
         text(
             f"select 1 from change_proposal x where {same_value} "

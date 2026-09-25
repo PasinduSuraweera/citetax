@@ -57,3 +57,31 @@ def test_figures_from_before_the_supported_years_are_dropped():
     assert _why_not(None, "d", old_due, old_due.value_json) == "before the supported years"
     ended = _change(effective_to="2024-03-31")
     assert _why_not(None, "d", ended, {}) == "before the supported years"
+
+
+def test_a_year_split_between_two_versions_is_covered():
+    from datetime import date
+
+    from app.routers.admin import _covers
+
+    start, end = date(2026, 4, 1), date(2027, 3, 31)
+    split = [
+        {"effective_from": date(2025, 4, 1), "effective_to": date(2026, 8, 5)},
+        {"effective_from": date(2026, 8, 6), "effective_to": None},
+    ]
+    assert _covers(split, start, end)
+    hole = [split[0], {"effective_from": date(2026, 9, 1), "effective_to": None}]
+    assert not _covers(hole, start, end)
+    assert not _covers([split[0]], start, end)
+
+
+def test_restating_the_rule_in_force_is_dropped():
+    """A page that repeats the live value with its own start date adds nothing."""
+    from app.db.session import db_conn
+    from app.rules.resolver import current_snapshot, resolve
+
+    with db_conn() as conn:
+        live = resolve(conn, "credit.foreign_wht", "2026/2027", str(current_snapshot(conn)["id"]))
+        value = {k: v for k, v in live.value_json.items() if k != "citation_label"}
+        same = _change(rule_key="credit.foreign_wht", value_json=value, effective_from="2026-04-01")
+        assert _why_not(conn, "d", same, value) == "already in force"
