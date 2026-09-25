@@ -3,236 +3,159 @@
 /** Corpus health (spec section 5.1 F). */
 
 import { useEffect, useState } from "react";
-import { AdminShell, NoAccess } from "@/components/admin/AdminShell";
-import { admin, type CorpusHealth, type Me } from "@/lib/admin";
+import { AdminBody, AdminFrame } from "@/components/admin/AdminShell";
+import { Code, ErrorNote, PageHeader, Panel, Pill, Stat, day, errorText } from "@/components/admin/kit";
+import { Skeleton } from "@/components/ui/skeleton";
+import { admin, PRIORITY_LABEL, type CorpusHealth, type CoverageRow } from "@/lib/admin";
 
 export default function HealthPage() {
-  const [me, setMe] = useState<Me | null>(null);
-  const [ready, setReady] = useState(false);
+  return <AdminFrame>{() => <Health />}</AdminFrame>;
+}
+
+function Health() {
   const [data, setData] = useState<CorpusHealth | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const who = await admin.me();
-        setMe(who);
-        if (who.is_reviewer) setData(await admin.health());
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not load health");
-      } finally {
-        setReady(true);
-      }
-    })();
+    admin.health().then(setData).catch((e) => setError(errorText(e, "Could not load corpus health")));
   }, []);
 
-  if (!ready) return <Loading />;
-  if (!me?.is_reviewer) return <NoAccess me={me} />;
-
   const years = data?.coverage[0] ? Object.keys(data.coverage[0].years) : [];
+  const cells = data?.coverage.flatMap((r) => Object.values(r.years)) ?? [];
+  const missing = cells.filter((c) => c.state === "red").length;
+  const partial = cells.filter((c) => c.state === "amber").length;
 
   return (
-    <AdminShell me={me} snapshotLabel={data?.snapshot?.label}>
-      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
-        <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
-          Corpus health
-        </h1>
-        <p className="mt-2 max-w-[660px] text-[14.5px] leading-[1.6] text-ink-500">
-          Whether every rule key is covered for every supported year, and
-          whether the sources feeding them are still alive.
-        </p>
+    <AdminBody>
+      <PageHeader
+        title="Corpus health"
+        description="Whether every rule has a value for every supported year, and whether the sources feeding them are still alive."
+      />
 
-        {error && (
-          <div className="mt-5 rounded-xl border border-warn-300 bg-warn-100 px-5 py-3 text-[13.5px] text-warn-500">
-            {error}
+      {error && <div className="mt-6"><ErrorNote>{error}</ErrorNote></div>}
+      {!data && !error && <Skeleton className="mt-6 h-96 w-full" />}
+
+      {data && (
+        <>
+          <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="Published rule versions" value={data.totals.published_versions} />
+            <Stat label="Documents" value={data.totals.documents} />
+            <Stat label="Proposals" value={data.totals.proposals} />
+            <Stat label="Rejected" value={data.totals.rejected} />
           </div>
-        )}
 
-        {data && (
-          <>
-            <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Stat label="PUBLISHED VERSIONS" value={data.totals.published_versions} />
-              <Stat label="DOCUMENTS" value={data.totals.documents} />
-              <Stat label="PROPOSALS" value={data.totals.proposals} />
-              <Stat label="REJECTED" value={data.totals.rejected} />
-            </div>
-
-            <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
-              <div className="border-b border-line px-5 py-3">
-                <div className="eyebrow">COVERAGE MATRIX</div>
-                <p className="mt-1 text-[12px] text-ink-400">
-                  Green covers the whole year, amber is partial, red is
-                  uncovered. You cannot publish a corpus with a gap.
-                </p>
-              </div>
-              <div className="flex min-w-[720px] items-center bg-panel px-5 py-2 font-mono text-[10px] tracking-[0.14em] text-ink-300">
-                <span className="flex-1">RULE KEY</span>
-                {years.map((y) => (
-                  <span key={y} className="w-[190px] flex-none">
-                    {y}
-                  </span>
-                ))}
-              </div>
-              {data.coverage.map((row) => (
-                <div
-                  key={row.rule_key}
-                  className="flex min-w-[720px] items-center border-t border-line-faint px-5 py-[11px]"
-                >
-                  <span className="flex-1 font-mono text-[12.5px] text-ink-700">
-                    {row.rule_key}
-                  </span>
-                  {years.map((y) => {
-                    const cell = row.years[y];
-                    return (
-                      <span key={y} className="w-[190px] flex-none">
-                        <CoverageCell cell={cell} />
-                      </span>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-line bg-white px-5 py-5">
-                <div className="eyebrow">SOURCE STALENESS</div>
-                <p className="mt-1 text-[12px] leading-[1.5] text-ink-400">
-                  A high priority source silent for 90 days may mean the crawler
-                  broke, not that nothing happened.
-                </p>
-                <div className="mt-4 flex flex-col gap-2">
-                  {data.sources.map((s) => (
-                    <div
-                      key={s.source_id}
-                      className="flex items-center justify-between rounded-lg border border-line bg-panel px-3 py-2"
-                    >
-                      <span className="min-w-0 flex-1 pr-3">
-                        <span className="block truncate text-[13px] text-ink-900">
-                          {s.name}
-                        </span>
-                        <span className="font-mono text-[10.5px] text-ink-300">
-                          {s.last_status ?? "never run"}
-                        </span>
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-[3px] font-mono text-[10px] font-semibold ${
-                          s.stale
-                            ? "bg-warn-100 text-warn-600"
-                            : s.enabled
-                              ? "bg-good-100 text-good-600"
-                              : "bg-panel text-ink-300"
-                        }`}
-                      >
-                        {!s.enabled
-                          ? "disabled"
-                          : s.stale
-                            ? "stale"
-                            : s.days_since_change == null
-                              ? "no change yet"
-                              : `${s.days_since_change}d`}
-                      </span>
-                    </div>
+          <Panel
+            flush
+            className="mt-6"
+            title="Coverage"
+            description={
+              missing > 0
+                ? `${missing} rule${missing === 1 ? " has" : "s have"} no value for a year. A snapshot like that cannot be published.`
+                : partial > 0
+                  ? `${partial} rule${partial === 1 ? " is" : "s are"} covered for only part of a year.`
+                  : "Every rule is covered for the whole of every supported year."
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left">
+                <thead className="bg-panel text-[12.5px] text-ink-400">
+                  <tr>
+                    <th className="px-5 py-2.5 font-medium">Rule</th>
+                    {years.map((y) => <th key={y} className="px-5 py-2.5 font-medium">{y}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.coverage.map((row) => (
+                    <tr key={row.rule_key} className="border-t border-line-faint">
+                      <td className="px-5 py-3"><Code>{row.rule_key}</Code></td>
+                      {years.map((y) => <td key={y} className="px-5 py-3"><CoverageCell cell={row.years[y]} /></td>)}
+                    </tr>
                   ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-line bg-white px-5 py-5">
-                <div className="eyebrow">REVIEWER CORRECTION RATE</div>
-                <p className="mt-1 text-[12px] leading-[1.5] text-ink-400">
-                  How often reviewers change extractor output, per field. This
-                  is the number that tells you whether extraction is improving.
-                </p>
-                <div className="mt-4 flex flex-col gap-2">
-                  {data.correction_rate.length === 0 ? (
-                    <p className="text-[13px] text-ink-300">
-                      No corrections recorded yet.
-                    </p>
-                  ) : (
-                    data.correction_rate.map((c) => (
-                      <div
-                        key={c.field}
-                        className="flex items-center justify-between font-mono text-[12.5px]"
-                      >
-                        <span className="text-ink-700">{c.field}</span>
-                        <span className="tnum text-ink-900">{c.n}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="mt-5 border-t border-line pt-4">
-                  <div className="eyebrow">OPEN PROPOSALS BY PRIORITY</div>
-                  <div className="mt-3 flex flex-col gap-1">
-                    {data.open_proposals.length === 0 ? (
-                      <p className="text-[13px] text-ink-300">Queue is empty.</p>
-                    ) : (
-                      data.open_proposals.map((p) => (
-                        <div
-                          key={p.priority}
-                          className="flex items-center justify-between font-mono text-[12.5px]"
-                        >
-                          <span className="text-ink-700">P{p.priority}</span>
-                          <span className="tnum text-ink-900">{p.n}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
-          </>
-        )}
-      </div>
-    </AdminShell>
+          </Panel>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Panel title="Sources" description="A source silent for 90 days may mean the crawler broke, not that nothing changed.">
+              <ul className="flex flex-col divide-y divide-line-faint">
+                {data.sources.map((s) => (
+                  <li key={s.source_id} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="min-w-0">
+                      <span className="block truncate text-[14px] text-ink-900">{s.name}</span>
+                      <span className="text-[13px] text-ink-400">
+                        {s.last_status === "failed" ? "Last crawl failed" : s.last_status === "ok" ? "Crawling normally" : "Never crawled"}
+                      </span>
+                    </span>
+                    {!s.enabled ? (
+                      <Pill>Off</Pill>
+                    ) : s.stale ? (
+                      <Pill tone="warn">Stale</Pill>
+                    ) : (
+                      <Pill tone="good">
+                        {s.days_since_change == null ? "No change yet" : s.days_since_change === 0 ? "Changed today" : `Changed ${s.days_since_change} days ago`}
+                      </Pill>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+
+            <div className="flex flex-col gap-4">
+              <Panel title="Open proposals">
+                {data.open_proposals.length === 0 ? (
+                  <p className="text-[14px] text-ink-400">The queue is empty.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {data.open_proposals.map((p) => (
+                      <li key={p.priority} className="flex items-center justify-between text-[14px]">
+                        <span className="text-ink-700">P{p.priority}, {PRIORITY_LABEL[p.priority]?.toLowerCase()}</span>
+                        <span className="tnum font-medium text-ink-900">{p.n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+              <Panel title="Reviewer corrections" description="How often reviewers change what the extractor proposed, by field.">
+                {data.correction_rate.length === 0 ? (
+                  <p className="text-[14px] text-ink-400">No corrections recorded yet.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {data.correction_rate.map((c) => (
+                      <li key={c.field} className="flex items-center justify-between text-[14px]">
+                        <span className="text-ink-700">{c.field.replaceAll("_", " ")}</span>
+                        <span className="tnum font-medium text-ink-900">{c.n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            </div>
+          </div>
+        </>
+      )}
+    </AdminBody>
   );
 }
 
-function CoverageCell({
-  cell,
-}: {
-  cell?: { state: string; citation?: string | null; effective_from?: string; error?: string };
-}) {
-  if (!cell) return <span className="font-mono text-[11px] text-ink-200">-</span>;
-  const tone =
-    cell.state === "green"
-      ? "bg-good-100 text-good-600 border-good-300"
-      : cell.state === "amber"
-        ? "bg-[#FDF4E0] text-[#7E5D1B] border-[#EBD6A8]"
-        : "bg-warn-100 text-warn-600 border-warn-300";
+function CoverageCell({ cell }: { cell?: CoverageRow["years"][string] }) {
+  if (!cell) return <span className="text-[13px] text-ink-300">-</span>;
+  const tone = cell.state === "green" ? "good" : cell.state === "amber" ? "amber" : "warn";
+  const label = cell.state === "green" ? "Covered" : cell.state === "amber" ? "Part of the year" : "Missing";
   return (
-    <span
-      className={`inline-flex items-center gap-2 rounded-full border px-[9px] py-[3px] ${tone}`}
-      title={cell.error ?? cell.citation ?? ""}
-    >
-      <span className="font-mono text-[10px] font-semibold uppercase">
-        {cell.state}
-      </span>
+    <span className="flex flex-col items-start gap-1" title={cell.error ?? undefined}>
+      <Pill tone={tone}>{label}</Pill>
       {cell.citation && (
-        <span className="max-w-[110px] truncate font-mono text-[10px] opacity-80">
+        <span className="max-w-[220px] truncate text-[12.5px] text-ink-400">
           {cell.citation}
+          {cell.effective_from ? `, from ${day(cell.effective_from)}` : ""}
         </span>
       )}
+      {cell.later?.map((l) => (
+        <span key={l.effective_from} className="max-w-[220px] truncate text-[12.5px] text-ink-400">
+          then {l.citation}, from {day(l.effective_from)}
+        </span>
+      ))}
     </span>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-line bg-white px-4 py-3">
-      <div className="font-mono text-[10px] tracking-[0.14em] text-ink-300">
-        {label}
-      </div>
-      <div className="tnum mt-1 font-mono text-[22px] font-semibold text-ink-900">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function Loading() {
-  return (
-    <div className="flex h-screen items-center justify-center bg-surface">
-      <span className="font-mono text-[12px] text-ink-300">Loading...</span>
-    </div>
   );
 }

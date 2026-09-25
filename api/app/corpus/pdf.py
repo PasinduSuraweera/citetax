@@ -65,6 +65,32 @@ def html_to_text(body: bytes | str) -> str:
     return text.strip()
 
 
+_CHROME = re.compile(r"<(a|nav|header|footer|aside|form|select)\b[^>]*>.*?</\1>", re.S | re.I)
+_ASPNET = re.compile(r"<input[^>]+type=[\"']hidden[\"'][^>]*>", re.I)
+
+
+def content_fingerprint(body: bytes, text: str, is_html: bool) -> tuple[str, float]:
+    """A hash of what a page says, and the share of its text that is links.
+
+    Pages change bytes without changing content: SharePoint rewrites its view
+    state on every request, and a news site's sidebar of latest posts changes
+    each time anything is posted. Hashing the bytes calls each of those a new
+    revision. For HTML this hashes the text less links, menus and forms, so
+    only the page's own words count. A page that is mostly links is a listing.
+    """
+    import hashlib
+
+    if not is_html:
+        basis = re.sub(r"\s+", " ", text or "").strip()
+        return hashlib.sha256(basis.encode("utf-8")).hexdigest(), 0.0
+    html = body.decode("utf-8", "replace")
+    html = _ASPNET.sub(" ", _SCRIPT.sub(" ", html))
+    own = re.sub(r"\s+", " ", html_to_text(_CHROME.sub(" ", html))).strip()
+    full = re.sub(r"\s+", " ", text or "").strip()
+    link_share = 1 - len(own) / len(full) if full else 0.0
+    return hashlib.sha256(own.encode("utf-8")).hexdigest(), round(max(0.0, link_share), 3)
+
+
 def extract_text(body: bytes, content_type: str, url: str = "") -> tuple[str, dict]:
     lower = (url or "").lower()
     ct = (content_type or "").lower()

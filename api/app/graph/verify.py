@@ -117,8 +117,9 @@ def _walk(node: Any, add) -> None:
 
 
 def _collect_allowed(ev: Evidence) -> tuple[set[Decimal], set[str]]:
-    """Returns (numbers, iso_dates) the prose may contain."""
-    allowed: set[Decimal] = set(_ALLOWLIST)
+    """Returns (numbers, iso_dates) the material contains. The small number
+    allowlist is not included: a money figure must come from the material."""
+    allowed: set[Decimal] = set()
     dates: set[str] = set()
 
     def add(value: Any) -> None:
@@ -221,7 +222,8 @@ def _to_iso(day: str, month_word: str, year: str) -> str | None:
 def verify(prose: str, evidence: Evidence, attempt: int = 1) -> VerifyResult:
     """Numeric provenance check plus egress PII scan."""
     pii = EgressScanner().scan(prose)
-    allowed, dates = _collect_allowed(evidence)
+    traced, dates = _collect_allowed(evidence)
+    allowed = traced | _ALLOWLIST
     unmatched: list[str] = []
     checked = 0
 
@@ -249,8 +251,9 @@ def verify(prose: str, evidence: Evidence, attempt: int = 1) -> VerifyResult:
     scratch = _DATE_WORDS_US.sub(" ", scratch)
 
     # A figure with a currency marker is a claim about money: ledger only, no
-    # small integer allowlist, so a truncated "LKR 3" cannot slip through.
-    money_allowed = allowed - _ALLOWLIST
+    # small integer allowlist, so a truncated "LKR 3" cannot slip through. A
+    # zero the ledger really holds ("qualifying payments LKR 0") still counts.
+    money_allowed = traced
 
     # "1.8 million" is LKR 1,800,000 written differently. Scale it and check
     # the scaled value against the money set, then remove it from the text.
