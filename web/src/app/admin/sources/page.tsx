@@ -2,69 +2,65 @@
 
 /** Source registry, crawl now, manual upload (spec section 5.1 I). */
 
+import { FileUp, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AdminShell, NoAccess } from "@/components/admin/AdminShell";
-import { admin, type AgentStatus, type CrawlResult, type Me, type SourceRow } from "@/lib/admin";
+import { toast } from "sonner";
+import { AdminBody, AdminFrame, refreshAdminSummary } from "@/components/admin/AdminShell";
+import { ErrorNote, PageHeader, Panel, Pill, TableHead, errorText, relTime, when } from "@/components/admin/kit";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { admin, type AgentStatus, type CrawlResult, type SourceRow } from "@/lib/admin";
 
 export default function SourcesPage() {
-  const [me, setMe] = useState<Me | null>(null);
-  const [ready, setReady] = useState(false);
-  const [sources, setSources] = useState<SourceRow[]>([]);
-  const [families, setFamilies] = useState<
-    Awaited<ReturnType<typeof admin.documents>>["families"]
-  >([]);
+  return <AdminFrame>{() => <Sources />}</AdminFrame>;
+}
+
+type Families = Awaited<ReturnType<typeof admin.documents>>["families"];
+
+const COLS = "minmax(0,1fr) 90px 150px 150px 110px";
+
+function Sources() {
+  const [sources, setSources] = useState<SourceRow[] | null>(null);
+  const [families, setFamilies] = useState<Families>([]);
   const [agent, setAgent] = useState<AgentStatus | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<CrawlResult | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
-      const who = await admin.me();
-      setMe(who);
-      if (!who.is_reviewer) return;
-      const [s, d, a] = await Promise.all([
-        admin.sources(),
-        admin.documents(),
-        admin.agentStatus().catch(() => null),
-      ]);
+      const [s, d, a] = await Promise.all([admin.sources(), admin.documents(), admin.agentStatus().catch(() => null)]);
       setSources(s.sources);
       setFamilies(d.families);
       setAgent(a);
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load sources");
-    } finally {
-      setReady(true);
+      setError(errorText(e, "Could not load sources"));
     }
   }, []);
 
   useEffect(() => {
     // load() only sets state once its requests resolve.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
+    void load();
   }, [load]);
 
-  if (!ready) return <Loading />;
-  if (!me?.is_reviewer) return <NoAccess me={me} />;
-
-  const crawl = async (sourceId: string) => {
-    setBusy(sourceId);
-    setError(null);
+  const crawl = async (s: SourceRow) => {
+    setBusy(s.source_id);
     setResult(null);
     try {
-      const r = await admin.crawl(sourceId);
+      const r = await admin.crawl(s.source_id);
       setResult(r);
-      setMessage(
-        r.revisions > 0
-          ? `${r.revisions} silent revision(s) detected. They are in the inbox as priority 1.`
-          : `${r.new_documents} new document(s), ${r.unchanged} unchanged.`,
-      );
+      const found = r.new_documents + r.revisions;
+      if (r.errors.length) toast.warning(`${s.name}: crawled with ${r.errors.length} error${r.errors.length === 1 ? "" : "s"}`);
+      else if (found) toast.success(`${s.name}: ${found} new or changed document${found === 1 ? "" : "s"} in the inbox`);
+      else toast.success(`${s.name}: nothing has changed`);
       await load();
+      refreshAdminSummary();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Crawl failed");
+      toast.error(errorText(e, "Crawl failed"));
     } finally {
       setBusy(null);
     }
@@ -72,267 +68,175 @@ export default function SourcesPage() {
 
   const upload = async (file: File) => {
     setBusy("upload");
-    setError(null);
     try {
       const r = await admin.upload(file, "circular", file.name);
-      setMessage(
-        r.is_revision
-          ? "Uploaded as a revision of a document already in the corpus. It is in the inbox as priority 1."
-          : "Uploaded. It is in the review inbox awaiting extraction.",
-      );
+      toast.success(r.is_revision ? "Uploaded as a new revision of a known document" : "Uploaded", {
+        description: "It is in the review inbox, waiting for extraction.",
+      });
       await load();
+      refreshAdminSummary();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      toast.error(errorText(e, "Upload failed"));
     } finally {
       setBusy(null);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
 
+  const revised = families.filter((f) => f.has_revisions && !f.listing);
+
   return (
-    <AdminShell me={me}>
-      <div className="px-4 py-6 sm:px-6 lg:px-9 lg:py-8">
-        <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink-900">
-          Sources
-        </h1>
-        <p className="mt-2 max-w-[660px] text-[14.5px] leading-[1.6] text-ink-500">
-          Each watched source is a row, never hardcoded. A URL that is already
-          known but whose content changed is a silent revision, and it goes
-          straight to the top of the review queue.
-        </p>
+    <AdminBody>
+      <PageHeader
+        title="Sources"
+        description="The sites the corpus agent watches. When a known page changes what it says, the new version goes to the review inbox."
+        actions={
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.txt,.html,.htm,.doc,.docx"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void upload(f);
+              }}
+            />
+            <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy !== null}>
+              <FileUp />
+              {busy === "upload" ? "Uploading..." : "Upload a document"}
+            </Button>
+          </>
+        }
+      />
 
-        {message && (
-          <div className="mt-5 rounded-xl border border-good-300 bg-good-100 px-5 py-3 text-[13.5px] text-good-500">
-            {message}
+      {agent && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-panel px-5 py-3.5">
+          <div className="flex items-center gap-3 text-[14px] text-ink-700">
+            <span className={`size-2 flex-none rounded-full ${agent.enabled ? "bg-good-mint" : "bg-ink-300"} ${agent.running_now ? "pulse-dot" : ""}`} />
+            {agent.running_now
+              ? "The corpus agent is crawling now."
+              : agent.enabled
+                ? <>The corpus agent crawls every {agent.interval_minutes} minutes{agent.next_run_at ? <>, next {relTime(agent.next_run_at)}</> : null}.</>
+                : "Scheduled crawling is off. Sources are crawled only when you ask."}
           </div>
-        )}
-        {error && (
-          <div className="mt-5 rounded-xl border border-warn-300 bg-warn-100 px-5 py-3 text-[13.5px] text-warn-500">
-            {error}
-          </div>
-        )}
+          <Link href="/admin/agent" className="text-[13.5px] font-medium text-brand-600 hover:underline">Agent log</Link>
+        </div>
+      )}
 
-        {agent && (
-          <div className={`mt-5 flex items-center justify-between rounded-xl border px-5 py-3 ${agent.enabled ? "border-good-300 bg-good-100" : "border-line bg-panel"}`}>
-            <div className="flex items-center gap-3">
-              <span className={`h-[8px] w-[8px] flex-none rounded-full ${agent.enabled ? "bg-good-mint" : "bg-ink-300"} ${agent.running_now ? "pulse-dot" : ""}`} />
-              <span className="text-[13.5px] text-ink-700">
-                {agent.running_now ? (
-                  <strong className="font-semibold text-ink-900">The corpus agent is crawling now.</strong>
-                ) : agent.enabled ? (
-                  <>
-                    <strong className="font-semibold text-ink-900">The corpus agent crawls every {agent.interval_minutes} minutes</strong>
-                    {agent.next_run_at ? <>, next {relTime(agent.next_run_at)}</> : null}.
-                    {agent.cycles[0]?.summary ? <> Last time: {agent.cycles[0].summary}.</> : null}
-                  </>
-                ) : (
-                  <>Automatic crawling is off. Sources are crawled only when you press the button.</>
-                )}
-              </span>
-            </div>
-            <Link href="/admin/agent" className="flex-none font-mono text-[11px] text-brand-600 hover:underline">
-              agent log
-            </Link>
-          </div>
-        )}
+      {error && <div className="mt-6"><ErrorNote>{error}</ErrorNote></div>}
+      {!sources && !error && <Skeleton className="mt-6 h-64 w-full" />}
 
+      {sources && (
         <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
-          <div className="flex min-w-[820px] items-center border-b border-line px-5 py-3 font-mono text-[10px] tracking-[0.14em] text-ink-300">
-            <span className="flex-1">SOURCE</span>
-            <span className="w-[90px] flex-none">PRIORITY</span>
-            <span className="w-[90px] flex-none">DOCS</span>
-            <span className="w-[150px] flex-none">LAST CHANGE</span>
-            <span className="w-[120px] flex-none text-right">ACTION</span>
-          </div>
-
-          {sources.map((s) => (
-            <div
-              key={s.source_id}
-              className="flex min-w-[820px] items-center border-b border-line-faint px-5 py-[13px] last:border-b-0"
-            >
-              <div className="min-w-0 flex-1 pr-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-medium text-ink-900">
-                    {s.name}
-                  </span>
-                  {!s.enabled && (
-                    <span className="rounded-full bg-panel px-2 py-[2px] font-mono text-[10px] text-ink-300">
-                      disabled
-                    </span>
-                  )}
-                  {s.stale && (
-                    <span className="rounded-full bg-warn-100 px-2 py-[2px] font-mono text-[10px] font-semibold text-warn-600">
-                      stale
-                    </span>
-                  )}
-                </div>
-                <div className="mt-[2px] truncate font-mono text-[11px] text-ink-300">
-                  {s.index_url}
-                </div>
-                {s.last_error && (
-                  <div className="mt-[3px] text-[11.5px] leading-[1.45] text-warn-500">
-                    {s.last_error}
+          <div className="min-w-[780px]">
+            <TableHead cols={COLS}>
+              <span>Source</span>
+              <span className="text-right">Documents</span>
+              <span>Last crawled</span>
+              <span>Last change</span>
+              <span />
+            </TableHead>
+            {sources.map((s) => (
+              <div key={s.source_id} className="grid items-center gap-4 border-b border-line-faint px-5 py-3.5 last:border-b-0" style={{ gridTemplateColumns: COLS }}>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[14.5px] font-medium text-ink-900">{s.name}</span>
+                    {!s.enabled && <Pill>Off</Pill>}
+                    {s.stale && <Pill tone="warn">Stale</Pill>}
+                    {s.last_status === "failed" && <Pill tone="warn">Last crawl failed</Pill>}
                   </div>
-                )}
-              </div>
-
-              <span className="w-[90px] flex-none">
-                <span
-                  className={`rounded-full px-2 py-[3px] font-mono text-[10px] font-semibold ${
-                    s.priority === "high"
-                      ? "bg-warn-100 text-warn-600"
-                      : "bg-panel text-ink-500"
-                  }`}
-                >
-                  {s.priority}
+                  {s.discovery !== "manual_upload" && (
+                    <a href={s.index_url} target="_blank" rel="noopener noreferrer" className="mt-0.5 block truncate text-[13px] text-ink-400 hover:text-brand-600">
+                      {s.index_url}
+                    </a>
+                  )}
+                  {s.last_status === "failed" && s.last_error && (
+                    <div className="mt-1 line-clamp-2 text-[12.5px] leading-[1.45] text-warn-600">{s.last_error}</div>
+                  )}
+                </div>
+                <span className="tnum text-right text-[14px] text-ink-700">{s.document_count}</span>
+                <span className="text-[13.5px] text-ink-500">{s.discovery === "manual_upload" ? "-" : relTime(s.last_run_at)}</span>
+                <span className="text-[13.5px] text-ink-500" title={s.last_change_at ? when(s.last_change_at) : undefined}>
+                  {s.days_since_change == null ? "Never" : s.days_since_change === 0 ? "Today" : `${s.days_since_change} days ago`}
                 </span>
-              </span>
-
-              <span className="tnum w-[90px] flex-none font-mono text-[13px] text-ink-700">
-                {s.document_count}
-              </span>
-
-              <span className="w-[150px] flex-none font-mono text-[11.5px] text-ink-500">
-                {s.days_since_change == null
-                  ? "never"
-                  : s.days_since_change === 0
-                    ? "today"
-                    : `${s.days_since_change}d ago`}
-              </span>
-
-              <span className="w-[120px] flex-none text-right">
-                {s.discovery === "manual_upload" ? (
-                  <span className="font-mono text-[11px] text-ink-200">upload</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => crawl(s.source_id)}
-                    disabled={busy !== null || !s.enabled}
-                    className="rounded-lg border border-line-strong bg-white px-3 py-[6px] text-[12.5px] font-medium text-ink-700 hover:border-brand-600 disabled:opacity-40"
-                  >
-                    {busy === s.source_id ? "..." : "Crawl now"}
-                  </button>
-                )}
-              </span>
-            </div>
-          ))}
+                <span className="text-right">
+                  {s.discovery === "manual_upload" ? (
+                    <span className="text-[13px] text-ink-300">Uploads</span>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => crawl(s)} disabled={busy !== null || !s.enabled}>
+                      <RefreshCw className={busy === s.source_id ? "animate-spin" : ""} />
+                      {busy === s.source_id ? "Crawling" : "Crawl"}
+                    </Button>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {result && (
-          <div className="mt-4 rounded-xl border border-line bg-white px-5 py-4">
-            <div className="eyebrow">LAST CRAWL</div>
-            <div className="mt-3 flex gap-6 font-mono text-[12.5px] text-ink-700">
-              <span>links {result.links_found}</span>
-              <span>new {result.new_documents}</span>
-              <span className={result.revisions ? "font-semibold text-warn-600" : ""}>
-                revisions {result.revisions}
-              </span>
-              <span>unchanged {result.unchanged}</span>
-            </div>
-            {result.documents.length > 0 && (
-              <div className="mt-3 flex flex-col gap-1">
-                {result.documents.map((d) => (
-                  <div key={d.id} className="font-mono text-[11.5px] text-ink-500">
-                    {d.is_revision && (
-                      <span className="mr-2 font-semibold text-warn-600">
-                        REVISION {d.revision_no}
-                      </span>
-                    )}
-                    {d.url}
-                  </div>
-                ))}
-              </div>
-            )}
-            {result.errors.length > 0 && (
-              <div className="mt-3 text-[11.5px] leading-[1.5] text-warn-500">
-                {result.errors.slice(0, 3).map((e) => (
-                  <div key={e}>{e}</div>
-                ))}
-              </div>
-            )}
+      {result && (
+        <Panel className="mt-4" title="Last crawl">
+          <div className="tnum flex flex-wrap gap-x-6 gap-y-1 text-[14px] text-ink-700">
+            <span>{result.links_found} links</span>
+            <span>{result.new_documents} new</span>
+            <span className={result.revisions ? "font-medium text-warn-600" : ""}>{result.revisions} changed</span>
+            <span>{result.unchanged} unchanged</span>
+            {(result.skipped?.length ?? 0) > 0 && <span className="text-ink-400">{result.skipped!.length} skipped</span>}
+          </div>
+          {result.documents.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1 text-[13px] text-ink-500">
+              {result.documents.map((d) => (
+                <li key={d.id} className="truncate">
+                  {d.is_revision && <span className="mr-2 font-medium text-warn-600">Revision {d.revision_no}</span>}
+                  {d.url}
+                </li>
+              ))}
+            </ul>
+          )}
+          {result.errors.length > 0 && (
+            <div className="mt-3"><ErrorNote>{result.errors.slice(0, 3).map((e) => <div key={e} className="truncate">{e}</div>)}</ErrorNote></div>
+          )}
+          {(result.skipped?.length ?? 0) > 0 && (
+            <p className="mt-3 text-[13px] leading-[1.5] text-ink-400">
+              Skipped pages are listings, pages whose content loads by script, and links that no longer exist.
+            </p>
+          )}
+        </Panel>
+      )}
+
+      <Panel
+        className="mt-4"
+        title="Revised documents"
+        description="Each changed copy of a page is a new revision in the same family, never a competing document."
+      >
+        {revised.length === 0 ? (
+          <p className="text-[14px] text-ink-400">No document has changed since it was first seen.</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-line-faint">
+            {revised.map((f) => {
+              const latest = f.revisions[0];
+              return (
+                <details key={f.family_id} className="py-2.5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-[14px] text-ink-900">{latest?.title ?? latest?.url}</span>
+                    <Pill>{f.latest_revision} revisions</Pill>
+                  </summary>
+                  <ol className="mt-2 flex flex-col gap-1 pl-1">
+                    {f.revisions.map((r) => (
+                      <li key={r.id} className="tnum flex gap-3 text-[13px] text-ink-500">
+                        <span className="w-24 flex-none">Revision {r.revision_no}</span>
+                        <span>{when(r.fetched_at)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              );
+            })}
           </div>
         )}
-
-        {/* Manual upload */}
-        <div className="mt-4 rounded-xl border border-line bg-white px-5 py-5">
-          <div className="eyebrow">MANUAL UPLOAD</div>
-          <p className="mt-2 max-w-[600px] text-[13px] leading-[1.55] text-ink-400">
-            A document that arrives by other means enters the same pipeline and
-            gets the same lineage and audit treatment as a crawled one. Upload a
-            changed copy of something already here and it is recorded as a
-            revision.
-          </p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.txt,.html,.htm,.doc,.docx"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) upload(f);
-            }}
-            disabled={busy !== null}
-            className="mt-4 block text-[13px] text-ink-700 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-600 file:px-4 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-brand-700"
-          />
-        </div>
-
-        {/* Document lineage */}
-        <div className="mt-4 rounded-xl border border-line bg-white px-5 py-5">
-          <div className="eyebrow">DOCUMENT FAMILIES</div>
-          <p className="mt-2 text-[13px] leading-[1.55] text-ink-400">
-            Three copies of one circular are three revisions in one family,
-            never three competing documents.
-          </p>
-          <div className="mt-4 flex flex-col gap-2">
-            {families.filter((f) => f.has_revisions).length === 0 && (
-              <p className="text-[13px] text-ink-300">
-                No document has been revised yet. Crawl a source twice after its
-                content changes to see a lineage build up.
-              </p>
-            )}
-            {families
-              .filter((f) => f.has_revisions)
-              .map((f) => (
-                <div
-                  key={f.family_id}
-                  className="rounded-lg border border-warn-300 bg-warn-100 px-4 py-3"
-                >
-                  <div className="font-mono text-[11px] font-semibold text-warn-600">
-                    {f.latest_revision} REVISIONS IN ONE FAMILY
-                  </div>
-                  {f.revisions.map((r) => (
-                    <div
-                      key={r.id}
-                      className="mt-2 flex items-baseline gap-3 font-mono text-[11.5px] text-ink-700"
-                    >
-                      <span className="w-12 flex-none font-semibold">
-                        rev {r.revision_no}
-                      </span>
-                      <span className="w-24 flex-none text-ink-400">
-                        {r.sha256}
-                      </span>
-                      <span className="truncate">{r.title ?? r.url}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-          </div>
-        </div>
-      </div>
-    </AdminShell>
-  );
-}
-
-function relTime(iso: string): string {
-  const diff = new Date(iso).getTime() - Date.now();
-  const mins = Math.round(Math.abs(diff) / 60000);
-  const label = mins < 1 ? "under a minute" : mins < 60 ? `${mins} min` : `${Math.round(mins / 60)} h`;
-  return diff > 0 ? `in ${label}` : `${label} ago`;
-}
-
-function Loading() {
-  return (
-    <div className="flex h-screen items-center justify-center bg-surface">
-      <span className="font-mono text-[12px] text-ink-300">Loading...</span>
-    </div>
+      </Panel>
+    </AdminBody>
   );
 }

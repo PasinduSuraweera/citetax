@@ -37,9 +37,43 @@ export interface ProposalRow {
   supersedes_id: string | null;
   doc_type: string | null;
   is_revision_of_published: boolean;
+  corrected_json?: Signatures | null;
   sla_hours: number;
   age_hours?: number;
   sla_breached?: boolean;
+}
+
+/** Who has signed a proposal. Stored on the proposal's corrected_json. */
+export interface Signatures {
+  approved_by?: string;
+  second_approved_by?: string;
+}
+
+export interface AdminSummary {
+  snapshot: { id: string; label: string } | null;
+  open_proposals: number;
+  urgent: number;
+  approved_waiting: number;
+  open_escalations: number;
+}
+
+export interface Escalation {
+  id: string;
+  step_no: number | null;
+  note: string | null;
+  status: "open" | "resolved" | "dismissed";
+  created_at: string;
+  computation_run_id: string | null;
+  rule_version_id: string | null;
+  rule_key: string | null;
+  citation_label: string | null;
+  ya: string | null;
+  corpus_snapshot_id: string | null;
+  facts_redacted_json: Record<string, unknown> | null;
+  flagged_by: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution: string | null;
 }
 
 export interface PublishedVersion {
@@ -74,6 +108,7 @@ export interface ImpactReport {
   max_delta: string | null;
   cases: ImpactCase[];
   errors: string[];
+  notes?: string[];
 }
 
 export interface SourceRow {
@@ -99,6 +134,7 @@ export interface CrawlResult {
   new_documents: number;
   revisions: number;
   unchanged: number;
+  skipped?: string[];
   errors: string[];
   documents: Array<{
     id: string;
@@ -177,6 +213,8 @@ export interface AgentStatus {
 export interface AuditEvent {
   id: string;
   actor: string | null;
+  actor_name?: string | null;
+  actor_email?: string | null;
   action: string;
   target_type: string | null;
   target_id: string | null;
@@ -218,6 +256,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export const admin = {
   me: () => req<Me>("/admin/me"),
 
+  summary: () => req<AdminSummary>("/admin/summary"),
+
   proposals: (opts: { status?: string; onlyRevisions?: boolean } = {}) => {
     const q = new URLSearchParams();
     if (opts.status) q.set("status", opts.status);
@@ -236,7 +276,7 @@ export const admin = {
     }>(`/admin/proposals/${id}`),
 
   editProposal: (id: string, body: Record<string, unknown>) =>
-    req<{ ok: boolean; corrections_recorded: number }>(
+    req<{ ok: boolean; corrections_recorded: number; signatures_cleared: boolean }>(
       `/admin/proposals/${id}`,
       { method: "PATCH", body: JSON.stringify(body) },
     ),
@@ -307,11 +347,18 @@ export const admin = {
       { method: "POST" },
     ),
 
-  audit: (limit = 100) => req<{ events: AuditEvent[] }>(`/admin/audit?limit=${limit}`),
+  audit: (limit = 100, action?: string) =>
+    req<{ events: AuditEvent[] }>(
+      `/admin/audit?limit=${limit}${action ? `&action=${encodeURIComponent(action)}` : ""}`,
+    ),
 
-  escalations: () => req<{ escalations: Array<Record<string, unknown>> }>(
-    "/admin/escalations",
-  ),
+  escalations: () => req<{ escalations: Escalation[] }>("/admin/escalations"),
+
+  closeEscalation: (id: string, status: Escalation["status"], note: string) =>
+    req<{ ok: boolean; status: string }>(`/admin/escalations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, note }),
+    }),
 
   sources: () =>
     req<{ sources: SourceRow[]; recent_crawls: Array<Record<string, unknown>> }>(
@@ -333,6 +380,7 @@ export const admin = {
         family_id: string;
         latest_revision: number;
         has_revisions: boolean;
+        listing: boolean;
         revisions: Array<{
           id: string;
           revision_no: number;
@@ -366,6 +414,7 @@ export const admin = {
         id: string;
         email: string;
         name: string | null;
+        picture: string | null;
         role: Role;
         created_at: string;
         last_seen_at: string | null;
@@ -380,7 +429,7 @@ export const admin = {
 };
 
 export const PRIORITY_LABEL: Record<number, string> = {
-  1: "Revision of a published rule",
+  1: "Revision of a published rule's source",
   2: "Rate, band or threshold",
   3: "Deadline",
   4: "New rule",
