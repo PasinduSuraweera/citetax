@@ -10,8 +10,10 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 
 from app.core.config import get_settings
 from app.corpus import scheduler
@@ -39,6 +41,26 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+logger = logging.getLogger("citetax.api")
+
+
+# Registered before CORS so CORS wraps it: an unexpected error comes back as
+# JSON the browser is allowed to read, instead of a bare 500 with no CORS
+# headers that the web app can only report as "cannot reach the server".
+@app.middleware("http")
+async def errors_as_json(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except OperationalError:
+        logger.exception("database unavailable on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            {"detail": "The database could not be reached. Try again in a moment."}, status_code=503
+        )
+    except Exception:  # noqa: BLE001 — logged in full, summarised to the client
+        logger.exception("unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse({"detail": "Something went wrong on the server."}, status_code=500)
+
 
 app.add_middleware(
     CORSMiddleware,

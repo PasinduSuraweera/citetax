@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from app.admin import impact as impact_mod
 from app.core.auth import AdminDep, ApproverDep, CurrentUserDep, ReviewerDep, User
@@ -29,11 +30,27 @@ router = APIRouter(prefix="/admin")
 # control (spec section 5.1 E).
 VALUE_BEARING_PREFIXES = (
     "band.", "relief.", "credit.", "deduction.", "charge.", "deadline.", "apit.",
+    "income.",
 )
+
+# States a reviewer can move a proposal between by editing it. Approval and
+# publication only happen through their own endpoints.
+REVIEW_STATES = {"needs_review", "in_review", "changes_requested"}
+
+# Fields that decide what would be published. Changing one voids signatures.
+SIGNED_FIELDS = {"rule_key", "operation", "value_json", "effective_from", "effective_to"}
 
 
 def _is_value_bearing(rule_key: str) -> bool:
     return rule_key.startswith(VALUE_BEARING_PREFIXES)
+
+
+def _uuid_or_404(value: str, what: str) -> str:
+    """Ids are UUIDs. Anything else is a missing record, not a server error."""
+    try:
+        return str(uuid.UUID(str(value)))
+    except ValueError as exc:
+        raise HTTPException(404, f"{what} not found") from exc
 
 
 def _audit(conn, actor: str, action: str, target_type: str,
@@ -80,9 +97,13 @@ def list_proposals(
                 f"""
                 select p.id, p.rule_key, p.operation, p.value_json, p.confidence,
                        p.status, p.priority, p.created_at, p.effective_from,
-                       p.effective_to, p.quoted_text, p.assigned_to,
+                       p.effective_to, p.quoted_text, p.assigned_to, p.corrected_json,
                        d.title as document_title, d.url as document_url,
-                       d.revision_no, d.supersedes_id, d.doc_type, d.published_at
+                       d.revision_no, d.supersedes_id, d.doc_type, d.published_at,
+                       exists (select 1 from rule_version rv
+                                 join source_document sd on sd.id = rv.source_document_id
+                                where sd.family_id = d.family_id
+                                  and rv.status = 'published') as feeds_published
                   from change_proposal p
                   left join source_document d on d.id = p.source_document_id
                  where {' and '.join(clauses)}
@@ -102,7 +123,10 @@ def list_proposals(
         d = dict(r)
         d["id"] = str(d["id"])
         d["supersedes_id"] = str(d["supersedes_id"]) if d["supersedes_id"] else None
-        d["is_revision_of_published"] = d["supersedes_id"] is not None
+        # Only a revision of a document a published rule came from can make a
+        # live answer wrong. Any other revision is just a changed page.
+        d["is_revision_of_published"] = bool(d["supersedes_id"] and d.pop("feeds_published"))
+        d.pop("feeds_published", None)
         d["sla_hours"] = sla_hours(d["priority"])
         if d["created_at"]:
             now = now or d["created_at"].tzinfo
@@ -117,10 +141,37 @@ def list_proposals(
     return {"proposals": out, "count": len(out), "viewer_role": user.role}
 
 
+@router.get("/summary")
+def summary(user: ReviewerDep) -> dict[str, Any]:
+    """What the admin sidebar shows on every page: the live snapshot and the
+    counts that need someone's attention."""
+    with db_conn() as conn:
+        snap = current_snapshot(conn)
+        counts = conn.execute(
+            text(
+                "select "
+                " count(*) filter (where status in ('needs_review','in_review','changes_requested')) as open, "
+                " count(*) filter (where status in ('needs_review','in_review','changes_requested') "
+                "                  and priority = 1) as urgent, "
+                " count(*) filter (where status = 'approved') as approved "
+                "from change_proposal"
+            )
+        ).mappings().one()
+        flags = conn.execute(text("select count(*) from escalation where status = 'open'")).scalar_one()
+    return {
+        "snapshot": {"id": str(snap["id"]), "label": snap["label"]} if snap else None,
+        "open_proposals": counts["open"],
+        "urgent": counts["urgent"],
+        "approved_waiting": counts["approved"],
+        "open_escalations": flags,
+    }
+
+
 @router.get("/proposals/{proposal_id}")
 def get_proposal(proposal_id: str, user: ReviewerDep) -> dict[str, Any]:
     """Document viewer payload: the extracted values plus the quoted sentence
     each came from, and the currently published version to diff against."""
+    proposal_id = _uuid_or_404(proposal_id, "Proposal")
     with db_conn() as conn:
         row = conn.execute(
             text(
@@ -182,28 +233,60 @@ def edit_proposal(
     proposal_id: str, user: ReviewerDep, payload: dict[str, Any] = Body(...)
 ) -> dict[str, Any]:
     """The reviewer compares, corrects and signs; never retypes. Every edit is
-    recorded as a correction, which becomes the extractor's eval set."""
+    recorded as a correction, which becomes the extractor's eval set.
+
+    An edit can only move a proposal between review states: approval happens
+    through the approve endpoint, where dual control is enforced. Changing
+    what would be published clears any signature already given, because
+    whoever signed approved the old value, not the new one.
+    """
+    proposal_id = _uuid_or_404(proposal_id, "Proposal")
     editable = {"rule_key", "operation", "value_json", "effective_from",
                 "effective_to", "quoted_text", "assigned_to", "status"}
     changes = {k: v for k, v in payload.items() if k in editable}
     if not changes:
         raise HTTPException(400, "No editable fields supplied")
+    if "status" in changes and changes["status"] not in REVIEW_STATES:
+        raise HTTPException(
+            400, "Status can only be set to a review state. Approve through the approve action."
+        )
 
     with db_conn() as conn:
         before = conn.execute(
-            text("select * from change_proposal where id = :id"), {"id": proposal_id}
+            text("select * from change_proposal where id = :id for update"), {"id": proposal_id}
         ).mappings().first()
         if not before:
             raise HTTPException(404, "Proposal not found")
+        if before["status"] in ("published", "rejected"):
+            raise HTTPException(409, f"This proposal is {before['status']} and can no longer be edited.")
+
+        changed = {
+            k: v for k, v in changes.items()
+            if json.dumps(before[k] if k in before else None, default=str) != json.dumps(v, default=str)
+        }
+        if not changed:
+            return {"ok": True, "corrections_recorded": 0, "signatures_cleared": False}
+
+        corrected = dict(before["corrected_json"] or {})
+        had_signature = bool(corrected.get("approved_by") or corrected.get("second_approved_by"))
+        clears = had_signature and bool(SIGNED_FIELDS & set(changed))
+        if clears:
+            corrected.pop("approved_by", None)
+            corrected.pop("second_approved_by", None)
 
         sets, params = [], {"id": proposal_id}
-        for k, v in changes.items():
+        for k, v in changed.items():
             if k == "value_json":
                 sets.append("value_json = cast(:value_json as jsonb)")
                 params["value_json"] = json.dumps(v)
             else:
                 sets.append(f"{k} = :{k}")
                 params[k] = v
+        if clears:
+            sets.append("corrected_json = cast(:corrected as jsonb)")
+            params["corrected"] = json.dumps(corrected)
+            if "status" not in changed:
+                sets.append("status = 'needs_review'")
         sets.append("reviewed_by = :actor")
         sets.append("reviewed_at = now()")
         params["actor"] = user.email
@@ -213,10 +296,7 @@ def edit_proposal(
             params,
         )
 
-        for field, after_value in changes.items():
-            before_value = before[field] if field in before else None
-            if json.dumps(before_value, default=str) == json.dumps(after_value, default=str):
-                continue
+        for field, after_value in changed.items():
             conn.execute(
                 text(
                     "insert into reviewer_correction (proposal_id, field, "
@@ -225,22 +305,23 @@ def edit_proposal(
                 ),
                 {
                     "p": proposal_id, "f": field,
-                    "b": json.dumps(before_value, default=str)[:2000],
+                    "b": json.dumps(before[field] if field in before else None, default=str)[:2000],
                     "a": json.dumps(after_value, default=str)[:2000],
                     "actor": user.email,
                 },
             )
 
         _audit(conn, user.email, "proposal.edit", "change_proposal",
-               proposal_id, dict(before), changes)
+               proposal_id, dict(before), {**changed, "signatures_cleared": clears})
         conn.commit()
 
-    return {"ok": True, "corrections_recorded": len(changes)}
+    return {"ok": True, "corrections_recorded": len(changed), "signatures_cleared": clears}
 
 
 @router.post("/proposals/{proposal_id}/impact")
 def proposal_impact(proposal_id: str, user: ReviewerDep) -> dict[str, Any]:
     """Run the golden set against the proposed corpus (spec section 5.1 D)."""
+    proposal_id = _uuid_or_404(proposal_id, "Proposal")
     with db_conn() as conn:
         row = conn.execute(
             text(
@@ -281,21 +362,27 @@ def reject_proposal(
 ) -> dict[str, Any]:
     """Rejected proposals are kept forever with the reason. They are training
     data for the extractor and evidence for the audit."""
+    proposal_id = _uuid_or_404(proposal_id, "Proposal")
     reason = (payload.get("reason") or "").strip()
     if not reason:
         raise HTTPException(400, "A rejection must carry a reason")
 
     with db_conn() as conn:
-        result = conn.execute(
+        status = conn.execute(
+            text("select status from change_proposal where id = :id"), {"id": proposal_id}
+        ).scalar()
+        if status is None:
+            raise HTTPException(404, "Proposal not found")
+        if status in ("published", "rejected"):
+            raise HTTPException(409, f"This proposal is already {status}.")
+        conn.execute(
             text(
                 "update change_proposal set status = 'rejected', "
                 "reject_reason = :r, reviewed_by = :a, reviewed_at = now() "
-                "where id = :id returning rule_key"
+                "where id = :id"
             ),
             {"r": reason[:2000], "a": user.email, "id": proposal_id},
-        ).first()
-        if not result:
-            raise HTTPException(404, "Proposal not found")
+        )
         _audit(conn, user.email, "proposal.reject", "change_proposal",
                proposal_id, None, {"reason": reason})
         conn.commit()
@@ -312,16 +399,29 @@ def approve_proposal(
     second must have the approver role. The same person signing twice is
     refused, which is the entire point of the control.
     """
+    proposal_id = _uuid_or_404(proposal_id, "Proposal")
     with db_conn() as conn:
         row = conn.execute(
-            text("select * from change_proposal where id = :id"), {"id": proposal_id}
+            text("select * from change_proposal where id = :id for update"), {"id": proposal_id}
         ).mappings().first()
         if not row:
             raise HTTPException(404, "Proposal not found")
-        if row["status"] in ("published", "rejected"):
-            raise HTTPException(409, f"Proposal is already {row['status']}")
+        if row["status"] in ("published", "rejected", "approved"):
+            raise HTTPException(409, f"This proposal is already {row['status']}.")
 
-        needs_dual = _is_value_bearing(row["rule_key"] or "")
+        # What would be published must be complete before anyone signs it.
+        if not row["rule_key"]:
+            raise HTTPException(
+                400, "This proposal names no rule. Re-extract it, fill in the rule, or reject it."
+            )
+        if not isinstance(row["value_json"], dict) or not row["value_json"]:
+            raise HTTPException(400, "This proposal has no value to publish.")
+        needs_dual = _is_value_bearing(row["rule_key"])
+        if needs_dual and not row["effective_from"]:
+            raise HTTPException(
+                400, "Set the date this takes effect from. A figure without one cannot be placed in the right year."
+            )
+
         corrected = row["corrected_json"] or {}
         first_approver = corrected.get("approved_by")
 
@@ -329,14 +429,17 @@ def approve_proposal(
             conn.execute(
                 text(
                     "update change_proposal set status = 'approved', "
+                    "corrected_json = cast(:c as jsonb), "
                     "reviewed_by = :a, reviewed_at = now() where id = :id"
                 ),
-                {"a": user.email, "id": proposal_id},
+                {"c": json.dumps({**corrected, "approved_by": user.email}),
+                 "a": user.email, "id": proposal_id},
             )
             _audit(conn, user.email, "proposal.approve", "change_proposal",
                    proposal_id, None, {"dual_control": False})
             conn.commit()
-            return {"ok": True, "status": "approved", "awaiting_second": False}
+            return {"ok": True, "status": "approved", "awaiting_second": False,
+                    "first_approver": user.email}
 
         if first_approver is None:
             conn.execute(
@@ -405,11 +508,7 @@ def approve_proposal(
 
 @router.post("/snapshots/publish")
 def publish(user: ApproverDep, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Publishing is not a row update. It creates a new corpus snapshot.
-
-    Approved proposals become rule versions, the versions they supersede get an
-    effective_to, and a new snapshot points at the resulting rule set.
-    """
+    """Publishing is not a row update. It creates a new corpus snapshot."""
     changelog = (payload.get("changelog") or "").strip()
     if not changelog:
         raise HTTPException(
@@ -419,143 +518,190 @@ def publish(user: ApproverDep, payload: dict[str, Any] = Body(...)) -> dict[str,
     label = (payload.get("label") or date.today().strftime("%d %B %Y")).strip()
 
     with db_conn() as conn:
-        approved = conn.execute(
-            text(
-                "select * from change_proposal where status = 'approved' "
-                "order by created_at"
-            )
-        ).mappings().all()
-        if not approved:
-            raise HTTPException(400, "No approved proposals to publish")
-
-        current = current_snapshot(conn)
-        snapshot_id = str(uuid.uuid4())
-        conn.execute(
-            text(
-                "insert into corpus_snapshot (id, label, created_by, is_current, "
-                "changelog) values (:id, :l, :by, false, :log)"
-            ),
-            {"id": snapshot_id, "l": label, "by": user.email, "log": changelog},
-        )
-
-        # Carry forward every version in the current snapshot, except the rule
-        # keys this publish replaces.
-        replaced_keys = {p["rule_key"] for p in approved if p["rule_key"]}
-        if current:
-            conn.execute(
-                text(
-                    "insert into snapshot_rule_version (snapshot_id, rule_version_id) "
-                    "select :new, srv.rule_version_id "
-                    "  from snapshot_rule_version srv "
-                    "  join rule_version rv on rv.id = srv.rule_version_id "
-                    " where srv.snapshot_id = :old "
-                    "   and (rv.rule_key <> all(:keys))"
-                ),
-                {
-                    "new": snapshot_id,
-                    "old": str(current["id"]),
-                    "keys": list(replaced_keys) or [""],
-                },
-            )
-
-        created: list[dict[str, Any]] = []
-        for p in approved:
-            if not p["rule_key"]:
-                continue
-
-            prior = conn.execute(
-                text(
-                    "select id, revision_no from rule_version "
-                    " where rule_key = :k and status = 'published' "
-                    " order by effective_from desc, revision_no desc limit 1"
-                ),
-                {"k": p["rule_key"]},
-            ).mappings().first()
-
-            conn.execute(
-                text(
-                    "insert into rule (rule_key, title, rule_type, unit) "
-                    "values (:k, :k, 'amount', 'LKR') on conflict do nothing"
-                ),
-                {"k": p["rule_key"]},
-            )
-
-            approvals = p["corrected_json"] or {}
-            version_id = str(uuid.uuid4())
-            conn.execute(
-                text(
-                    "insert into rule_version (id, rule_key, revision_no, "
-                    "value_json, effective_from, effective_to, "
-                    "source_document_id, quoted_text, citation_label, status, "
-                    "supersedes_version_id, approved_by, approved_at, "
-                    "second_approved_by, second_approved_at, changelog_line) "
-                    "values (:id, :k, :rev, cast(:v as jsonb), :ef, :et, :doc, "
-                    ":q, :cite, 'published', :sup, :ab, now(), :sb, "
-                    "case when :sb is null then null else now() end, :log)"
-                ),
-                {
-                    "id": version_id,
-                    "k": p["rule_key"],
-                    "rev": (prior["revision_no"] + 1) if prior else 1,
-                    "v": json.dumps(p["value_json"] or {}),
-                    "ef": p["effective_from"] or date.today(),
-                    "et": p["effective_to"],
-                    "doc": p["source_document_id"],
-                    "q": p["quoted_text"],
-                    "cite": (p["value_json"] or {}).get("citation_label")
-                            or p["rule_key"],
-                    "sup": prior["id"] if prior else None,
-                    "ab": approvals.get("approved_by") or p["reviewed_by"] or user.email,
-                    "sb": approvals.get("second_approved_by"),
-                    "log": changelog,
-                },
-            )
-            conn.execute(
-                text(
-                    "insert into snapshot_rule_version (snapshot_id, rule_version_id) "
-                    "values (:s, :v)"
-                ),
-                {"s": snapshot_id, "v": version_id},
-            )
-
-            # Close the window on the version this supersedes, so the new rule
-            # takes over from its effective date and no overlap exists.
-            if prior and p["effective_from"]:
-                conn.execute(
-                    text(
-                        "update rule_version set effective_to = :d, "
-                        "status = case when status = 'published' "
-                        "  then 'superseded' else status end "
-                        " where id = :id and (effective_to is null "
-                        "   or effective_to > :d)"
-                    ),
-                    {"d": p["effective_from"] - __import__("datetime").timedelta(days=1),
-                     "id": prior["id"]},
-                )
-
-            conn.execute(
-                text("update change_proposal set status = 'published' where id = :id"),
-                {"id": p["id"]},
-            )
-            created.append({"rule_key": p["rule_key"], "rule_version_id": version_id})
-
-        conn.execute(text("update corpus_snapshot set is_current = false"))
-        conn.execute(
-            text("update corpus_snapshot set is_current = true where id = :id"),
-            {"id": snapshot_id},
-        )
-        _audit(conn, user.email, "snapshot.publish", "corpus_snapshot",
-               snapshot_id, None, {"label": label, "changelog": changelog,
-                                   "rules": created})
+        result = publish_snapshot(conn, user.email, label, changelog)
         conn.commit()
+    return {"ok": True, **result}
 
-    return {
-        "ok": True,
-        "snapshot_id": snapshot_id,
-        "label": label,
-        "changelog": changelog,
-        "published": created,
-    }
+
+def _in_force(v: dict[str, Any], day: date) -> bool:
+    return v["effective_from"] <= day and (v["effective_to"] is None or v["effective_to"] >= day)
+
+
+def _copy_version(conn, v: dict[str, Any], effective_from: date, effective_to: date | None,
+                  revision_no: int) -> dict[str, Any]:
+    """A new row carrying `v` over a narrower window. Rule versions are shared
+    by every snapshot that includes them, so a published row is never edited:
+    the new snapshot gets a copy instead, and older snapshots keep theirs."""
+    new_id = str(uuid.uuid4())
+    conn.execute(
+        text(
+            "insert into rule_version (id, rule_key, revision_no, value_json, "
+            "effective_from, effective_to, source_document_id, source_anchor_json, "
+            "quoted_text, citation_label, status, supersedes_version_id, "
+            "approved_by, approved_at, second_approved_by, second_approved_at, "
+            "changelog_line) "
+            "select :new, rule_key, :rev, value_json, :ef, :et, source_document_id, "
+            "source_anchor_json, quoted_text, citation_label, 'published', id, "
+            "approved_by, approved_at, second_approved_by, second_approved_at, "
+            "changelog_line from rule_version where id = :id"
+        ),
+        {"new": new_id, "rev": revision_no, "ef": effective_from, "et": effective_to, "id": v["id"]},
+    )
+    return {**v, "id": new_id, "effective_from": effective_from, "effective_to": effective_to,
+            "revision_no": revision_no}
+
+
+def publish_snapshot(conn, actor: str, label: str, changelog: str) -> dict[str, Any]:
+    """Build and switch to a new snapshot from the approved proposals.
+
+    Does not commit, so the caller (or a test) decides. Every version in the
+    current snapshot is carried forward; for each approved proposal only the
+    version it overlaps is replaced, and only over the dates the proposal
+    covers, so a rule with one version per year keeps the other years. The
+    new snapshot must still resolve every required rule for every supported
+    year, or nothing is published.
+    """
+    from app.compute.engine import REQUIRED_RULE_KEYS
+    from app.core.config import get_settings
+    from app.rules.resolver import AmbiguousRule, UnresolvedRule, resolve
+
+    approved = conn.execute(
+        text(
+            "select * from change_proposal where status = 'approved' "
+            "and rule_key is not null order by effective_from nulls first, created_at"
+        )
+    ).mappings().all()
+    if not approved:
+        raise HTTPException(400, "No approved proposals to publish.")
+
+    unsigned = []
+    for p in approved:
+        signed = p["corrected_json"] or {}
+        if _is_value_bearing(p["rule_key"]) and not (
+            signed.get("approved_by") and signed.get("second_approved_by")
+            and signed["approved_by"] != signed["second_approved_by"]
+        ):
+            unsigned.append(p["rule_key"])
+        if _is_value_bearing(p["rule_key"]) and not p["effective_from"]:
+            unsigned.append(f"{p['rule_key']} (no effective date)")
+    if unsigned:
+        raise HTTPException(
+            409, f"These need two distinct signatures and a date before publishing: {', '.join(unsigned)}"
+        )
+
+    current = current_snapshot(conn)
+    versions: list[dict[str, Any]] = []
+    if current:
+        versions = [
+            dict(r) for r in conn.execute(
+                text(
+                    "select rv.id, rv.rule_key, rv.revision_no, rv.effective_from, rv.effective_to "
+                    "  from snapshot_rule_version srv join rule_version rv on rv.id = srv.rule_version_id "
+                    " where srv.snapshot_id = :s"
+                ),
+                {"s": str(current["id"])},
+            ).mappings()
+        ]
+
+    def next_revision(key: str) -> int:
+        top = conn.execute(
+            text("select coalesce(max(revision_no), 0) from rule_version where rule_key = :k"), {"k": key}
+        ).scalar_one()
+        return int(top) + 1
+
+    created: list[dict[str, Any]] = []
+    for p in approved:
+        key = p["rule_key"]
+        start: date = p["effective_from"] or date.today()
+        end: date | None = p["effective_to"]
+
+        # Trim every version of this key that overlaps the new window.
+        kept: list[dict[str, Any]] = []
+        superseded: str | None = None
+        for v in versions:
+            overlaps = v["rule_key"] == key and v["effective_from"] <= (end or date.max) and (
+                v["effective_to"] is None or v["effective_to"] >= start
+            )
+            if not overlaps:
+                kept.append(v)
+                continue
+            superseded = superseded or v["id"]
+            if v["effective_from"] < start:
+                kept.append(_copy_version(conn, v, v["effective_from"], start - timedelta(days=1), next_revision(key)))
+            if end is not None and (v["effective_to"] is None or v["effective_to"] > end):
+                kept.append(_copy_version(conn, v, end + timedelta(days=1), v["effective_to"], next_revision(key)))
+        versions = kept
+
+        conn.execute(
+            text(
+                "insert into rule (rule_key, title, rule_type, unit) "
+                "values (:k, :k, 'amount', 'LKR') on conflict do nothing"
+            ),
+            {"k": key},
+        )
+        signed = p["corrected_json"] or {}
+        version_id = str(uuid.uuid4())
+        revision = next_revision(key)
+        conn.execute(
+            text(
+                "insert into rule_version (id, rule_key, revision_no, value_json, "
+                "effective_from, effective_to, source_document_id, quoted_text, "
+                "citation_label, status, supersedes_version_id, approved_by, approved_at, "
+                "second_approved_by, second_approved_at, changelog_line) "
+                "values (:id, :k, :rev, cast(:v as jsonb), :ef, :et, :doc, :q, :cite, "
+                "'published', :sup, :ab, now(), :sb, "
+                "case when cast(:sb as text) is null then null else now() end, :log)"
+            ),
+            {
+                "id": version_id, "k": key, "rev": revision,
+                "v": json.dumps(p["value_json"] or {}),
+                "ef": start, "et": end, "doc": p["source_document_id"],
+                "q": p["quoted_text"],
+                "cite": (p["value_json"] or {}).get("citation_label") or key,
+                "sup": superseded,
+                "ab": signed.get("approved_by") or p["reviewed_by"] or actor,
+                "sb": signed.get("second_approved_by"),
+                "log": changelog,
+            },
+        )
+        versions.append({"id": version_id, "rule_key": key, "revision_no": revision,
+                         "effective_from": start, "effective_to": end})
+        conn.execute(text("update change_proposal set status = 'published' where id = :id"), {"id": p["id"]})
+        created.append({"rule_key": key, "rule_version_id": version_id,
+                        "effective_from": start.isoformat()})
+
+    snapshot_id = str(uuid.uuid4())
+    conn.execute(
+        text(
+            "insert into corpus_snapshot (id, label, created_by, is_current, changelog) "
+            "values (:id, :l, :by, false, :log)"
+        ),
+        {"id": snapshot_id, "l": label, "by": actor, "log": changelog},
+    )
+    for v in versions:
+        conn.execute(
+            text("insert into snapshot_rule_version (snapshot_id, rule_version_id) values (:s, :v)"),
+            {"s": snapshot_id, "v": v["id"]},
+        )
+
+    # No gaps: every required rule must still resolve, for every supported
+    # year, in the snapshot about to go live.
+    gaps = []
+    for key in [*REQUIRED_RULE_KEYS, "deadline.return_filing"]:
+        for ya in get_settings().supported_yas:
+            try:
+                resolve(conn, key, ya, snapshot_id)
+            except (UnresolvedRule, AmbiguousRule) as exc:
+                gaps.append(f"{key} {ya}: {exc}")
+    if gaps:
+        conn.rollback()
+        raise HTTPException(409, "Publishing would leave a gap, so nothing was published. " + "; ".join(gaps[:5]))
+
+    conn.execute(text("update corpus_snapshot set is_current = false where is_current"))
+    conn.execute(text("update corpus_snapshot set is_current = true where id = :id"), {"id": snapshot_id})
+    _audit(conn, actor, "snapshot.publish", "corpus_snapshot", snapshot_id, None,
+           {"label": label, "changelog": changelog, "rules": created})
+    return {"snapshot_id": snapshot_id, "label": label, "changelog": changelog, "published": created}
 
 
 @router.get("/snapshots")
@@ -582,6 +728,7 @@ def rollback(snapshot_id: str, user: AdminDep) -> dict[str, Any]:
     Because every answer already records the snapshot it used, rollback never
     rewrites history. It only changes what new answers resolve against.
     """
+    snapshot_id = _uuid_or_404(snapshot_id, "Snapshot")
     with db_conn() as conn:
         target = conn.execute(
             text("select id, label from corpus_snapshot where id = :id"),
@@ -720,21 +867,24 @@ def corpus_health(user: ReviewerDep) -> dict[str, Any]:
 @router.get("/audit")
 def audit_log(
     user: ReviewerDep,
-    limit: int = Query(100, le=500),
+    limit: int = Query(100, ge=1, le=500),
     action: str | None = Query(None),
 ) -> dict[str, Any]:
     clauses, params = ["1=1"], {"limit": limit}
     if action:
-        clauses.append("action = :action")
+        clauses.append("e.action = :action")
         params["action"] = action
 
     with db_conn() as conn:
         rows = conn.execute(
             text(
-                f"select id, actor, action, target_type, target_id, "
-                f"       before_json, after_json, at "
-                f"  from review_event where {' and '.join(clauses)} "
-                f" order by at desc limit :limit"
+                f"select e.id, e.actor, e.action, e.target_type, e.target_id, "
+                f"       e.before_json, e.after_json, e.at, "
+                f"       coalesce(u.name, u.email) as actor_name, u.email as actor_email "
+                f"  from review_event e "
+                f"  left join app_user u on u.id::text = e.actor or u.email = e.actor "
+                f" where {' and '.join(clauses)} "
+                f" order by e.at desc limit :limit"
             ),
             params,
         ).mappings().all()
@@ -750,12 +900,15 @@ def escalations(user: ReviewerDep) -> dict[str, Any]:
             text(
                 "select e.id, e.step_no, e.note, e.status, e.created_at, "
                 "       e.computation_run_id, e.rule_version_id, "
+                "       e.resolved_by, e.resolved_at, e.resolution, "
+                "       coalesce(u.name, u.email) as flagged_by, "
                 "       rv.rule_key, rv.citation_label, "
                 "       r.ya, r.corpus_snapshot_id, r.facts_redacted_json "
                 "  from escalation e "
+                "  left join app_user u on u.id = e.flagged_by "
                 "  left join rule_version rv on rv.id = e.rule_version_id "
                 "  left join computation_run r on r.id = e.computation_run_id "
-                " order by e.created_at desc limit 100"
+                " order by (e.status = 'open') desc, e.created_at desc limit 100"
             )
         ).mappings().all()
     return {
@@ -775,12 +928,50 @@ def escalations(user: ReviewerDep) -> dict[str, Any]:
     }
 
 
+@router.patch("/escalations/{escalation_id}")
+def close_escalation(
+    escalation_id: str, user: ReviewerDep, payload: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
+    """Close a flag as resolved or dismissed, with a note, or reopen it."""
+    escalation_id = _uuid_or_404(escalation_id, "Escalation")
+    status = payload.get("status")
+    if status not in ("resolved", "dismissed", "open"):
+        raise HTTPException(400, "status must be resolved, dismissed or open")
+    note = str(payload.get("note") or "").strip()[:2000]
+    if status != "open" and not note:
+        raise HTTPException(400, "Say what was found, so the next reviewer knows why it was closed.")
+
+    with db_conn() as conn:
+        before = conn.execute(
+            text("select status, computation_run_id, step_no from escalation where id = :id"),
+            {"id": escalation_id},
+        ).mappings().first()
+        if not before:
+            raise HTTPException(404, "Escalation not found")
+        try:
+            conn.execute(
+                text(
+                    "update escalation set status = :s, resolution = :n, "
+                    "resolved_by = case when :s = 'open' then null else :by end, "
+                    "resolved_at = case when :s = 'open' then null else now() end "
+                    "where id = :id"
+                ),
+                {"s": status, "n": note or None, "by": user.email, "id": escalation_id},
+            )
+        except IntegrityError as exc:
+            raise HTTPException(409, "This step already has an open flag.") from exc
+        _audit(conn, user.email, f"escalation.{status}", "escalation", escalation_id,
+               {"status": before["status"]}, {"status": status, "note": note})
+        conn.commit()
+    return {"ok": True, "status": status}
+
+
 @router.get("/users")
 def list_users(user: AdminDep) -> dict[str, Any]:
     with db_conn() as conn:
         rows = conn.execute(
             text(
-                "select id, email, name, role, created_at, last_seen_at "
+                "select id, email, name, picture, role, created_at, last_seen_at "
                 "  from app_user order by created_at"
             )
         ).mappings().all()
@@ -791,6 +982,7 @@ def list_users(user: AdminDep) -> dict[str, Any]:
 def set_role(
     user_id: str, user: AdminDep, payload: dict[str, Any] = Body(...)
 ) -> dict[str, Any]:
+    user_id = _uuid_or_404(user_id, "User")
     role = payload.get("role")
     valid = {"free", "individual", "practice", "reviewer", "approver",
              "admin", "auditor"}
@@ -890,6 +1082,7 @@ def reextract(proposal_id: str, user: ReviewerDep) -> dict[str, Any]:
     """
     from app.corpus import extractor
 
+    proposal_id = _uuid_or_404(proposal_id, "Proposal")
     with db_conn() as conn:
         row = conn.execute(
             text(

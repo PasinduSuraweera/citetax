@@ -9,7 +9,7 @@ import threading
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Body, HTTPException, Query, Response
 from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
@@ -744,21 +744,56 @@ def clear_history(user: CurrentUserDep) -> dict[str, Any]:
 
 
 @router.post("/runs/{run_id}/flag")
-def flag_run(run_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """User escalation — lands in the admin queue bound to rule_version_id
-    + computation_run_id so a reviewer can reproduce the answer (spec §5.1 G)."""
+def flag_run(
+    run_id: str, payload: dict[str, Any] = Body(...), user: OptionalUserDep = None,
+) -> dict[str, Any]:
+    """User escalation: lands in the admin queue bound to the rule version and
+    run that produced the figure, so a reviewer can reproduce the answer
+    (spec section 5.1 G).
+
+    The rule version is read from the stored ledger, never taken from the
+    client. A run that belongs to an account can only be flagged by that
+    account; an anonymous run by anyone holding its id. Flagging a step that
+    already has an open flag returns that flag rather than a second one.
+    """
+    rid = _uuid_or_404(run_id)
+    step_no = payload.get("step_no")
+    if not isinstance(step_no, int) or isinstance(step_no, bool) or step_no < 1:
+        raise HTTPException(422, "step_no must be the number of a step in the ledger")
+    note = str(payload.get("note") or "").strip()[:2000]
+
     with db_conn() as conn:
+        run = conn.execute(
+            text("select user_id, ledger_json from computation_run where id = :id"), {"id": rid}
+        ).mappings().first()
+        if not run or (run["user_id"] and (user is None or str(run["user_id"]) != str(user.id))):
+            raise HTTPException(404, "Run not found")
+        steps = (run["ledger_json"] or {}).get("steps") or []
+        step = next((s for s in steps if s.get("step_no") == step_no), None)
+        if step is None:
+            raise HTTPException(422, "That step is not in this answer's ledger")
+
+        open_id = conn.execute(
+            text(
+                "select id from escalation where computation_run_id = :r "
+                "and step_no = :s and status = 'open'"
+            ),
+            {"r": rid, "s": step_no},
+        ).scalar()
+        if open_id:
+            return {"escalation_id": str(open_id), "status": "open", "duplicate": True}
+
         row = conn.execute(
             text(
-                "insert into escalation (computation_run_id, step_no, "
-                "rule_version_id, note) values (:r, :s, :rv, :n) returning id"
+                "insert into escalation (computation_run_id, step_no, rule_version_id, "
+                "note, flagged_by) values (:r, :s, :rv, :n, :by) returning id"
             ),
             {
-                "r": run_id,
-                "s": payload.get("step_no"),
-                "rv": payload.get("rule_version_id"),
-                "n": (payload.get("note") or "")[:2000],
+                "r": rid, "s": step_no,
+                "rv": step.get("rule_version_id"),
+                "n": note,
+                "by": str(user.id) if user else None,
             },
         ).scalar_one()
         conn.commit()
-    return {"escalation_id": str(row), "status": "open"}
+    return {"escalation_id": str(row), "status": "open", "duplicate": False}

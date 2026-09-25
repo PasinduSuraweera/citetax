@@ -34,8 +34,16 @@ def list_sources(user: ReviewerDep) -> dict[str, Any]:
                 "  from crawl_run order by started_at desc limit 20"
             )
         ).mappings().all()
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    sources = []
+    for r in rows:
+        d = dict(r)
+        d["days_since_change"] = (now - d["last_change_at"]).days if d.get("last_change_at") else None
+        sources.append(d)
     return {
-        "sources": [dict(r) for r in rows],
+        "sources": sources,
         "recent_crawls": [dict(r) for r in recent],
     }
 
@@ -43,11 +51,18 @@ def list_sources(user: ReviewerDep) -> dict[str, Any]:
 @router.post("")
 def create_source(user: AdminDep, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     required = {"source_id", "name", "index_url", "doc_type"}
-    missing = required - set(payload)
+    missing = sorted(k for k in required if not str(payload.get(k) or "").strip())
     if missing:
-        raise HTTPException(400, f"missing fields: {sorted(missing)}")
+        raise HTTPException(400, f"Fill in: {', '.join(missing)}")
+    if not str(payload["index_url"]).startswith(("http://", "https://")):
+        raise HTTPException(400, "The index URL must start with http:// or https://")
 
     with db_conn() as conn:
+        taken = conn.execute(
+            text("select 1 from source where source_id = :s"), {"s": payload["source_id"]}
+        ).first()
+        if taken:
+            raise HTTPException(409, f"A source called {payload['source_id']} already exists.")
         conn.execute(
             text(
                 "insert into source (source_id, name, index_url, discovery, "
@@ -81,10 +96,12 @@ def update_source(
 
     sets = ", ".join(f"{k} = :{k}" for k in changes)
     with db_conn() as conn:
-        conn.execute(
+        n = conn.execute(
             text(f"update source set {sets} where source_id = :sid"),
             {**changes, "sid": source_id},
-        )
+        ).rowcount
+        if not n:
+            raise HTTPException(404, "Source not found")
         conn.commit()
     return {"ok": True, "changed": sorted(changes)}
 
@@ -230,7 +247,8 @@ def list_documents(user: ReviewerDep) -> dict[str, Any]:
             text(
                 "select id, family_id, revision_no, source_id, url, title, "
                 "       doc_type, fetched_at, last_seen_at, supersedes_id, "
-                "       uploaded_by, sha256 "
+                "       uploaded_by, sha256, "
+                "       coalesce((text_meta->>'listing')::boolean, false) as listing "
                 "  from source_document order by fetched_at desc limit 100"
             )
         ).mappings().all()
@@ -249,6 +267,8 @@ def list_documents(user: ReviewerDep) -> dict[str, Any]:
                 "revisions": sorted(docs, key=lambda x: x["revision_no"], reverse=True),
                 "latest_revision": max(d["revision_no"] for d in docs),
                 "has_revisions": len(docs) > 1,
+                # A listing page is not a document; its revisions were noise.
+                "listing": max(docs, key=lambda x: x["revision_no"])["listing"],
             }
             for fam, docs in families.items()
         ]
