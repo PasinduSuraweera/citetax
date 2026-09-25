@@ -523,6 +523,13 @@ export const api = {
       count: number;
     }>("/v1/history"),
 
+  /** Takes an answer off your history. The computation is kept, anonymously,
+   *  as the audit record; see DELETE /v1/history/{id}. */
+  removeFromHistory: (id: string) =>
+    request<void>(`/v1/history/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  clearHistory: () => request<{ removed: number }>("/v1/history", { method: "DELETE" }),
+
   historyDetail: (id: string) =>
     request<{
       id: string;

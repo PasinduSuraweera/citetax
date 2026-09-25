@@ -9,7 +9,7 @@ import threading
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
@@ -687,6 +687,60 @@ def history_detail(run_id: str, user: CurrentUserDep) -> dict[str, Any]:
             "changelog": row["changelog"],
         },
     }
+
+
+def _uuid_or_404(value: str) -> str:
+    try:
+        return str(uuid.UUID(value))
+    except ValueError as exc:
+        raise HTTPException(404, "Run not found") from exc
+
+
+# Removing an answer from history detaches it from the account rather than
+# deleting it. A run is the audit record of a computation: escalations and
+# chat messages point at it, and its question is already stored redacted, so
+# once it has no user it cannot be traced back to anyone. The audit event
+# records the count, never the content.
+
+@router.delete("/history/{run_id}", status_code=204)
+def remove_from_history(run_id: str, user: CurrentUserDep) -> Response:
+    """Take one answer out of your history."""
+    rid = _uuid_or_404(run_id)
+    with db_conn() as conn:
+        n = conn.execute(
+            text("update computation_run set user_id = null where id = :id and user_id = :uid"),
+            {"id": rid, "uid": user.id},
+        ).rowcount
+        if not n:
+            raise HTTPException(404, "Run not found")
+        conn.execute(
+            text(
+                "insert into review_event (actor, action, target_type, target_id) "
+                "values (:a, 'history.remove', 'computation_run', :tid)"
+            ),
+            {"a": str(user.id), "tid": rid},
+        )
+        conn.commit()
+    return Response(status_code=204)
+
+
+@router.delete("/history")
+def clear_history(user: CurrentUserDep) -> dict[str, Any]:
+    """Take every answer out of your history. Chats are separate and stay."""
+    with db_conn() as conn:
+        n = conn.execute(
+            text("update computation_run set user_id = null where user_id = :uid"),
+            {"uid": user.id},
+        ).rowcount
+        conn.execute(
+            text(
+                "insert into review_event (actor, action, target_type, target_id, before_json) "
+                "values (:a, 'history.clear', 'app_user', :a, cast(:b as jsonb))"
+            ),
+            {"a": str(user.id), "b": json.dumps({"runs": n})},
+        )
+        conn.commit()
+    return {"removed": n}
 
 
 @router.post("/runs/{run_id}/flag")

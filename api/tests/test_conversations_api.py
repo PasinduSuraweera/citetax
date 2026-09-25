@@ -557,3 +557,58 @@ def test_stream_reports_a_missing_conversation_as_an_error_event(pipeline, users
     events = ask_stream(a, conversation_id=str(uuid.uuid4()))
     assert events == [{"type": "error", "status": 404, "message": "Conversation not found"}]
     assert pipeline["calls"] == []
+
+
+# ---------------------------------------------------------------------------
+# Removing answers from history
+# ---------------------------------------------------------------------------
+
+def _history_ids(headers) -> list[str]:
+    return [r["id"] for r in client.get("/v1/history", headers=headers).json()["runs"]]
+
+
+def _drop_runs(ids: list[str]) -> None:
+    # Detached runs no longer belong to the test user, so the fixture's
+    # cleanup cannot find them; remove them here.
+    with db_conn() as conn:
+        conn.execute(text("delete from conversation_message where computation_run_id = any(cast(:ids as uuid[]))"), {"ids": ids})
+        conn.execute(text("delete from computation_run where id = any(cast(:ids as uuid[]))"), {"ids": ids})
+        conn.commit()
+
+
+def test_one_answer_can_be_removed_and_is_kept_for_audit(pipeline, users):
+    a = users("a")
+    first = ask(a).json()["run_id"]
+    second = ask(a, "What about EPF?").json()["run_id"]
+    try:
+        assert client.delete(f"/v1/history/{first}", headers=a).status_code == 204
+        assert _history_ids(a) == [second]
+        # Gone from the account, still there as an anonymous record.
+        assert _count("select count(*) from computation_run where id = :id and user_id is null", id=first) == 1
+        assert client.get(f"/v1/history/{first}", headers=a).status_code == 404
+        assert client.delete(f"/v1/history/{first}", headers=a).status_code == 404
+    finally:
+        _drop_runs([first])
+
+
+def test_history_can_be_cleared_and_chats_stay(pipeline, users):
+    a = users("a")
+    body = ask(a).json()
+    runs = [body["run_id"], ask(a, "And with EPF?", conversation_id=body["conversation_id"]).json()["run_id"]]
+    try:
+        r = client.delete("/v1/history", headers=a)
+        assert r.status_code == 200 and r.json() == {"removed": 2}
+        assert _history_ids(a) == []
+        # The chat is separate and keeps its answers.
+        assert len(thread(a, body["conversation_id"]).json()["turns"]) == 2
+    finally:
+        _drop_runs(runs)
+
+
+def test_someone_elses_answer_cannot_be_removed(pipeline, users):
+    a, b = users("a"), users("b")
+    run = ask(a).json()["run_id"]
+    assert client.delete(f"/v1/history/{run}", headers=b).status_code == 404
+    assert client.delete("/v1/history/not-a-uuid", headers=b).status_code == 404
+    assert client.delete(f"/v1/history/{run}").status_code == 401
+    assert _history_ids(a) == [run]

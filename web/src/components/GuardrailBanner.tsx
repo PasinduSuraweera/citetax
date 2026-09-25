@@ -9,69 +9,46 @@
  * Grey means no rule in force was found and nothing was computed.
  */
 
+import { Ban, Check, ShieldCheck, TriangleAlert } from "lucide-react";
 import type { Badge, VerifyResult } from "@/lib/api";
-
-function Tick() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 6.5l2.5 2.5L10 3" />
-    </svg>
-  );
-}
 
 interface Props {
   badge: Badge;
   ya: string | null;
   stepCount?: number;
   verify?: VerifyResult | null;
+  /** Short statements of what was checked, shown when there is room. */
   checks?: string[];
   /** Why the answer was refused, so the banner states the real reason rather
       than defaulting to "no rule in force". */
   refusalKind?: "out_of_scope" | "no_rule";
 }
 
-export function GuardrailBanner({
-  badge,
-  ya,
-  stepCount,
-  verify,
-  checks,
-  refusalKind,
-}: Props) {
+export function GuardrailBanner({ badge, ya, stepCount, verify, checks, refusalKind }: Props) {
   if (badge === "all_cited") {
     return (
-      <div
-        role="status"
-        className="@container fade-up rounded-[11px] border border-good-300 bg-good-100 px-[17px] py-[13px]"
-      >
+      <div role="status" className="@container fade-up rounded-lg bg-good-100 px-4 py-3">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-start gap-3 @sm:items-center">
-            <span className="mt-[1px] flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-good-600 text-xs font-bold text-white @sm:mt-0">
-              <Tick />
-            </span>
-            <div className="text-sm">
-              <span className="font-semibold text-good-700">Released by guardrail</span>
-              <span className="text-good-500">
-                {stepCount != null
-                  ? `. All ${stepCount} ledger steps cite a rule in force for ${ya ?? "this year"}.`
-                  : `. Every figure traced to a rule in force for ${ya ?? "this year"}.`}
-              </span>
-            </div>
+          <div className="flex items-start gap-2.5 text-[14px] leading-[1.5]">
+            <ShieldCheck className="mt-[2px] size-4 flex-none text-good-600" />
+            <p className="text-good-700">
+              <span className="font-semibold">Verified.</span>{" "}
+              {stepCount != null
+                ? `All ${stepCount} lines of the ledger cite a rule in force for ${ya ?? "this year"}.`
+                : `Every figure traces to a rule in force for ${ya ?? "this year"}.`}
+            </p>
           </div>
-          {/* The checklist is reassurance, not information: it is the first
-              thing to drop when the banner is narrow. */}
+          {/* Reassurance, not information: the first thing to drop when the
+              banner is narrow. */}
           {checks && checks.length > 0 && (
-            <div className="hidden flex-none gap-4 @4xl:flex">
+            <ul className="hidden flex-none gap-4 @3xl:flex">
               {checks.map((c) => (
-                <span
-                  key={c}
-                  className="font-mono text-[11px] font-medium tracking-[0.03em] text-good-500"
-                >
+                <li key={c} className="flex items-center gap-1 text-[12.5px] text-good-500">
+                  <Check className="size-3.5" />
                   {c}
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
       </div>
@@ -80,52 +57,33 @@ export function GuardrailBanner({
 
   if (badge === "partial") {
     const why = verify?.pii_classes?.length
-      ? "an identifier was found on the way out"
+      ? "a personal detail was found in it"
       : verify?.unmatched_numbers?.length
         ? `these figures could not be traced: ${verify.unmatched_numbers.join(", ")}`
-        : "a figure could not be traced to a rule";
+        : "a figure in it could not be traced to a rule";
 
     return (
-      <div
-        role="status"
-        className="fade-up flex items-start justify-between gap-4 rounded-[11px] border border-[#EBD6A8] bg-[#FDF4E0] px-[17px] py-[13px]"
-      >
-        <div className="flex items-start gap-3">
-          <span className="mt-[1px] flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-[#B07A16] text-xs font-bold text-white">
-            !
-          </span>
-          <div className="text-sm">
-            <span className="font-semibold text-[#6B4A0B]">
-              Explanation withheld
-            </span>
-            <span className="text-[#7E5D1B]">
-              . The figures below are verified, but {why}. The written
-              explanation was not released.
-            </span>
-          </div>
-        </div>
+      <div role="status" className="fade-up flex items-start gap-2.5 rounded-lg bg-[#fdf4e0] px-4 py-3 text-[14px] leading-[1.5]">
+        <TriangleAlert className="mt-[2px] size-4 flex-none text-[#a26b0e]" />
+        <p className="text-[#6b4a0b]">
+          <span className="font-semibold">Explanation withheld.</span> The figures
+          are verified, but {why}, so the written explanation was not released.
+        </p>
       </div>
     );
   }
 
   return (
-    <div
-      role="status"
-      className="fade-up flex items-start gap-3 rounded-[11px] border border-line-strong bg-panel px-[17px] py-[13px]"
-    >
-      <span className="mt-[1px] flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-ink-300 text-xs font-bold text-white">
-        ×
-      </span>
-      <div className="text-sm">
+    <div role="status" className="fade-up flex items-start gap-2.5 rounded-lg bg-muted px-4 py-3 text-[14px] leading-[1.5]">
+      <Ban className="mt-[2px] size-4 flex-none text-ink-400" />
+      <p className="text-ink-700">
         <span className="font-semibold text-ink-900">
-          {refusalKind === "out_of_scope" ? "Outside scope" : "Cannot answer"}
-        </span>
-        <span className="text-ink-500">
-          {refusalKind === "out_of_scope"
-            ? ". This question is not personal income tax for a supported year, so Citetax refuses rather than guessing."
-            : ". No rule in force was found for this question. Citetax does not guess."}
-        </span>
-      </div>
+          {refusalKind === "out_of_scope" ? "Outside what Citetax covers." : "No rule found."}
+        </span>{" "}
+        {refusalKind === "out_of_scope"
+          ? "This is not personal income tax for a supported year, so Citetax declines rather than guessing."
+          : "No rule in force answers this question, and Citetax does not guess."}
+      </p>
     </div>
   );
 }

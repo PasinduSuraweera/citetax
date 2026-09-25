@@ -6,27 +6,37 @@
  * comes to check the promise.
  */
 
+import { Check, LogOut, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageBody, Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
+import { UserAvatar } from "@/components/UserAvatar";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { admin, type Me } from "@/lib/admin";
-import { initials, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 
-const NEVER_STORED = [
-  { what: "Your NIC or TIN", how: "Stripped by pattern match before anything is sent" },
-  { what: "Your name", how: "Replaced with a placeholder by the intake node" },
-  { what: "Your employer", how: "Tagged and masked, it does not affect a computation" },
-  { what: "Payslip text", how: "Only the extracted figures continue past intake" },
+const NEVER_SENT = [
+  { what: "Your NIC or TIN", how: "Removed by pattern before anything is sent" },
+  { what: "Your name", how: "Replaced with a placeholder when the question arrives" },
+  { what: "Your employer", how: "Masked; it never affects a computation" },
+  { what: "Payslip text and images", how: "Only the three figures you confirm are kept" },
+];
+
+const KEPT = [
+  "Your question, with personal details already replaced",
+  "The figures needed to work the answer out again",
+  "The ledger, the rules it cited and the date of those rules",
 ];
 
 const ROLE_MEANING: Record<string, string> = {
-  free: "Obligation checks and deadlines.",
+  free: "Filing checks and deadlines.",
   individual: "Unlimited computations, history, and year on year comparison.",
-  practice: "Everything in Individual, plus the exportable audit trail.",
-  reviewer: "Can review and correct extracted rules in the admin panel.",
+  practice: "Everything in Individual, plus an exportable audit trail.",
+  reviewer: "Can review and correct extracted rules in the admin area.",
   approver: "Can give the second signature on a rate, band or threshold change.",
   admin: "Full access, including roles, sources and rollback.",
-  auditor: "Read only access to the audit log and corpus history.",
+  auditor: "Read only access to the audit log and the history of the rules.",
 };
 
 export default function AccountPage() {
@@ -40,160 +50,119 @@ export default function AccountPage() {
   }, [user]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface">
+    <div className="flex h-dvh overflow-hidden bg-background">
       <Shell ya={ya} onYaChange={setYa} />
       <PageBody>
-        <h1 className="text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-900 sm:text-[32px]">
-          My account
-        </h1>
-        <p className="mt-[10px] max-w-[640px] text-[15px] leading-[1.6] text-ink-500">
+        <h1 className="text-[30px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink-900">Account</h1>
+        <p className="mt-2 max-w-[60ch] text-[15px] leading-[1.6] text-ink-500">
           Who you are signed in as, what is kept, and what is never sent.
         </p>
 
-        {/* Account card */}
         {loading ? (
-          <div className="mt-7 h-[120px] animate-pulse rounded-xl border border-line bg-white" />
+          <div className="mt-8 flex items-center gap-4">
+            <Skeleton className="size-14 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+          </div>
         ) : user ? (
-          <div className="mt-7 rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <section className="mt-8 rounded-xl border border-line bg-white p-5 sm:p-6">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
-                {user.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.image}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="h-[52px] w-[52px] flex-none rounded-full"
-                  />
-                ) : (
-                  <span className="flex h-[52px] w-[52px] flex-none items-center justify-center rounded-full bg-brand-600 text-[17px] font-semibold text-white">
-                    {initials(user)}
-                  </span>
-                )}
+                <UserAvatar user={user} size={56} tone="brand" />
                 <div className="min-w-0">
-                  <div className="truncate text-[17px] font-semibold text-ink-900">
-                    {user.name ?? "Signed in"}
-                  </div>
-                  <div className="truncate font-mono text-[12.5px] text-ink-400">
-                    {user.email}
-                  </div>
-                  {me && (
-                    <span className="mt-2 inline-block rounded-full bg-brand-100 px-[9px] py-[3px] font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-brand-600">
-                      {me.role}
-                    </span>
-                  )}
+                  <div className="truncate text-[18px] font-semibold text-ink-900">{user.name ?? "Signed in"}</div>
+                  <div className="truncate text-[14px] text-ink-500">{user.email}</div>
                 </div>
               </div>
-
               <div className="flex flex-none flex-wrap gap-2">
                 {me?.is_reviewer && (
-                  <Link
-                    href="/admin"
-                    className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
-                  >
-                    Admin panel
-                  </Link>
+                  <Button variant="outline" nativeButton={false} render={<Link href="/admin" />} className="h-9">Open admin</Button>
                 )}
-                <button
-                  type="button"
-                  onClick={signOut}
-                  className="rounded-lg border border-warn-300 bg-warn-100 px-4 py-2 text-[13px] font-semibold text-warn-600 transition-colors hover:border-warn-600"
-                >
+                <Button variant="outline" onClick={() => void signOut()} className="h-9 text-warn-600 hover:bg-warn-100 hover:text-warn-700">
+                  <LogOut />
                   Sign out
-                </button>
+                </Button>
               </div>
             </div>
-
             {me && (
-              <p className="mt-5 border-t border-line pt-4 text-[13px] leading-[1.6] text-ink-500">
-                {ROLE_MEANING[me.role] ?? "Standard access."}
-                {me.can_approve &&
-                  " Dual control means you cannot countersign a change you signed first."}
-              </p>
+              <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-line pt-4 text-[14px]">
+                <span className="rounded-md bg-brand-050 px-2 py-0.5 font-medium text-brand-700">
+                  {me.role[0].toUpperCase()}{me.role.slice(1)}
+                </span>
+                <span className="text-ink-500">
+                  {ROLE_MEANING[me.role] ?? "Standard access."}
+                  {me.can_approve && " You cannot countersign a change you signed first."}
+                </span>
+              </div>
             )}
-          </div>
+          </section>
         ) : (
-          <div className="mt-7 rounded-xl border border-line bg-white px-6 py-8">
-            <div className="eyebrow">NOT SIGNED IN</div>
-            <p className="mt-3 max-w-[480px] text-[14.5px] leading-[1.6] text-ink-500">
-              You can ask anything without an account. Signing in keeps a history
-              of your computations, each stamped with the corpus snapshot it ran
-              against, so you can re-check an answer later.
+          <section className="mt-8 rounded-xl bg-muted p-6">
+            <h2 className="text-[16px] font-semibold text-ink-900">You are not signed in</h2>
+            <p className="mt-1 max-w-[56ch] text-[14.5px] leading-[1.6] text-ink-500">
+              You can ask anything without an account. Signing in keeps your
+              answers, each with the rules it used, so you can check one again later.
             </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link
-                href="/signin?mode=signup&next=/welcome"
-                className="rounded-lg bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-brand-700"
-              >
-                Create an account
-              </Link>
-              <Link
-                href="/signin"
-                className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600"
-              >
-                Sign in
-              </Link>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button nativeButton={false} render={<Link href="/signin?mode=signup&next=/welcome" />} className="h-10 px-4">Create an account</Button>
+              <Button variant="outline" nativeButton={false} render={<Link href="/signin" />} className="h-10 px-4">Sign in</Button>
             </div>
-          </div>
+          </section>
         )}
 
-        {/* What is stored */}
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-xl bg-ink-900 px-5 py-6 sm:px-6">
-            <div className="font-mono text-[10px] tracking-[0.16em] text-white/40">
-              WHAT WE NEVER SEND
-            </div>
-            <div className="mt-4 flex flex-col gap-3">
-              {NEVER_STORED.map((n) => (
-                <div key={n.what} className="flex items-start gap-[10px]">
-                  <span className="mt-[2px] font-mono text-[11px] font-semibold text-[#F5A9A2]">
-                    ✕
+        <div className="mt-10 grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
+          <section>
+            <h2 className="flex items-center gap-2 text-[17px] font-semibold text-ink-900">
+              <ShieldCheck className="size-4 text-good-600" />
+              Never sent to a language model
+            </h2>
+            <ul className="mt-4 flex flex-col gap-3.5">
+              {NEVER_SENT.map((n) => (
+                <li key={n.what} className="flex items-start gap-3">
+                  <span className="mt-[3px] flex size-5 flex-none items-center justify-center rounded-full bg-warn-100 text-warn-600">
+                    <X className="size-3" />
                   </span>
                   <div>
-                    <div className="text-[13.5px] font-semibold text-white">{n.what}</div>
-                    <div className="mt-[2px] text-[12px] leading-[1.45] text-white/45">
-                      {n.how}
-                    </div>
+                    <div className="text-[15px] font-medium text-ink-900">{n.what}</div>
+                    <div className="text-[13.5px] leading-[1.5] text-ink-500">{n.how}</div>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
-            <p className="mt-5 border-t border-white/10 pt-[14px] text-[12px] leading-[1.55] text-white/50">
-              Redaction runs on the server before any hosted call, not in the
-              browser. The figures a computation needs are deliberately
-              preserved, which is the harder half of the job.
+            </ul>
+            <p className="mt-4 max-w-[56ch] text-[13px] leading-[1.6] text-ink-400">
+              Personal details are removed on the server before any outside
+              service is called. The figures a computation needs are kept,
+              which is the harder half of the job.
             </p>
-          </div>
+          </section>
 
-          <div className="flex flex-col gap-4">
-            <div className="rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
-              <div className="eyebrow">WHAT IS KEPT</div>
-              <ul className="mt-3 flex flex-col gap-2 text-[13.5px] leading-[1.6] text-ink-500">
-                <li>The redacted question, with identifiers already replaced.</li>
-                <li>The numeric facts needed to reproduce the computation.</li>
-                <li>The ledger, the citations and the snapshot it ran against.</li>
-              </ul>
-              {user && (
-                <Link
-                  href="/history"
-                  className="mt-4 inline-block font-mono text-[11.5px] text-brand-600 hover:underline"
-                >
-                  see your history
-                </Link>
-              )}
-            </div>
+          <section>
+            <h2 className="text-[17px] font-semibold text-ink-900">What is kept</h2>
+            <ul className="mt-4 flex flex-col gap-3">
+              {KEPT.map((k) => (
+                <li key={k} className="flex items-start gap-3 text-[15px] leading-[1.5] text-ink-700">
+                  <span className="mt-[3px] flex size-5 flex-none items-center justify-center rounded-full bg-good-100 text-good-600">
+                    <Check className="size-3" />
+                  </span>
+                  {k}
+                </li>
+              ))}
+            </ul>
+            {user && (
+              <Link href="/history" className="mt-4 inline-block text-[14px] font-medium text-brand-600 underline-offset-4 hover:underline">
+                See your history
+              </Link>
+            )}
 
-            <div className="rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
-              <div className="eyebrow">SCOPE</div>
-              <p className="mt-[11px] text-[13.5px] leading-[1.6] text-ink-700">
-                Personal income tax, years of assessment {SUPPORTED_YAS.join(" and ")}.
-                Everything else is refused with a reason, not guessed.
-              </p>
-              <p className="mt-3 text-[12.5px] leading-[1.55] text-ink-400">
-                Citetax is a computation aid, not a tax agent.
-              </p>
-            </div>
-          </div>
+            <h2 className="mt-8 text-[17px] font-semibold text-ink-900">What Citetax covers</h2>
+            <p className="mt-2 max-w-[56ch] text-[15px] leading-[1.6] text-ink-700">
+              Personal income tax for the years of assessment {SUPPORTED_YAS.join(" and ")}.
+              Anything else is declined with the reason, never guessed.
+            </p>
+            <p className="mt-2 text-[13.5px] text-ink-400">Citetax helps you work tax out. It is not a tax agent.</p>
+          </section>
         </div>
       </PageBody>
     </div>

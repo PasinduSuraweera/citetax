@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 import type { StreamStep } from "@/lib/api";
-import { PHASE_DOT, PHASE_GLOW, PHASE_RING } from "./AgentTrace";
+import { PHASE_DOT, PHASE_RING } from "./AgentTrace";
 
 // Every plan starts with these two; Route supplies the rest.
 const OPENING = ["Intake", "Route"];
@@ -58,10 +58,10 @@ export function LiveTrace({ steps, plan }: Props) {
 
   return (
     <div className="mt-3 px-1" aria-live="polite">
-      <div className="inline-flex items-center gap-[7px] rounded-full bg-brand-050 py-[5px] pl-[9px] pr-3 shadow-[0_0_14px_rgba(43,68,199,0.18)]">
+      <div className="inline-flex items-center gap-[7px] rounded-full bg-brand-050 py-[5px] pl-[9px] pr-3">
         <span className="relative flex h-[6px] w-[6px] flex-none">
           <span className="absolute inset-0 rounded-full bg-brand-600/40 pulse-dot" />
-          <span className="absolute inset-[1.5px] rounded-full bg-brand-600 shadow-[0_0_6px_var(--color-brand-600)]" />
+          <span className="absolute inset-[1.5px] rounded-full bg-brand-600" />
         </span>
         <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-brand-600">
           Working
@@ -82,11 +82,11 @@ export function LiveTrace({ steps, plan }: Props) {
                 <span
                   className={`relative mt-[3px] h-[9px] w-[9px] flex-none rounded-full ${
                     STATUS_DOT[s.status] ?? PHASE_DOT[node] ?? "bg-good-mint"
-                  } ${STATUS_DOT[s.status] ? "" : (PHASE_GLOW[node] ?? PHASE_GLOW.Intake)}`}
+                  }`}
                 />
                 {!isLast && (
                   <span
-                    className="w-px flex-1 rounded-full bg-brand-600/25 shadow-[0_0_4px_var(--color-brand-600)]"
+                    className="w-px flex-1 rounded-full bg-brand-600/25"
                     style={{ minHeight: "10px" }}
                   />
                 )}
@@ -108,9 +108,7 @@ export function LiveTrace({ steps, plan }: Props) {
           <li key={`${current}-now`} className="flex gap-[9px]">
             <div className="flex w-[9px] flex-none flex-col items-center">
               <span
-                className={`relative mt-[3px] h-[9px] w-[9px] flex-none rounded-full ${PHASE_DOT[current] ?? "bg-brand-600"} ${
-                  PHASE_GLOW[current] ?? PHASE_GLOW.Intake
-                }`}
+                className={`relative mt-[3px] h-[9px] w-[9px] flex-none rounded-full ${PHASE_DOT[current] ?? "bg-brand-600"}`}
               >
                 <span
                   className={`absolute -inset-[4px] rounded-full pulse-dot ${PHASE_RING[current] ?? "bg-brand-600/30"}`}

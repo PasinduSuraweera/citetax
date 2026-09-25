@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { continueAsGuest } from "@/app/actions";
 import { auth, signIn } from "@/auth";
-import { GUEST_COOKIE, GUEST_MAX_AGE, safeNext } from "@/lib/guest";
+import { Logo } from "@/components/Logo";
+import { money } from "@/lib/api";
+import { safeNext } from "@/lib/guest";
+import { SAMPLE_MONTHLY, sampleLedger } from "@/lib/sample";
 
 /**
- * Sign in and create account. Ported from screen 01 of the Claude Design set.
+ * Sign in and create account.
  *
  * Google is the only provider, so "sign up" and "sign in" are the same OAuth
  * call. They are still presented as two modes, because a first time visitor
@@ -21,81 +24,74 @@ export default async function SignInPage({
   const { mode, next: rawNext } = await searchParams;
   // Only ever a path on this site, so the page cannot bounce anyone elsewhere.
   const next = safeNext(rawNext);
-  if (session?.user) redirect(next ?? "/");
+  if (session?.user) redirect(next ?? "/chat");
 
   const signup = mode === "signup";
   // A new account lands on onboarding; a returning user goes where they meant.
-  const destination = next ?? (signup ? "/welcome" : "/");
-
-  // Remembered, so a guest is not stopped at this screen on every visit.
-  async function continueAsGuest() {
-    "use server";
-    (await cookies()).set(GUEST_COOKIE, "1", {
-      maxAge: GUEST_MAX_AGE, path: "/", sameSite: "lax", httpOnly: true,
-    });
-    redirect(next ?? "/");
-  }
+  const destination = next ?? (signup ? "/welcome" : "/chat");
+  const ledger = await sampleLedger();
+  const taxable = ledger?.steps.find((s) => s.rule_key === "charge.taxable_income");
+  const relief = ledger?.steps.find((s) => s.rule_key === "relief.personal");
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas lg:h-screen lg:flex-row lg:overflow-hidden">
-      {/* Story panel. On mobile it becomes a compact header rather than
-          600px of scrolling before the button. */}
-      <div className="flex flex-none flex-col justify-between bg-ink-900 px-6 py-8 sm:px-10 lg:w-[600px] lg:px-[52px] lg:py-14">
-        <div className="flex items-center justify-between">
-          <Link href="/">
-            <div className="text-[22px] font-bold leading-none tracking-[-0.025em] text-white sm:text-[26px]">
-              Citetax
-            </div>
-            <div className="mt-[6px] text-[13px] text-white/45">Every number, cited.</div>
-          </Link>
-          <form action={continueAsGuest} className="lg:hidden">
-            <button
-              type="submit"
-              className="font-mono text-[11px] text-white/40 transition-colors hover:text-white/80"
-            >
-              skip
-            </button>
-          </form>
-        </div>
+    <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
+      {/* The brand side. On a phone it shrinks to the logo, so the button is
+          on the first screen. */}
+      <aside className="relative flex flex-none flex-col bg-sidebar px-6 py-6 text-white sm:px-10 lg:w-[46%] lg:max-w-[640px] lg:px-14 lg:py-12">
+        <Link href="/" className="self-start" aria-label="Citetax home">
+          <Logo height={44} tone="dark" priority className="hidden lg:block" />
+          <Logo height={32} tone="dark" priority className="lg:hidden" />
+        </Link>
 
-        <div className="hidden lg:block">
-          <h1 className="max-w-[440px] text-[38px] font-semibold leading-[1.15] tracking-[-0.03em] text-white">
-            Three versions of the same circular were issued in one week.
+        <div className="hidden flex-1 flex-col justify-center py-12 lg:flex">
+          <h1 className="max-w-[16ch] text-[36px] font-semibold leading-[1.1] tracking-[-0.025em]">
+            Every figure, with the law behind it.
           </h1>
-          <p className="mt-5 max-w-[430px] text-[16px] leading-[1.65] text-white/[0.52]">
-            Citetax answers only from the law in force for your year of
-            assessment, and shows you the dates it applied. If a figure cannot be
-            traced to a rule, it is not released.
+          <p className="mt-4 max-w-[44ch] text-[16px] leading-[1.6] text-white/65">
+            Citetax works out Sri Lankan personal income tax from the rules in
+            force for your year, and names the section that produced each line.
           </p>
-          <div className="mt-[30px] flex flex-wrap gap-[10px]">
-            {[
-              "No model in the arithmetic",
-              "Identifiers stripped before any hosted call",
-            ].map((chip) => (
-              <span
-                key={chip}
-                className="rounded-full border border-white/[0.16] px-[13px] py-[7px] font-mono text-xs font-medium text-white/70"
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
+
+          {ledger && taxable && relief && (
+            <figure className="mt-10 max-w-[420px] rounded-xl bg-white/[0.06] p-5 ring-1 ring-inset ring-white/10">
+              <figcaption className="text-[13px] text-white/55">
+                Salary of LKR {money(SAMPLE_MONTHLY)} a month, {ledger.ya}
+              </figcaption>
+              <dl className="mt-3 divide-y divide-white/10">
+                {[relief, taxable].map((s) => (
+                  <div key={s.step_no} className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt>
+                      <span className="block text-[14.5px]">{s.label}</span>
+                      <span className="statute text-[13px] italic text-white/50">{s.citation_label}</span>
+                    </dt>
+                    <dd className="tnum text-[14.5px]">{money(s.value, { decimals: false })}</dd>
+                  </div>
+                ))}
+                <div className="flex items-baseline justify-between gap-4 pt-3">
+                  <dt className="text-[14.5px] font-semibold">Tax for the year</dt>
+                  <dd className="tnum text-[22px] font-semibold text-sidebar-primary">
+                    {money(ledger.balance_payable.replace(/^-/, ""), { decimals: false })}
+                  </dd>
+                </div>
+              </dl>
+            </figure>
+          )}
         </div>
 
-        <div className="mt-6 text-xs text-white/30 lg:mt-0">
-          Personal income tax only. Y/A 2025/2026 and 2026/2027. Not tax advice.
-        </div>
-      </div>
+        <p className="hidden text-[12.5px] text-white/40 lg:block">
+          Personal income tax only, for 2025/2026 and 2026/2027. Not tax advice.
+        </p>
+      </aside>
 
-      <div className="flex flex-1 flex-col justify-center bg-panel px-6 py-10 sm:px-10 lg:px-[84px] lg:py-14">
-        <div className="mx-auto w-full max-w-[392px]">
-          <h2 className="text-[26px] font-semibold leading-[1.15] tracking-[-0.028em] text-ink-900 sm:text-[30px]">
-            {signup ? "Create your account" : "Sign in"}
+      <main className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10">
+        <div className="w-full max-w-[380px]">
+          <h2 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink-900">
+            {signup ? "Create your account" : "Sign in to Citetax"}
           </h2>
-          <p className="mt-[9px] text-[14.5px] leading-[1.55] text-ink-500">
+          <p className="mt-2 text-[15px] leading-[1.6] text-ink-500">
             {signup
-              ? "Free. Your computations are kept so you can re-check them against the corpus snapshot they ran on, and your identifiers are never stored."
-              : "Welcome back. Your history is stamped with the snapshot each answer was computed against."}
+              ? "Free. Your answers are kept with the rules they were worked out from, and your ID numbers are never stored."
+              : "Pick up your chats and history where you left them."}
           </p>
 
           <form
@@ -107,77 +103,58 @@ export default async function SignInPage({
           >
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-3 rounded-[9px] border border-line-strong bg-white py-3 text-sm font-medium text-ink-900 transition-colors hover:border-brand-600 hover:shadow-[0_1px_3px_rgba(14,20,48,0.08)]"
+              className="flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-line-strong bg-white text-[15px] font-medium text-ink-900 shadow-[0_1px_2px_rgba(16,34,74,0.06)] transition-colors hover:border-ink-300 hover:bg-panel active:bg-muted"
             >
               <GoogleMark />
               {signup ? "Sign up with Google" : "Continue with Google"}
             </button>
           </form>
 
-          <p className="mt-3 text-center text-[12px] text-ink-300">
+          <p className="mt-4 text-center text-[13.5px] text-ink-500">
             {signup ? "Already have an account? " : "New to Citetax? "}
             <Link
-              href={signup ? "/signin" : "/signin?mode=signup"}
-              className="font-medium text-brand-600 hover:underline"
+              href={`/signin${signup ? "" : "?mode=signup"}${next ? `${signup ? "?" : "&"}next=${encodeURIComponent(next)}` : ""}`}
+              className="font-medium text-brand-600 underline-offset-4 hover:underline"
             >
-              {signup ? "Sign in" : "Create one"}
+              {signup ? "Sign in" : "Create an account"}
             </Link>
           </p>
 
-          <div className="my-[22px] flex items-center gap-3">
-            <div className="h-px flex-1 bg-[#DFE5F2]" />
-            <span className="font-mono text-[11px] font-medium tracking-[0.1em] text-ink-200">
-              OR
-            </span>
-            <div className="h-px flex-1 bg-[#DFE5F2]" />
+          <div className="my-7 flex items-center gap-3 text-[12.5px] text-ink-300">
+            <div className="h-px flex-1 bg-line" />
+            or
+            <div className="h-px flex-1 bg-line" />
           </div>
 
           <form action={continueAsGuest}>
+            {next && <input type="hidden" name="next" value={next} />}
             <button
               type="submit"
-              className="block w-full rounded-[9px] border border-line-strong bg-white py-3 text-center text-sm font-medium text-ink-700 transition-colors hover:border-brand-600"
+              className="h-11 w-full rounded-lg bg-secondary text-[15px] font-medium text-ink-900 transition-colors hover:bg-canvas active:bg-line"
             >
               Continue without an account
             </button>
           </form>
-          <p className="mt-2 text-center text-[11.5px] leading-[1.5] text-ink-300">
-            You can ask anything. Answers just are not saved to a history.
+          <p className="mt-3 text-center text-[13px] leading-[1.5] text-ink-400">
+            You can ask anything. Answers are just not kept.
           </p>
 
-          <div className="mt-[26px] flex items-start gap-[9px] rounded-[9px] bg-brand-050 px-[13px] py-3">
-            <span className="mt-[1px] font-mono text-[11px] font-semibold text-brand-600">
-              i
-            </span>
-            <span className="text-[12.5px] leading-[1.5] text-ink-700">
-              Citetax covers personal income tax for two years of assessment. VAT,
-              company tax and advisory questions are refused with a reason.
-            </span>
-          </div>
+          <p className="mt-12 text-center text-[13px] text-ink-400">
+            <Link href="/" className="hover:text-ink-900">Back to the homepage</Link>
+          </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
 
 function GoogleMark() {
   return (
-    <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.8-6.8C35.6 2.5 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.1 17.7 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 7l7.2 5.6c4.2-3.9 6.6-9.6 6.6-16.4z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C1 16.5 0 20.1 0 24s1 7.5 2.6 10.8l7.9-6.1z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2 1.4-4.6 2.2-8.7 2.2-6.3 0-11.6-3.6-13.5-8.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"
-      />
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.8-6.8C35.6 2.5 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.1 17.7 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 7l7.2 5.6c4.2-3.9 6.6-9.6 6.6-16.4z" />
+      <path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C1 16.5 0 20.1 0 24s1 7.5 2.6 10.8l7.9-6.1z" />
+      <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2 1.4-4.6 2.2-8.7 2.2-6.3 0-11.6-3.6-13.5-8.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z" />
     </svg>
   );
 }

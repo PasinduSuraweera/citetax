@@ -1,15 +1,16 @@
 "use client";
 
 /**
- * Payslip upload flow: extract → confirm → compute.
+ * Payslip upload flow: extract, confirm, compute.
  *
  * Renders inline in the main column, the same way a regular question's
- * answer replaces the composer — not as an overlay. Nothing is computed or
+ * answer replaces the composer, not as an overlay. Nothing is computed or
  * saved until the user confirms the extracted figures. The photo/PDF itself
- * never touches this component after the initial upload call — only the
+ * never touches this component after the initial upload call; only the
  * numeric response from `/v1/payslip/extract` does.
  */
 
+import { FileText, Loader2, Printer, ShieldCheck, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -20,7 +21,12 @@ import {
   type PayslipExtractResponse,
   type StreamStep,
 } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AnswerView } from "./AnswerView";
+import { Composer } from "./Composer";
 import { ComputationTable } from "./ComputationTable";
 import { LiveTrace } from "./LiveTrace";
 
@@ -41,7 +47,7 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
   const [apitWithheld, setApitWithheld] = useState("");
   const [result, setResult] = useState<ComputeResponse | null>(null);
 
-  // Follow-up question, answered in place — this screen never navigates away.
+  // Follow-up question, answered in place; this screen never navigates away.
   const [followUp, setFollowUp] = useState("");
   const [followUpAsked, setFollowUpAsked] = useState<string | null>(null);
   const [followUpAnswer, setFollowUpAnswer] = useState<AnswerResponse | null>(null);
@@ -124,173 +130,151 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1000px]">
-      <div className="flex items-center gap-[14px] rounded-xl border border-line bg-white px-[18px] py-4">
-        <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-ink-900 text-[11px] font-semibold text-white">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
-            <path d="M10 2v3h3" />
-          </svg>
+    <div className="w-full">
+      <div className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3">
+        <span className="flex size-9 flex-none items-center justify-center rounded-lg bg-brand-050 text-brand-600">
+          <FileText className="size-4" />
         </span>
-        <p className="flex-1 text-[15px] leading-[1.5] text-ink-900">
-          {file.name}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14.5px] font-medium text-ink-900">{file.name}</p>
+          <p className="text-[12.5px] text-ink-400">Payslip, year of assessment {ya}</p>
+        </div>
+        {phase !== "result" && (
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Cancel payslip">
+            <X />
+          </Button>
+        )}
       </div>
 
       {phase === "extracting" && (
-        <p className="mt-4 px-1 text-[14px] leading-[1.6] text-ink-500">
-          Reading the document…
-        </p>
+        <div className="mt-5 px-1" aria-live="polite">
+          <p className="flex items-center gap-2 text-[14px] text-ink-500">
+            <Loader2 className="size-4 animate-spin text-brand-600" />
+            Reading your payslip
+          </p>
+          <div className="mt-4 flex max-w-[420px] flex-col gap-3">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-2/3" />
+          </div>
+        </div>
       )}
 
       {phase === "error" && (
-        <div className="mt-4 rounded-xl border border-warn-300 bg-warn-100 px-5 py-4">
-          <p className="text-[14px] leading-[1.55] text-warn-500">{error}</p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-4 rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
-          >
-            Enter figures manually instead
-          </button>
+        <div role="alert" className="mt-5 rounded-lg bg-warn-100 px-5 py-4">
+          <p className="text-[15px] font-semibold text-warn-700">This payslip could not be read</p>
+          <p className="mt-1 text-[14px] leading-[1.55] text-warn-700">{error}</p>
+          <Button variant="outline" onClick={onClose} className="mt-4 bg-white">
+            Type the figures in a question instead
+          </Button>
         </div>
       )}
 
       {(phase === "confirm" || phase === "computing") && extraction && (
-        <div className="mt-4 rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
-          <div className="eyebrow">CHECK THE FIGURES</div>
-          <p className="mt-2 text-[13.5px] leading-[1.6] text-ink-500">
-            Edit anything that doesn&apos;t look right before continuing.
+        <div className="mt-5 rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
+          <h2 className="text-[17px] font-semibold text-ink-900">Check the figures</h2>
+          <p className="mt-1 text-[14px] leading-[1.6] text-ink-500">
+            These were read from your payslip. Correct anything that is wrong
+            before your tax is worked out.
           </p>
 
-          <div className="mt-4 flex flex-col gap-3 max-w-[420px]">
-            <Field label="Annual employment income (LKR)" value={employmentIncome} onChange={setEmploymentIncome} />
-            <Field label="Annual EPF (employee share, LKR)" value={epfEmployee} onChange={setEpfEmployee} />
-            <Field label="Annual APIT withheld (LKR)" value={apitWithheld} onChange={setApitWithheld} />
+          <div className="mt-5 flex max-w-[420px] flex-col gap-4">
+            <Field id="pay-income" label="Employment income for the year" value={employmentIncome} onChange={setEmploymentIncome} />
+            <Field id="pay-epf" label="EPF, your share, for the year" value={epfEmployee} onChange={setEpfEmployee} />
+            <Field id="pay-apit" label="APIT already deducted this year" value={apitWithheld} onChange={setApitWithheld} />
           </div>
 
           {extraction.pay_period === "monthly" && (
-            <p className="mt-3 text-[12px] text-ink-400">
-              Figures shown were read as monthly and multiplied by 12.
+            <p className="mt-3 text-[13px] text-ink-400">
+              Your payslip showed monthly figures, so they have been multiplied by 12.
             </p>
           )}
           {extraction.warnings.length > 0 && (
-            <ul className="mt-3 list-inside list-disc text-[12px] text-warn-500">
+            <ul className="mt-4 flex flex-col gap-1.5 rounded-lg bg-[#fdf4e0] px-4 py-3 text-[13.5px] text-[#6b4a0b]">
               {extraction.warnings.map((w) => (
-                <li key={w}>{w}</li>
+                <li key={w} className="flex items-start gap-2">
+                  <TriangleAlert className="mt-[3px] size-3.5 flex-none" />
+                  {w}
+                </li>
               ))}
             </ul>
           )}
 
-          <div className="mt-4 flex gap-3 rounded-[9px] bg-brand-050 px-[13px] py-3">
-            <span className="mt-[1px] font-mono text-[11px] font-semibold text-brand-600">i</span>
-            <span className="text-[12.5px] leading-[1.5] text-ink-700">
-              Only these figures were kept — the photo and any text on it
-              were discarded and never stored.
-            </span>
-          </div>
+          <p className="mt-5 flex items-start gap-2 text-[13px] leading-[1.5] text-ink-500">
+            <ShieldCheck className="mt-[2px] size-4 flex-none text-good-600" />
+            Only these three figures were kept. The image and everything else
+            on it were discarded and never stored.
+          </p>
 
-          <div className="mt-5 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={confirm}
-              disabled={phase === "computing"}
-              className="rounded-lg bg-brand-600 px-[18px] py-[9px] text-[13.5px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {phase === "computing" ? "Computing…" : "Looks right, continue"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
-            >
+          <div className="mt-6 flex items-center gap-2">
+            <Button onClick={confirm} disabled={phase === "computing"} className="h-10 px-4">
+              {phase === "computing" && <Loader2 className="animate-spin" />}
+              {phase === "computing" ? "Working it out" : "Work out my tax"}
+            </Button>
+            <Button variant="ghost" onClick={onClose} className="h-10">
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {phase === "result" && result && (
-        <div className="mt-4">
+        <div className="mt-5">
           <div className="print-area">
-            <p className="text-[15px] leading-[1.5] text-ink-900">
-              {result.is_refund ? "Refund" : "Balance payable"} for {result.ya}:{" "}
-              <span className="font-semibold">LKR {money(result.balance_payable)}</span>
-            </p>
-            <div className="mt-3">
-              <ComputationTable
-                steps={result.steps}
-                balance={result.balance_payable}
-                isRefund={result.is_refund}
-              />
+            <div className="text-[13px] font-medium text-ink-400">
+              {result.is_refund ? "Refund due" : "Balance payable"}, year of assessment {result.ya}
+            </div>
+            <div className="mt-1 flex items-baseline gap-2 text-ink-900">
+              <span className="text-[22px] font-medium text-ink-300">LKR</span>
+              <span className="tnum text-[40px] font-semibold tracking-[-0.03em]">
+                {money(result.balance_payable.replace(/^-/, ""))}
+              </span>
+            </div>
+            <div className="mt-4">
+              <ComputationTable steps={result.steps} balance={result.balance_payable} isRefund={result.is_refund} />
             </div>
           </div>
 
-          <div className="no-print mt-5 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
-            >
+          <div className="no-print mt-4 flex items-center gap-2">
+            <Button variant="outline" onClick={() => window.print()}>
+              <Printer />
               Download PDF
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-line-strong bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-600"
-            >
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
               Done
-            </button>
+            </Button>
           </div>
 
-          <div className="no-print mt-6">
-            <div className="eyebrow">ASK ABOUT THIS</div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                askFollowUp(followUp);
-                setFollowUp("");
-              }}
-              className="mt-2 rounded-[13px] border-[1.5px] border-brand-600 bg-white shadow-[0_0_0_4px_rgba(43,68,199,0.09)]"
-            >
-              <textarea
-                ref={followUpRef}
+          <div className="no-print mt-10">
+            <h2 className="text-[15px] font-semibold text-ink-900">Ask about this result</h2>
+            <p className="mt-1 text-[13.5px] text-ink-500">
+              The figures above are sent with your question, not the payslip.
+            </p>
+            <div className="mt-3">
+              <Composer
                 value={followUp}
-                onChange={(e) => setFollowUp(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    askFollowUp(followUp);
-                    setFollowUp("");
-                  }
+                onChange={setFollowUp}
+                onSubmit={(q) => {
+                  void askFollowUp(q);
+                  setFollowUp("");
                 }}
-                rows={2}
-                placeholder="e.g. how much more would I owe with a 50,000 raise?"
-                className="w-full resize-none bg-transparent px-4 pb-[6px] pt-3 text-[14.5px] leading-[1.5] text-ink-900 outline-none placeholder:text-ink-200"
+                ya={ya}
+                busy={followUpBusy}
+                inputRef={followUpRef}
+                placeholder="For example: how much more would I owe with a raise of 50,000 a month?"
               />
-              <div className="flex justify-end px-3 pb-[10px]">
-                <button
-                  type="submit"
-                  disabled={!followUp.trim() || followUpBusy}
-                  className="rounded-lg bg-brand-600 px-4 py-[7px] text-[13px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Ask
-                </button>
-              </div>
-            </form>
+            </div>
 
-            {followUpBusy && followUpAsked && (
-              <LiveTrace steps={followUpTrace} plan={followUpPlan} />
-            )}
+            {followUpBusy && followUpAsked && <LiveTrace steps={followUpTrace} plan={followUpPlan} />}
 
             {followUpError && (
-              <div className="mt-4 rounded-xl border border-warn-300 bg-warn-100 px-5 py-4">
-                <p className="text-[13.5px] leading-[1.55] text-warn-500">{followUpError}</p>
+              <div role="alert" className="mt-4 rounded-lg bg-warn-100 px-5 py-4 text-[14px] leading-[1.55] text-warn-700">
+                {followUpError}
               </div>
             )}
 
             {followUpAnswer && followUpAsked && !followUpBusy && (
-              <div className="mt-4">
+              <div className="mt-8">
                 <AnswerView
                   question={followUpAsked}
                   answer={followUpAnswer}
@@ -306,24 +290,30 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
 }
 
 function Field({
+  id,
   label,
   value,
   onChange,
 }: {
+  id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="block">
-      <span className="text-[12.5px] font-medium text-ink-500">{label}</span>
-      <input
-        type="text"
-        inputMode="decimal"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2 text-[14px] text-ink-900 outline-none focus:border-brand-600"
-      />
-    </label>
+    <div>
+      <Label htmlFor={id} className="text-[13.5px] font-medium text-ink-700">{label}</Label>
+      <div className="relative mt-1.5">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[14px] text-ink-400">LKR</span>
+        <Input
+          id={id}
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="tnum h-10 pl-12 text-[15px]"
+        />
+      </div>
+    </div>
   );
 }

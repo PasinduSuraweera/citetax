@@ -1,28 +1,41 @@
 "use client";
 
 /**
- * Left rail on desktop, slide-in drawer under lg.
+ * The sidebar on desktop, a drawer under lg.
  *
- * Ported from UI/Shell.dc.html. Most Sri Lankan filers open this on a phone
- * (spec section 6.2 addition 11), so the rail collapses behind a header bar
- * rather than eating half the viewport.
+ * Most Sri Lankan filers open this on a phone (spec section 6.2 addition 11),
+ * so the sidebar collapses behind a slim header bar rather than taking half
+ * the screen.
  */
 
+import {
+  CalendarClock, ChevronsUpDown, GitCompareArrows, History, Menu, MessageSquare, ShieldCheck, SquarePen, X,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { admin, type Me } from "@/lib/admin";
 import { requestNewQuestion } from "@/lib/ask-store";
 import { useSession } from "@/lib/session";
 import { ConversationList } from "./ConversationList";
+import { Logo } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 
-const NAV = [
-  { label: "Ask", href: "/" },
-  { label: "History", href: "/history" },
-  { label: "Comparison", href: "/compare" },
-  { label: "Deadlines", href: "/deadlines" },
-  { label: "My account", href: "/profile" },
+const NAV: Array<{ label: string; href: string; icon: LucideIcon }> = [
+  { label: "Chat", href: "/chat", icon: MessageSquare },
+  { label: "History", href: "/history", icon: History },
+  { label: "What changed", href: "/compare", icon: GitCompareArrows },
+  { label: "Deadlines", href: "/deadlines", icon: CalendarClock },
 ];
 
 export const SUPPORTED_YAS = ["2026/2027", "2025/2026"] as const;
@@ -41,8 +54,8 @@ export function Shell(props: Props) {
   const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
 
-  // aria-hidden must not apply at lg, where the same element is the rail and
-  // is genuinely on screen. Tailwind cannot express that, so it is measured.
+  // aria-hidden must not apply at lg, where the same element is the sidebar
+  // and is on screen. Tailwind cannot express that, so it is measured.
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const sync = () => setIsDesktop(mq.matches);
@@ -52,7 +65,11 @@ export function Shell(props: Props) {
   }, []);
 
   // Any navigation closes the drawer, otherwise it hangs over the new page.
-  useEffect(() => setOpen(false), [pathname]);
+  const [shownPath, setShownPath] = useState(pathname);
+  if (pathname !== shownPath) {
+    setShownPath(pathname);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -69,63 +86,53 @@ export function Shell(props: Props) {
 
   return (
     <>
-      {/* Mobile header. Hidden from lg up, where the rail is always visible. */}
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-ink-900 px-4 lg:hidden">
-        <button
-          type="button"
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-background/95 px-3 backdrop-blur-sm lg:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setOpen(true)}
           aria-label="Open menu"
           aria-expanded={open}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white/80 transition-colors hover:bg-white/10"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M1 3h14M1 8h14M1 13h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-        </button>
-        <Link href="/" className="text-[17px] font-bold tracking-[-0.025em] text-white">
-          Citetax
+          <Menu />
+        </Button>
+        <Link href="/chat" aria-label="Citetax">
+          <Logo height={26} />
         </Link>
-        <span className="font-mono text-[10.5px] text-white/50">
-          {props.ya.replace("/", " / ")}
-        </span>
+        <span className="tnum w-9 text-right text-[12px] text-ink-400">{props.ya.slice(2, 4)}/{props.ya.slice(7)}</span>
       </header>
 
-      {/* Scrim */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-ink-900/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-ink-900/30 lg:hidden"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
       )}
 
       {/* A drawer translated off screen still takes focus and still reads to a
-          screen reader, so it is made inert below lg when closed. `invisible`
-          also stops it being a tab stop, and lifts at lg where it is the rail. */}
+          screen reader, so it is made invisible below lg when closed. */}
       <aside
         aria-hidden={!open && !isDesktop}
-        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col overflow-y-auto bg-ink-900 px-[18px] py-6 transition-transform duration-200 lg:visible lg:static lg:z-auto lg:w-[252px] lg:flex-none lg:translate-x-0 lg:overflow-hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[284px] flex-col border-r border-sidebar-border bg-sidebar px-3 pb-3 pt-4 transition-transform duration-200 lg:visible lg:static lg:z-auto lg:w-[264px] lg:flex-none lg:translate-x-0 ${
           open ? "translate-x-0" : "invisible -translate-x-full"
         }`}
       >
-        <RailContent {...props} onNavigate={() => setOpen(false)} />
+        <SidebarContent {...props} onNavigate={() => setOpen(false)} />
       </aside>
     </>
   );
 }
 
-function RailContent({
-  ya, onYaChange, onNavigate,
-}: Props & { onNavigate: () => void }) {
+function SidebarContent({ ya, onYaChange, onNavigate }: Props & { onNavigate: () => void }) {
   const pathname = usePathname();
   const { user, loading, signOut } = useSession();
-  const [me, setMe] = useState<Me | null>(meCache ?? null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [fetchedMe, setMe] = useState<Me | null>(meCache ?? null);
+  const me = user ? fetchedMe : null;
 
   useEffect(() => {
     if (!user) {
-      meCache = null;
-      setMe(null);
+      meCache = undefined;
       return;
     }
     if (meCache !== undefined) return;
@@ -134,143 +141,77 @@ function RailContent({
       .catch(() => { meCache = null; });
   }, [user]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = () => setMenuOpen(false);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [menuOpen]);
-
   const newQuestion = useCallback(() => {
     onNavigate();
-    // On "/" this starts a fresh draft; elsewhere the Link navigation does.
-    // Either way no conversation is created, and none is cleared, until the
-    // first question of the new chat is sent.
+    // On /chat this starts a fresh draft; elsewhere the Link navigation does.
+    // No conversation is created, and none is cleared, until the first
+    // question of the new chat is sent.
     requestNewQuestion();
   }, [onNavigate]);
 
   return (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <Link href="/" className="block min-w-0" onClick={onNavigate}>
-          <div className="text-2xl font-bold leading-none tracking-[-0.025em] text-white">
-            Citetax
-          </div>
-          <div className="mt-[5px] text-xs leading-[1.4] tracking-[0.01em] text-white/45">
-            Every number, cited.
-          </div>
+      <div className="flex items-center justify-between px-2">
+        <Link href="/chat" onClick={newQuestion} aria-label="Citetax, new chat">
+          <Logo height={40} tone="dark" priority />
         </Link>
-        <button
-          type="button"
-          onClick={onNavigate}
-          aria-label="Close menu"
-          className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white lg:hidden"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-            <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-        </button>
+        <Button variant="ghost" size="icon-sm" onClick={onNavigate} aria-label="Close menu" className="text-white/70 hover:bg-white/10 hover:text-white lg:hidden">
+          <X />
+        </Button>
       </div>
 
       <Link
-        href="/"
+        href="/chat"
         onClick={newQuestion}
-        className="mt-6 flex items-center justify-between rounded-[9px] bg-brand-600 px-3 py-[10px] transition-colors hover:bg-brand-700"
+        className="mt-5 flex h-9 items-center gap-2 rounded-lg bg-white/10 px-3 text-[14px] font-medium text-white ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15 active:bg-white/20"
       >
-        <span className="text-[13.5px] font-semibold text-white">+ New chat</span>
-        <span className="hidden font-mono text-[10.5px] font-medium text-white/55 lg:inline">⌘K</span>
+        <SquarePen className="size-4 text-white/70" />
+        New chat
+        <kbd className="ml-auto hidden text-[11.5px] font-normal text-white/40 lg:inline">Ctrl K</kbd>
       </Link>
 
-      <nav className="mt-[18px] flex flex-col gap-px">
-        {NAV.map((item) => {
-          const active =
-            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={item.href === "/" ? newQuestion : onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-[9px] rounded-lg px-[11px] py-2 transition-colors ${
-                active ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
-              }`}
-            >
-              <span
-                className={`h-1 w-1 flex-none rounded-full ${
-                  active ? "bg-good-mint" : "bg-white/[0.18]"
-                }`}
-              />
-              <span
-                className={`text-[13.5px] font-medium ${
-                  active ? "text-white" : "text-white/50"
-                }`}
-              >
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-
+      <nav className="mt-4 flex flex-col gap-px">
+        {NAV.map((item) => (
+          <NavItem
+            key={item.href}
+            {...item}
+            active={pathname.startsWith(item.href)}
+            onClick={item.href === "/chat" ? newQuestion : onNavigate}
+          />
+        ))}
         {me?.is_reviewer && (
-          <Link
-            href="/admin"
-            onClick={onNavigate}
-            className="mt-1 flex items-center justify-between rounded-lg border border-white/10 px-[11px] py-2 transition-colors hover:border-white/25 hover:bg-white/[0.04]"
-          >
-            <span className="flex items-center gap-[9px]">
-              <span className="h-1 w-1 flex-none rounded-full bg-good-mintsoft" />
-              <span className="text-[13.5px] font-medium text-white/70">Admin panel</span>
-            </span>
-            <span className="font-mono text-[9.5px] uppercase tracking-[0.08em] text-good-mintsoft">
-              {me.role}
-            </span>
-          </Link>
+          <NavItem label="Admin" href="/admin" icon={ShieldCheck} active={false} onClick={onNavigate} />
         )}
       </nav>
 
-      {/* The year of assessment is the axis every rule resolves against, so it
-          is always visible and never implicit (spec section 6.1). */}
-      <div className="mb-[9px] mt-[26px] font-mono text-[10px] font-medium tracking-[0.16em] text-white/[0.32]">
-        YEAR OF ASSESSMENT
-      </div>
-      <div className="flex flex-col gap-1">
-        {SUPPORTED_YAS.map((year) => {
-          const selected = year === ya;
-          return (
-            <button
-              key={year}
-              type="button"
-              onClick={() => onYaChange(year)}
-              aria-pressed={selected}
-              className={`flex items-baseline justify-between rounded-lg px-[11px] py-[9px] text-left transition-colors ${
-                selected
-                  ? "border border-white/[0.13] bg-white/[0.09]"
-                  : "border border-transparent hover:bg-white/[0.05]"
-              }`}
-            >
-              <span
-                className={`font-mono text-[13.5px] tracking-[-0.01em] ${
-                  selected ? "font-semibold text-white" : "font-medium text-white/[0.42]"
+      {/* Every rule resolves against the year of assessment, so the year is
+          always visible and never implicit (spec section 6.1). */}
+      <div className="mt-5 px-2">
+        <div id="ya-label" className="text-[12px] font-medium text-white/50">Year of assessment</div>
+        <div role="radiogroup" aria-labelledby="ya-label" className="mt-2 grid grid-cols-2 rounded-lg bg-white/[0.07] p-[3px]">
+          {SUPPORTED_YAS.map((year) => {
+            const selected = year === ya;
+            return (
+              <button
+                key={year}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => onYaChange(year)}
+                className={`tnum rounded-md py-[5px] text-[13px] transition-colors ${
+                  selected ? "bg-white font-medium text-ink-900" : "text-white/60 hover:text-white"
                 }`}
               >
-                {year.replace("/", " / ")}
-              </span>
-              <span
-                className={`font-mono text-[9.5px] font-medium tracking-[0.08em] ${
-                  selected ? "text-good-mintsoft" : "text-white/[0.28]"
-                }`}
-              >
-                {selected ? "SELECTED" : "SWITCH"}
-              </span>
-            </button>
-          );
-        })}
+                {year}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Signed in, Recent takes the free height and scrolls on its own.
-          Signed out there is nothing to list and the spacer keeps the account
-          block at the bottom. The list reads the ?c= param, which needs a
-          Suspense boundary on pages that are prerendered. */}
+      {/* Signed in, recent chats take the free height and scroll on their
+          own. The list reads ?c=, which needs a Suspense boundary on pages
+          that are prerendered. */}
       {user ? (
         <Suspense fallback={<div className="flex-1" />}>
           <ConversationList onNavigate={onNavigate} />
@@ -279,93 +220,58 @@ function RailContent({
         <div className="flex-1" />
       )}
 
-      {/* Account: the foot of the rail. */}
-      <div className="relative mt-5 border-t border-white/10 pt-4">
+      <div className="mt-3 border-t border-sidebar-border pt-3">
         {loading ? (
-          <div className="h-[52px] animate-pulse rounded-[10px] bg-white/[0.04]" />
+          <div className="flex items-center gap-3 px-2 py-1">
+            <Skeleton className="size-8 rounded-full bg-white/10" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3 w-24 bg-white/10" />
+              <Skeleton className="h-3 w-32 bg-white/10" />
+            </div>
+          </div>
         ) : user ? (
-          <>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              className={`flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-colors hover:bg-white/[0.06] ${
-                menuOpen ? "bg-white/[0.06]" : ""
-              }`}
-            >
-              <UserAvatar user={user} size={34} tone="brand" />
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-2 py-[7px] text-left transition-colors hover:bg-white/[0.08] data-popup-open:bg-white/[0.08]">
+              <UserAvatar user={user} size={32} tone="brand" />
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="truncate text-[13.5px] font-semibold text-white">
-                    {user.name ?? user.email}
-                  </span>
-                  {me?.is_reviewer && (
-                    <span className="flex-none rounded-full bg-good-mint/15 px-[6px] py-[1px] text-[9.5px] font-semibold uppercase tracking-[0.06em] text-good-mintsoft">
-                      {me.role}
-                    </span>
-                  )}
+                <span className="block truncate text-[14px] font-medium text-white">
+                  {user.name ?? user.email}
                 </span>
-                <span className="mt-[1px] block truncate text-[11.5px] text-white/45">
-                  {user.email}
+                <span className="block truncate text-[12.5px] text-white/50">
+                  {me?.is_reviewer ? `${me.role[0].toUpperCase()}${me.role.slice(1)}` : user.email}
                 </span>
               </span>
-              <svg
-                width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-                strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                className={`flex-none text-white/40 transition-transform ${menuOpen ? "rotate-180" : ""}`}
-              >
-                <path d="M4 10l4-4 4 4" />
-              </svg>
-            </button>
-
-            {menuOpen && (
-              <div
-                role="menu"
-                className="fade-up absolute bottom-[calc(100%+6px)] left-0 right-0 overflow-hidden rounded-lg border border-white/10 bg-[#141B3A] shadow-[0_18px_40px_-20px_rgba(0,0,0,0.7)]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Link href="/profile" role="menuitem" onClick={onNavigate}
-                  className="block px-3 py-[9px] text-[12.5px] text-white/75 hover:bg-white/[0.06] hover:text-white">
-                  My account
-                </Link>
-                <Link href="/history" role="menuitem" onClick={onNavigate}
-                  className="block px-3 py-[9px] text-[12.5px] text-white/75 hover:bg-white/[0.06] hover:text-white">
-                  My history
-                </Link>
-                {me?.is_reviewer && (
-                  <Link href="/admin" role="menuitem" onClick={onNavigate}
-                    className="block px-3 py-[9px] text-[12.5px] text-white/75 hover:bg-white/[0.06] hover:text-white">
-                    Admin panel
-                  </Link>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={signOut}
-                  className="block w-full border-t border-white/10 px-3 py-[9px] text-left text-[12.5px] text-[#F5A9A2] hover:bg-white/[0.06]"
-                >
-                  Sign out
-                </button>
-              </div>
-            )}
-          </>
+              <ChevronsUpDown className="size-4 flex-none text-white/40" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-(--anchor-width)">
+              <DropdownMenuItem render={<Link href="/profile" onClick={onNavigate} />}>Account</DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/history" onClick={onNavigate} />}>History</DropdownMenuItem>
+              {me?.is_reviewer && (
+                <DropdownMenuItem render={<Link href="/admin" onClick={onNavigate} />}>Admin</DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => void signOut()}>
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
-          <div className="flex flex-col gap-2">
-            <Link
-              href="/signin"
-              onClick={onNavigate}
-              className="rounded-lg bg-white/[0.09] px-3 py-[9px] text-center text-[12.5px] font-semibold text-white transition-colors hover:bg-white/[0.14]"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/signin?mode=signup"
-              onClick={onNavigate}
-              className="text-center font-mono text-[10.5px] text-white/40 transition-colors hover:text-white/70"
-            >
-              or create an account
-            </Link>
+          <div className="px-2 py-1">
+            <p className="text-[13px] leading-[1.5] text-white/60">
+              Sign in to keep your chats and history.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <Link
+                href="/signin"
+                onClick={onNavigate}
+                className="inline-flex h-8 items-center rounded-lg bg-white px-3 text-[13.5px] font-medium text-ink-900 hover:bg-white/90"
+              >
+                Sign in
+              </Link>
+              <Link href="/signin?mode=signup" onClick={onNavigate} className="text-[13.5px] text-white/60 hover:text-white">
+                Create account
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -373,12 +279,36 @@ function RailContent({
   );
 }
 
+function NavItem({
+  label, href, icon: Icon, active, onClick,
+}: {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`flex h-8 items-center gap-2.5 rounded-md px-2 text-[14px] transition-colors ${
+        active ? "bg-white/10 font-medium text-white" : "text-white/65 hover:bg-white/[0.05] hover:text-white"
+      }`}
+    >
+      <Icon className={`size-4 ${active ? "text-sidebar-primary" : "text-white/45"}`} />
+      {label}
+    </Link>
+  );
+}
+
 /** Every page wraps its main content in this so the mobile header does not
  *  overlap it and the padding scales down on a phone. */
 export function PageBody({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <main className="flex-1 overflow-y-auto px-4 pb-10 pt-[72px] sm:px-6 lg:px-11 lg:pb-9 lg:pt-9">
-      <div className={wide ? "mx-auto w-full max-w-[1400px]" : "mx-auto w-full max-w-[1000px]"}>
+    <main className="flex-1 overflow-y-auto px-5 pb-12 pt-[76px] sm:px-8 lg:px-12 lg:pb-12 lg:pt-10">
+      <div className={wide ? "mx-auto w-full max-w-[1200px]" : "mx-auto w-full max-w-[880px]"}>
         {children}
       </div>
     </main>
