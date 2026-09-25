@@ -155,6 +155,8 @@ export interface CoverageRow {
       effective_from?: string;
       effective_to?: string | null;
       error?: string;
+      /** Versions that take over later in the same year. */
+      later?: Array<{ citation: string | null; effective_from: string }>;
     }
   >;
 }

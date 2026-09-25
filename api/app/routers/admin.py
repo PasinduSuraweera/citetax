@@ -769,6 +769,20 @@ def rollback(snapshot_id: str, user: AdminDep) -> dict[str, Any]:
 # Corpus health, audit, users
 # ---------------------------------------------------------------------------
 
+def _covers(versions: list, start: date, end: date) -> bool:
+    """True when the versions, taken in order, leave no day from start to end."""
+    day = start
+    for v in sorted(versions, key=lambda v: v["effective_from"]):
+        if v["effective_from"] > day:
+            return False
+        if v["effective_to"] is None:
+            return True
+        day = max(day, v["effective_to"] + timedelta(days=1))
+        if day > end:
+            return True
+    return day > end
+
+
 @router.get("/health/corpus")
 def corpus_health(user: ReviewerDep) -> dict[str, Any]:
     """Coverage matrix, staleness, SLA breaches (spec section 5.1 F)."""
@@ -785,19 +799,35 @@ def corpus_health(user: ReviewerDep) -> dict[str, Any]:
         if snap:
             for key in keys:
                 row: dict[str, Any] = {"rule_key": key, "years": {}}
+                versions = conn.execute(
+                    text(
+                        "select rv.effective_from, rv.effective_to, rv.citation_label "
+                        "  from rule_version rv join snapshot_rule_version s on s.rule_version_id = rv.id "
+                        " where s.snapshot_id = :s and rv.rule_key = :k and rv.status = 'published' "
+                        " order by rv.effective_from"
+                    ),
+                    {"s": str(snap["id"]), "k": key},
+                ).mappings().all()
                 for ya in settings.supported_yas:
                     try:
                         rv = resolve(conn, key, ya, str(snap["id"]))
-                        # Amber when the version does not span the whole year.
-                        covers_end = rv.effective_to is None or rv.effective_to >= date(
-                            int(ya.split("/")[1]), 3, 31
-                        )
+                        start = ya_start_date(ya)
+                        end = date(start.year + 1, 3, 31)
+                        # A year can be covered by several versions in turn, as
+                        # when a circular changes a rule mid-year. Amber only
+                        # when some day of the year has no version at all.
+                        in_year = [v for v in versions if v["effective_from"] <= end
+                                   and (v["effective_to"] is None or v["effective_to"] >= start)]
                         row["years"][ya] = {
-                            "state": "green" if covers_end else "amber",
+                            "state": "green" if _covers(in_year, start, end) else "amber",
                             "citation": rv.citation_label,
                             "effective_from": rv.effective_from.isoformat(),
                             "effective_to": rv.effective_to.isoformat()
                             if rv.effective_to else None,
+                            "later": [
+                                {"citation": v["citation_label"], "effective_from": v["effective_from"].isoformat()}
+                                for v in in_year if v["effective_from"] > rv.effective_from
+                            ],
                         }
                     except Exception as exc:  # noqa: BLE001
                         row["years"][ya] = {"state": "red", "error": str(exc)[:120]}

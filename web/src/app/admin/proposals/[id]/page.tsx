@@ -382,6 +382,16 @@ function Review({ me }: { me: Me }) {
             {cannotSign && <span className="text-[13.5px] leading-[1.5] text-ink-400">{cannotSign}</span>}
           </div>
         )}
+        {/* Approved but not yet live: a mistake found now can still be
+            pulled before anyone publishes it. */}
+        {proposal.status === "approved" && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+            <Button variant="destructive" onClick={() => setRejecting(true)} disabled={busy !== null} className="h-9 px-4">
+              Withdraw and reject
+            </Button>
+            <span className="text-[13.5px] leading-[1.5] text-ink-400">Not live yet. Rejecting it keeps it out of the next snapshot.</span>
+          </div>
+        )}
       </section>
 
       <Confirm

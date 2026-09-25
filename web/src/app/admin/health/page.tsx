@@ -21,7 +21,9 @@ function Health() {
   }, []);
 
   const years = data?.coverage[0] ? Object.keys(data.coverage[0].years) : [];
-  const gaps = data?.coverage.flatMap((r) => Object.values(r.years)).filter((c) => c.state !== "green").length ?? 0;
+  const cells = data?.coverage.flatMap((r) => Object.values(r.years)) ?? [];
+  const missing = cells.filter((c) => c.state === "red").length;
+  const partial = cells.filter((c) => c.state === "amber").length;
 
   return (
     <AdminBody>
@@ -47,9 +49,11 @@ function Health() {
             className="mt-6"
             title="Coverage"
             description={
-              gaps === 0
-                ? "Every rule is covered for the whole of every supported year."
-                : `${gaps} gap${gaps === 1 ? "" : "s"}. A snapshot with a gap cannot be published.`
+              missing > 0
+                ? `${missing} rule${missing === 1 ? " has" : "s have"} no value for a year. A snapshot like that cannot be published.`
+                : partial > 0
+                  ? `${partial} rule${partial === 1 ? " is" : "s are"} covered for only part of a year.`
+                  : "Every rule is covered for the whole of every supported year."
             }
           >
             <div className="overflow-x-auto">
@@ -147,6 +151,11 @@ function CoverageCell({ cell }: { cell?: CoverageRow["years"][string] }) {
           {cell.effective_from ? `, from ${day(cell.effective_from)}` : ""}
         </span>
       )}
+      {cell.later?.map((l) => (
+        <span key={l.effective_from} className="max-w-[220px] truncate text-[12.5px] text-ink-400">
+          then {l.citation}, from {day(l.effective_from)}
+        </span>
+      ))}
     </span>
   );
 }
