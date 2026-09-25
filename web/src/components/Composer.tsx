@@ -6,8 +6,9 @@
  * Shift+Enter adds a line. It grows with what is typed, up to a limit.
  */
 
-import { ArrowUp, CalendarDays, Check, ChevronDown, Loader2, Paperclip } from "lucide-react";
+import { ArrowUp, CalendarDays, Check, ChevronDown, Loader2, Mic, Paperclip, Square } from "lucide-react";
 import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useSpeech } from "@/lib/use-speech";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +47,20 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
   const ownRef = useRef<HTMLTextAreaElement>(null);
   const ref = inputRef ?? ownRef;
+
+  // Dictation appends to whatever was already typed when the mic was pressed.
+  const baseRef = useRef("");
+  const speech = useSpeech({
+    onTranscript: (text) => onChange(baseRef.current ? `${baseRef.current} ${text}` : text),
+  });
+  const toggleMic = () => {
+    if (speech.listening) {
+      speech.stop();
+      return;
+    }
+    baseRef.current = value.trim();
+    speech.start();
+  };
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -131,6 +146,28 @@ export function Composer({
             <span className="tnum hidden px-2 text-[13px] text-ink-400 sm:inline">Year {ya}</span>
           )}
         </div>
+        <div className="flex flex-none items-center gap-1">
+          {speech.error && (
+            <span role="alert" className="hidden max-w-55 truncate text-[12.5px] text-ink-500 sm:inline">
+              {speech.error}
+            </span>
+          )}
+          {speech.supported && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={toggleMic}
+              aria-pressed={speech.listening}
+              aria-label={speech.listening ? "Stop voice input" : "Start voice input"}
+              className={`flex size-9 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
+                speech.listening
+                  ? "animate-pulse bg-red-50 text-red-600 hover:bg-red-100"
+                  : "text-ink-500 hover:bg-muted hover:text-ink-900"
+              }`}
+            >
+              {speech.listening ? <Square className="size-3.5 fill-current" /> : <Mic className="size-4" />}
+            </button>
+          )}
         <button
           type="submit"
           disabled={disabled}
@@ -139,6 +176,7 @@ export function Composer({
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
         </button>
+        </div>
       </div>
     </form>
   );
