@@ -27,7 +27,10 @@ from app.core import llm
 
 logger = logging.getLogger(__name__)
 
-EXTRACTOR_VERSION = "llm-1.0"
+EXTRACTOR_VERSION = "llm-1.1"
+
+# Same threshold the watcher uses to skip listings.
+LISTING_LINK_SHARE = 0.9
 
 # The shapes the compute engine reads. Given to the model verbatim.
 RULE_SHAPES: dict[str, dict[str, Any]] = {
@@ -110,6 +113,54 @@ def _parse_date(s: str | None) -> date | None:
         return None
 
 
+def _earliest_supported_start() -> date:
+    from app.core.config import get_settings
+    from app.rules.resolver import ya_start_date
+
+    return min(ya_start_date(ya) for ya in get_settings().supported_yas)
+
+
+def _why_not(conn: Connection, document_id: str, p: ProposedChange, value_json: dict[str, Any]) -> str | None:
+    """A reason to drop an extracted change before a reviewer sees it, or None.
+
+    Reviewers were seeing the same figure once per page it appeared on, the
+    figure already published, and figures from years Citetax does not cover.
+    None of those is a decision.
+    """
+    start = _earliest_supported_start()
+    ef, et = _parse_date(p.effective_from), _parse_date(p.effective_to)
+    from app.core.config import get_settings
+
+    supported = set(get_settings().supported_yas)
+    names_supported = any(ya in supported for ya in p.applies_to_ya)
+    if (et and et < start) or (ef and ef < start and not names_supported):
+        return "before the supported years"
+    due = _parse_date(str(value_json.get("due") or "")) if p.rule_key.startswith("deadline.") else None
+    if due and due < start:
+        return "before the supported years"
+
+    v = json.dumps({k: val for k, val in value_json.items() if k != "citation_label"})
+    same_value = (
+        "(x.value_json - 'citation_label') = cast(:v as jsonb) "
+        "and x.rule_key = :k and x.effective_from is not distinct from :ef"
+    )
+    params = {"v": v, "k": p.rule_key, "ef": ef, "d": document_id}
+    if conn.execute(
+        text(f"select 1 from rule_version x where x.status = 'published' and {same_value} limit 1"),
+        params,
+    ).first():
+        return "already published"
+    if conn.execute(
+        text(
+            f"select 1 from change_proposal x where {same_value} "
+            "and x.status in ('needs_review','in_review','changes_requested','approved') limit 1"
+        ),
+        params,
+    ).first():
+        return "already proposed"
+    return None
+
+
 def extract_document(
     conn: Connection,
     document_id: str,
@@ -127,7 +178,9 @@ def extract_document(
 
     row = conn.execute(
         text(
-            "select id, title, url, raw_text, doc_type, revision_no, supersedes_id "
+            "select id, title, url, raw_text, doc_type, revision_no, supersedes_id, "
+            "       coalesce((text_meta->>'link_share')::float, 0) as link_share, "
+            "       coalesce((text_meta->>'listing')::boolean, false) as listing "
             "  from source_document where id = :id"
         ),
         {"id": document_id},
@@ -137,6 +190,15 @@ def extract_document(
         return report
     if not row["raw_text"] or len(row["raw_text"].strip()) < 80:
         report.skipped_reason = "no extractable text"
+        return report
+    if row["listing"] or row["link_share"] >= LISTING_LINK_SHARE:
+        report.skipped_reason = "listing page"
+        _resolve_placeholder(
+            conn, document_id,
+            "A listing page: it links to documents rather than stating a rule.",
+            {"listing": True, "extractor_version": EXTRACTOR_VERSION},
+        )
+        conn.commit()
         return report
     if not llm.available():
         report.skipped_reason = "model unavailable"
@@ -173,9 +235,11 @@ def extract_document(
     report.summary = extraction.document_summary
 
     # Record what the document is, and its stated date, on the document row.
+    # Merged, so the watcher's fingerprint survives.
     conn.execute(
         text(
-            "update source_document set text_meta = cast(:m as jsonb), "
+            "update source_document set "
+            "text_meta = coalesce(text_meta, '{}'::jsonb) || cast(:m as jsonb), "
             "published_at = coalesce(published_at, :pub) where id = :id"
         ),
         {
@@ -238,6 +302,7 @@ def extract_document(
         return 4
 
     first = True
+    dropped: list[str] = []
     for p in extraction.proposals:
         if p.rule_key not in RULE_SHAPES:
             continue
@@ -245,6 +310,10 @@ def extract_document(
         value_json = dict(p.value_json)
         if cite:
             value_json["citation_label"] = cite
+        reason = _why_not(conn, document_id, p, value_json)
+        if reason:
+            dropped.append(f"{p.rule_key} {reason}")
+            continue
 
         params = {
             "key": p.rule_key,
@@ -289,8 +358,32 @@ def extract_document(
             report.proposals_created += 1
         first = False
 
+    if first and placeholder:
+        # Everything it found was a duplicate, already live, or out of range.
+        report.skipped_reason = "; ".join(dropped)[:300] or "no usable change"
+        _resolve_placeholder(conn, document_id, f"Nothing new: {report.skipped_reason}.", None)
+
     conn.commit()
     return report
+
+
+def _resolve_placeholder(conn: Connection, document_id: str, reason: str, meta: dict | None) -> None:
+    conn.execute(
+        text(
+            "update change_proposal set status = 'rejected', reviewed_by = 'extractor', "
+            "reviewed_at = now(), reject_reason = :r, extractor_version = :v "
+            "where source_document_id = :d and rule_key is null and status = 'needs_review'"
+        ),
+        {"r": reason, "v": EXTRACTOR_VERSION, "d": document_id},
+    )
+    if meta:
+        conn.execute(
+            text(
+                "update source_document set "
+                "text_meta = coalesce(text_meta, '{}'::jsonb) || cast(:m as jsonb) where id = :d"
+            ),
+            {"m": json.dumps(meta), "d": document_id},
+        )
 
 
 def extract_pending(conn: Connection, limit: int = 5, budget: llm.LLMBudget | None = None) -> list[ExtractReport]:
