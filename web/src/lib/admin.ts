@@ -123,6 +123,55 @@ export interface CoverageRow {
   >;
 }
 
+export type RetrievalMode = "hybrid" | "fts" | "dense";
+
+export type EvalMetrics = Record<string, number>;
+
+export interface EvalAggregate extends EvalMetrics {
+  avg_latency_ms: number;
+  questions: number;
+}
+
+export interface EvalRetrieved {
+  title: string | null;
+  url: string | null;
+  rule_key: string | null;
+  relevant: boolean;
+  score: number;
+  matched_by: string;
+}
+
+export interface EvalCase {
+  id: string;
+  question: string;
+  category: string;
+  relevant: string[];
+  coverage: { label: string; chunks: number; embedded: number }[];
+  modes: Partial<Record<RetrievalMode, {
+    metrics: EvalMetrics;
+    first_relevant_rank: number | null;
+    latency_ms: number;
+    error: string | null;
+    retrieved: EvalRetrieved[];
+  }>>;
+}
+
+export interface RetrievalEval {
+  ran_at: string;
+  run_by?: string;
+  eval_set_version: string | null;
+  eval_set_note: string | null;
+  k_values: number[];
+  dense_enabled: boolean;
+  corpus: { chunks: number; embedded: number };
+  questions: number;
+  summary: Partial<Record<RetrievalMode, {
+    aggregate: EvalAggregate;
+    by_category: Record<string, EvalAggregate>;
+  }>>;
+  cases: EvalCase[];
+}
+
 export interface CorpusHealth {
   snapshot: { id: string; label: string } | null;
   coverage: CoverageRow[];
@@ -284,6 +333,11 @@ export const admin = {
     ),
 
   health: () => req<CorpusHealth>("/admin/health/corpus"),
+
+  retrievalEval: () => req<{ result: RetrievalEval | null }>("/admin/retrieval-eval"),
+
+  runRetrievalEval: () =>
+    req<{ result: RetrievalEval }>("/admin/retrieval-eval", { method: "POST" }),
 
   agentStatus: () => req<AgentStatus>("/admin/agent/status"),
 

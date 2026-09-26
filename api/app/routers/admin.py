@@ -932,6 +932,30 @@ def rebuild_index(user: AdminDep) -> dict[str, Any]:
     return report.to_json()
 
 
+# The last evaluation, kept in memory so the page can show it without
+# re-running: a run embeds every question, which costs quota and takes seconds.
+_last_retrieval_eval: dict[str, Any] | None = None
+
+
+@router.get("/retrieval-eval")
+def last_retrieval_eval(user: ReviewerDep) -> dict[str, Any]:
+    """The most recent evaluation run, or `{"result": null}` if none yet."""
+    return {"result": _last_retrieval_eval}
+
+
+@router.post("/retrieval-eval")
+def run_retrieval_eval(user: ReviewerDep) -> dict[str, Any]:
+    """Scores full text, dense and hybrid retrieval on the labelled question set."""
+    global _last_retrieval_eval
+    from app.retrieval import evaluation
+
+    with db_conn() as conn:
+        result = evaluation.run(conn)
+    result["run_by"] = user.email
+    _last_retrieval_eval = result
+    return {"result": result}
+
+
 @router.get("/me")
 def whoami(user: CurrentUserDep) -> dict[str, Any]:
     return {

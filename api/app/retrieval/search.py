@@ -33,6 +33,8 @@ CANDIDATES = 20     # per retriever, before fusion (spec: reranker sees 20)
 DENSE_MARGIN = 0.04
 # Index pages ("... Read More ... Read More") match nearly every question and
 # say nothing on their own.
+MODES = ("hybrid", "fts", "dense")
+
 _LISTING = re.compile(r"\bRead More\b", re.I)
 
 
@@ -123,21 +125,30 @@ def search(
     query: str,
     rule_keys: list[str] | None = None,
     top_k: int = TOP_K,
+    mode: str = "hybrid",
+    query_vec: list[float] | None = None,
 ) -> tuple[list[Passage], dict[str, Any]]:
-    """Returns (passages, meta). Empty list when nothing is indexed."""
+    """Returns (passages, meta). Empty list when nothing is indexed.
+
+    `mode` is "hybrid" (the default the app uses), "fts" or "dense". The other
+    two exist so the evaluation can measure each retriever on its own.
+    `query_vec` lets a caller that already embedded the question reuse it.
+    """
+    if mode not in MODES:
+        raise ValueError(f"unknown retrieval mode {mode!r}")
     keys = list(rule_keys or [])
     params = {"q": query, "keys": keys or [""], "keys_empty": not keys, "n": CANDIDATES}
     meta: dict[str, Any] = {"fts": 0, "dense": 0, "fused": 0, "dense_enabled": False}
 
-    fts_rows = conn.execute(_FTS, params).mappings().all()
+    fts_rows = conn.execute(_FTS, params).mappings().all() if mode != "dense" else []
     meta["fts"] = len(fts_rows)
 
     dense_rows: list[Any] = []
     sim: dict[str, float] = {}
-    if embeddings.dense_enabled():
+    if mode != "fts" and embeddings.dense_enabled():
         meta["dense_enabled"] = True
         try:
-            vec = embeddings.get_provider().embed_query(query)
+            vec = query_vec or embeddings.get_provider().embed_query(query)
             v = "[" + ",".join(f"{x:.6f}" for x in vec) + "]"
             dense_rows = conn.execute(_DENSE, {**params, "v": v}).mappings().all()
             meta["dense"] = len(dense_rows)

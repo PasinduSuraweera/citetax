@@ -1,0 +1,136 @@
+{
+  "version": "2026-09-26",
+  "note": "Starter set. Each question lists the documents (url_contains) or rules (rule_key) that answer it, labelled by reading the corpus. A reviewer should extend and correct it: retrieval numbers are only as good as these labels.",
+  "cases": [
+    {
+      "id": "q01", "category": "circulars",
+      "question": "When are quarterly income tax instalments due under section 90?",
+      "relevant": [{"url_contains": "/article/ek"}, {"url_contains": "/article/ckf"}, {"url_contains": "/article/san"}, {"rule_key": "deadline.return_filing"}]
+    },
+    {
+      "id": "q02", "category": "circulars",
+      "question": "What changed in the revised quarterly tax circular of 6 August 2026?",
+      "relevant": [{"url_contains": "/article/ek"}, {"url_contains": "/article/ckf"}]
+    },
+    {
+      "id": "q03", "category": "circulars",
+      "question": "What did the re-revised circular of 12 August 2026 change?",
+      "relevant": [{"url_contains": "/article/ckf"}]
+    },
+    {
+      "id": "q04", "category": "circulars",
+      "question": "Can I estimate this year's income for my instalments if my income drops sharply?",
+      "relevant": [{"url_contains": "/article/san"}, {"url_contains": "/article/ek"}]
+    },
+    {
+      "id": "q05", "category": "circulars",
+      "question": "Do foreign tax credits count when calculating quarterly instalments?",
+      "relevant": [{"url_contains": "/article/san"}, {"url_contains": "credit_schedule"}, {"url_contains": "notice_on_furnishing"}]
+    },
+    {
+      "id": "q06", "category": "forms",
+      "question": "How do I submit the statement of tax credit schedule?",
+      "relevant": [{"url_contains": "notice_on_furnishing"}, {"url_contains": "credit_schedule"}]
+    },
+    {
+      "id": "q07", "category": "forms",
+      "question": "What file name format is required when uploading the tax credit schedule?",
+      "relevant": [{"url_contains": "notice_on_furnishing"}]
+    },
+    {
+      "id": "q08", "category": "forms",
+      "question": "Is the tax credit schedule for the first instalment valid for the later instalments?",
+      "relevant": [{"url_contains": "notice_on_furnishing"}]
+    },
+    {
+      "id": "q09", "category": "administration",
+      "question": "What are my rights as a taxpayer under the IRD taxpayer charter?",
+      "relevant": [{"url_contains": "Taxpayer_Charter"}]
+    },
+    {
+      "id": "q10", "category": "administration",
+      "question": "Which IRD services can I use online through e-service from home?",
+      "relevant": [{"url_contains": "Taxpayer_Charter"}]
+    },
+    {
+      "id": "q11", "category": "news",
+      "question": "When does VAT on digital services supplied by non-resident providers start?",
+      "relevant": [{"url_contains": "/article/vds"}]
+    },
+    {
+      "id": "q12", "category": "news",
+      "question": "Which amendment act introduced VAT on digital services in 2026?",
+      "relevant": [{"url_contains": "/article/vds"}]
+    },
+    {
+      "id": "q13", "category": "news",
+      "question": "What is the CID surcharge on vehicle imports until December 2026?",
+      "relevant": [{"url_contains": "/article/vidc"}]
+    },
+    {
+      "id": "q14", "category": "news",
+      "question": "Will the government agree to a tax on second and subsequent residential properties?",
+      "relevant": [{"url_contains": "/article/imf"}]
+    },
+    {
+      "id": "q15", "category": "news",
+      "question": "Has the new tax invoice format for VAT registered persons been delayed?",
+      "relevant": [{"url_contains": "/article/tif1"}]
+    },
+    {
+      "id": "q16", "category": "news",
+      "question": "From what date is a TIN mandatory?",
+      "relevant": [{"url_contains": "notice/index/id/711"}]
+    },
+    {
+      "id": "q17", "category": "news",
+      "question": "How did the India Sri Lanka tax treaty amendment limit treaty shopping?",
+      "relevant": [{"url_contains": "/article/isd"}]
+    },
+    {
+      "id": "q18", "category": "administration",
+      "question": "How does the IRD's voluntary compliance improvement plan target large VAT registrants?",
+      "relevant": [{"url_contains": "SL_VCIP_2025"}, {"url_contains": "SL_VCIP_Plan"}]
+    },
+    {
+      "id": "q19", "category": "news",
+      "question": "Why does tax certainty depend on clear legislation and published administrative interpretation?",
+      "relevant": [{"url_contains": "/article/nr"}]
+    },
+    {
+      "id": "q20", "category": "news",
+      "question": "How does taxpayer education improve compliance before enforcement?",
+      "relevant": [{"url_contains": "/article/ars"}]
+    },
+    {
+      "id": "q21", "category": "rules",
+      "question": "What is the personal relief amount?",
+      "relevant": [{"rule_key": "relief.personal"}]
+    },
+    {
+      "id": "q22", "category": "rules",
+      "question": "What are the personal income tax rates and bands?",
+      "relevant": [{"rule_key": "band.progressive"}]
+    },
+    {
+      "id": "q23", "category": "rules",
+      "question": "What percentage does an employee contribute to EPF?",
+      "relevant": [{"rule_key": "deduction.epf_employee"}]
+    },
+    {
+      "id": "q24", "category": "rules",
+      "question": "By what date must the income tax return be filed?",
+      "relevant": [{"rule_key": "deadline.return_filing"}]
+    },
+    {
+      "id": "q25", "category": "rules",
+      "question": "Is tax deducted by my employer under APIT credited against my tax?",
+      "relevant": [{"rule_key": "credit.apit"}]
+    },
+    {
+      "id": "q26", "category": "rules",
+      "question": "Can I claim a credit for foreign tax paid?",
+      "relevant": [{"rule_key": "credit.foreign_wht"}, {"url_contains": "/article/san"}]
+    }
+  ]
+}

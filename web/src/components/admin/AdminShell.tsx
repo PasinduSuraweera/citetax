@@ -26,6 +26,7 @@ const NAV = [
   { label: "Review inbox", href: "/admin", exact: true },
   { label: "Corpus agent", href: "/admin/agent" },
   { label: "Corpus health", href: "/admin/health" },
+  { label: "Retrieval eval", href: "/admin/retrieval" },
   { label: "Snapshots", href: "/admin/snapshots" },
   { label: "Sources", href: "/admin/sources" },
   { label: "Escalations", href: "/admin/escalations" },
