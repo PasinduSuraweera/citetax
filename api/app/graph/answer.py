@@ -33,6 +33,8 @@ from app.compute.types import Computation, TaxFacts
 from app.conversations.context import ConversationContext
 from app.core import llm
 from app.core.config import get_settings
+from app.compute import savings as savings_mod
+from app.compute.savings import Savings
 from app.graph import comply, intent as intent_mod
 from app.graph.explain import ExplainContext, explain
 from app.graph.verify import BadgeState, Evidence, VerifyResult, verify
@@ -100,6 +102,7 @@ class AnswerResult:
     llm_budget: llm.LLMBudget = field(default_factory=llm.LLMBudget)
     redacted_question: str = ""
     days_remaining: int | None = None
+    savings: Savings | None = None
 
     @property
     def model_meta(self) -> dict[str, Any]:
@@ -299,6 +302,7 @@ def _run_compute(conn, result, r, facts, snap_id, mark, budget) -> None:
     mark("Comply", "ok", "must file" if compliance.must_file else "no filing obligation", t0)
 
     if r.intent == "compute":
+        result.savings = savings_mod.analyse(facts, rules, computation)
         used_keys = [s.rule_key for s in computation.steps if not s.is_zero]
         _retrieve(conn, result, mark, used_keys)
 
