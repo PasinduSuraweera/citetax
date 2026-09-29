@@ -117,6 +117,9 @@ def serialise_answer(result: AnswerResult) -> dict[str, Any]:
             "step_count": len(c.steps),
         }
 
+    if result.savings:
+        payload["savings"] = result.savings.to_json()
+
     if result.compliance:
         payload["compliance"] = {
             **result.compliance.to_json(),

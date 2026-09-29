@@ -125,6 +125,25 @@ export interface Snapshot {
   created_at?: string | null;
 }
 
+export interface SavingsLever {
+  kind: "qualifying_payments" | "band_edge";
+  extra_deduction: string;
+  tax_saved: string;
+  new_balance: string;
+  rule_key: string;
+  rule_version_id: string | null;
+  citation_label: string | null;
+  detail: { band_rate?: string; band_from?: string };
+}
+
+/** Scenarios from re-running the engine with a larger deduction. */
+export interface Savings {
+  ya: string;
+  baseline_balance: string;
+  marginal_rate: string | null;
+  levers: SavingsLever[];
+}
+
 export interface AnswerResponse {
   kind: "answer" | "refusal" | "clarify";
   intent: Intent;
@@ -146,6 +165,7 @@ export interface AnswerResponse {
     step_count: number;
   };
   compliance?: Compliance;
+  savings?: Savings;
   compare?: {
     from_ya: string;
     to_ya: string;
