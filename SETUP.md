@@ -100,7 +100,7 @@ needs **two distinct people**. The same account cannot sign twice.
 cd api
 .venv\Scripts\python.exe preflight.py           # checks every service
 .venv\Scripts\python.exe migrate.py             # applies db/migrations in order
-.venv\Scripts\python.exe seed\rules_seed.py     # loads the real tax rules
+.venv\Scripts\python.exe seed\rules_seed.py     # loads the real tax rules, once
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload
 
 # Web, port 3000, in a second terminal
@@ -109,6 +109,11 @@ npm run dev
 ```
 
 `preflight.py` names exactly what is wrong with each service if anything fails.
+
+The seed is safe to run again. It only loads rules into an empty database and
+changes nothing once a corpus exists, so it never touches saved answers,
+conversations, or rules published through the admin panel. Publish rule
+changes through the admin **Review inbox**, not by editing the seed.
 
 | Where | What |
 |---|---|

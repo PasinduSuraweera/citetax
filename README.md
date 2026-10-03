@@ -95,7 +95,7 @@ See [SETUP.md](SETUP.md) for keys and first time setup.
 cd api
 .venv\Scripts\python.exe preflight.py          # checks every external service
 .venv\Scripts\python.exe migrate.py            # applies db/migrations
-.venv\Scripts\python.exe seed\rules_seed.py    # loads the tax rules
+.venv\Scripts\python.exe seed\rules_seed.py    # loads the tax rules into an empty database
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload
 
 cd web && npm run dev

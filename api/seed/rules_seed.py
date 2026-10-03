@@ -24,6 +24,11 @@ These figures come from published secondary sources and the IRD website, not
 from a reviewer who has signed them off against the gazetted text. Every row
 is stamped with the changelog_line below so the provenance never overclaims.
 Phase 3 (admin panel) is where these get properly reviewed and approved.
+
+Safe to re-run. The seed only loads an empty corpus: once any snapshot exists
+it changes nothing, so it can never delete saved answers, conversations, or
+rule versions published through the admin panel. Later rule changes go
+through the admin review and publish flow, not through this script.
 """
 
 from __future__ import annotations
@@ -155,134 +160,166 @@ YA_WINDOWS = {
 }
 
 
+SNAPSHOT_LABEL = "18 August 2026"
+
+
+def seed(conn) -> dict:
+    """Load the seed corpus into an empty database. Never deletes anything.
+
+    The database is shared, and saved answers are the audit record that makes
+    each one reproducible at its snapshot, so an existing corpus is left
+    exactly as it is. Returns what was seeded, or the snapshot already current.
+    """
+    # Two teammates seeding an empty database at once would both see it empty.
+    # The lock is released when the transaction ends.
+    conn.execute(text("select pg_advisory_xact_lock(hashtext('citetax.rules_seed'))"))
+
+    if conn.execute(text("select count(*) from corpus_snapshot")).scalar_one():
+        current = conn.execute(
+            text(
+                "select s.label, count(srv.rule_version_id) as versions "
+                "  from corpus_snapshot s "
+                "  left join snapshot_rule_version srv on srv.snapshot_id = s.id "
+                " where s.is_current group by s.id, s.label"
+            )
+        ).mappings().first()
+        return {
+            "seeded": False,
+            "label": current["label"] if current else None,
+            "versions": current["versions"] if current else 0,
+        }
+
+    # --- rule catalogue ---
+    for key, title, rtype, unit, rounding in RULES:
+        conn.execute(
+            text(
+                "insert into rule (rule_key, title, rule_type, unit, rounding_mode) "
+                "values (:k, :t, :rt, :u, :rm) on conflict (rule_key) do update "
+                "set title = excluded.title"
+            ),
+            {"k": key, "t": title, "rt": rtype, "u": unit, "rm": rounding},
+        )
+
+    # --- a source document to hang provenance on ---
+    doc_id = str(uuid.uuid4())
+    conn.execute(
+        text(
+            "insert into source_document (id, family_id, revision_no, source_id, "
+            "sha256, doc_type, title, published_at) values "
+            "(:id, :fam, 1, 'seed', :sha, 'act_amendment', :title, :pub) "
+            "on conflict do nothing"
+        ),
+        {
+            "id": doc_id,
+            "fam": str(uuid.uuid4()),
+            "sha": "seed-" + doc_id[:12],
+            "title": "Inland Revenue Act (seed placeholder)",
+            "pub": date(2026, 4, 1),
+        },
+    )
+
+    # --- rule versions ---
+    insert_rv = text(
+        "insert into rule_version (id, rule_key, revision_no, value_json, "
+        "effective_from, effective_to, source_document_id, citation_label, "
+        "quoted_text, status, changelog_line, approved_by, approved_at) "
+        "values (:id, :k, 1, cast(:v as jsonb), :ef, :et, :doc, :cite, "
+        ":q, 'published', :note, 'seed-script', now())"
+    )
+    version_ids: list[str] = []
+
+    # Shared rules: one open-ended version covering both supported years.
+    for rule_key, value_json, citation, quoted in SHARED_VERSIONS:
+        vid = str(uuid.uuid4())
+        conn.execute(
+            insert_rv,
+            {
+                "id": vid,
+                "k": rule_key,
+                "v": json.dumps(value_json),
+                "ef": ACT_EFFECTIVE_FROM,
+                "et": None,
+                "doc": doc_id,
+                "cite": citation,
+                "q": quoted,
+                "note": SEED_NOTE,
+            },
+        )
+        version_ids.append(vid)
+
+    # Deadlines: one version per year of assessment.
+    for ya, (value_json, citation, quoted) in DEADLINE_VERSIONS.items():
+        eff_from, eff_to = YA_WINDOWS[ya]
+        vid = str(uuid.uuid4())
+        conn.execute(
+            insert_rv,
+            {
+                "id": vid,
+                "k": "deadline.return_filing",
+                "v": json.dumps(value_json),
+                "ef": eff_from,
+                "et": eff_to,
+                "doc": doc_id,
+                "cite": citation,
+                "q": quoted,
+                "note": SEED_NOTE,
+            },
+        )
+        version_ids.append(vid)
+
+    # --- snapshot --- (the corpus is empty, so this is the only one)
+    snap_id = str(uuid.uuid4())
+    conn.execute(
+        text(
+            "insert into corpus_snapshot (id, label, created_by, is_current, changelog) "
+            "values (:id, :label, 'seed-script', true, :log)"
+        ),
+        {
+            "id": snap_id,
+            "label": SNAPSHOT_LABEL,
+            "log": "Initial seed corpus. " + SEED_NOTE,
+        },
+    )
+    for vid in version_ids:
+        conn.execute(
+            text(
+                "insert into snapshot_rule_version (snapshot_id, rule_version_id) "
+                "values (:s, :v) on conflict do nothing"
+            ),
+            {"s": snap_id, "v": vid},
+        )
+
+    return {
+        "seeded": True,
+        "snapshot_id": snap_id,
+        "label": SNAPSHOT_LABEL,
+        "versions": len(version_ids),
+    }
+
+
 def main() -> None:
     settings = get_settings()
     if not settings.database_url:
         raise SystemExit("DATABASE_URL is not set — copy .env.example to .env first")
 
     engine = create_engine(settings.database_url)
-
     with engine.begin() as conn:
-        # Idempotent: clear any previous seed so re-running does not stack up
-        # duplicate versions, which resolve() would correctly report as an
-        # AmbiguousRule integrity alarm.
-        conn.execute(text("delete from snapshot_rule_version"))
-        # Conversation messages point at runs without a cascade, so the
-        # conversations go first. A reseed wipes every run, and a thread whose
-        # answers no longer exist has nothing left to show.
-        conn.execute(text("delete from conversation"))
-        conn.execute(text("delete from computation_run"))
-        conn.execute(text("delete from rule_version"))
-        conn.execute(text("delete from corpus_snapshot"))
-        conn.execute(text("delete from source_document where source_id = 'seed'"))
+        result = seed(conn)
 
-        # --- rule catalogue ---
-        for key, title, rtype, unit, rounding in RULES:
-            conn.execute(
-                text(
-                    "insert into rule (rule_key, title, rule_type, unit, rounding_mode) "
-                    "values (:k, :t, :rt, :u, :rm) on conflict (rule_key) do update "
-                    "set title = excluded.title"
-                ),
-                {"k": key, "t": title, "rt": rtype, "u": unit, "rm": rounding},
-            )
-
-        # --- a source document to hang provenance on ---
-        doc_id = str(uuid.uuid4())
-        conn.execute(
-            text(
-                "insert into source_document (id, family_id, revision_no, source_id, "
-                "sha256, doc_type, title, published_at) values "
-                "(:id, :fam, 1, 'seed', :sha, 'act_amendment', :title, :pub) "
-                "on conflict do nothing"
-            ),
-            {
-                "id": doc_id,
-                "fam": str(uuid.uuid4()),
-                "sha": "seed-" + doc_id[:12],
-                "title": "Inland Revenue Act (seed placeholder)",
-                "pub": date(2026, 4, 1),
-            },
+    if not result["seeded"]:
+        print(
+            f"Corpus already seeded: current snapshot '{result['label']}' "
+            f"({result['versions']} rule versions). Nothing changed."
         )
-
-        # --- rule versions ---
-        insert_rv = text(
-            "insert into rule_version (id, rule_key, revision_no, value_json, "
-            "effective_from, effective_to, source_document_id, citation_label, "
-            "quoted_text, status, changelog_line, approved_by, approved_at) "
-            "values (:id, :k, 1, cast(:v as jsonb), :ef, :et, :doc, :cite, "
-            ":q, 'published', :note, 'seed-script', now())"
-        )
-        version_ids: list[str] = []
-
-        # Shared rules: one open-ended version covering both supported years.
-        for rule_key, value_json, citation, quoted in SHARED_VERSIONS:
-            vid = str(uuid.uuid4())
-            conn.execute(
-                insert_rv,
-                {
-                    "id": vid,
-                    "k": rule_key,
-                    "v": json.dumps(value_json),
-                    "ef": ACT_EFFECTIVE_FROM,
-                    "et": None,
-                    "doc": doc_id,
-                    "cite": citation,
-                    "q": quoted,
-                    "note": SEED_NOTE,
-                },
-            )
-            version_ids.append(vid)
-
-        # Deadlines: one version per year of assessment.
-        for ya, (value_json, citation, quoted) in DEADLINE_VERSIONS.items():
-            eff_from, eff_to = YA_WINDOWS[ya]
-            vid = str(uuid.uuid4())
-            conn.execute(
-                insert_rv,
-                {
-                    "id": vid,
-                    "k": "deadline.return_filing",
-                    "v": json.dumps(value_json),
-                    "ef": eff_from,
-                    "et": eff_to,
-                    "doc": doc_id,
-                    "cite": citation,
-                    "q": quoted,
-                    "note": SEED_NOTE,
-                },
-            )
-            version_ids.append(vid)
-
-        # --- snapshot ---
-        conn.execute(text("update corpus_snapshot set is_current = false"))
-        snap_id = str(uuid.uuid4())
-        conn.execute(
-            text(
-                "insert into corpus_snapshot (id, label, created_by, is_current, changelog) "
-                "values (:id, :label, 'seed-script', true, :log)"
-            ),
-            {
-                "id": snap_id,
-                "label": "18 August 2026",
-                "log": "Initial seed corpus. " + SEED_NOTE,
-            },
-        )
-        for vid in version_ids:
-            conn.execute(
-                text(
-                    "insert into snapshot_rule_version (snapshot_id, rule_version_id) "
-                    "values (:s, :v) on conflict do nothing"
-                ),
-                {"s": snap_id, "v": vid},
-            )
+        print("Publish rule changes through the admin panel, not this script.")
+        return
 
     print(
-        f"Seeded {len(version_ids)} rule versions "
+        f"Seeded {result['versions']} rule versions "
         f"({len(SHARED_VERSIONS)} shared across both years, "
         f"{len(DEADLINE_VERSIONS)} year-specific)."
     )
-    print(f"Current snapshot: {snap_id}  (label: 18 August 2026)")
+    print(f"Current snapshot: {result['snapshot_id']}  (label: {SNAPSHOT_LABEL})")
     print(f"\n⚠️  {SEED_NOTE}")
 
 
