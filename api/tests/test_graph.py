@@ -192,6 +192,66 @@ def test_million_shorthand():
     assert f.employment_income == Decimal("2500000")
 
 
+def test_monthly_is_not_read_as_million():
+    """Regression (#49): the "m" of "monthly" was taken as a million suffix,
+    so a 250,000 monthly salary became 3 trillion."""
+    f = parse_question("For 2026/2027 my salary is 250,000 monthly", SUPPORTED)
+    assert f.employment_income == Decimal("3000000")
+
+
+def test_k_and_m_shorthand_attached_to_the_number():
+    """Regression (#49): "250k" was skipped, so the EPF figure was taken as
+    the salary and EPF was left empty."""
+    f = parse_question(
+        "For 2026/2027 salary 250k a month and EPF 20,000 a month", SUPPORTED
+    )
+    assert f.employment_income == Decimal("3000000")
+    assert f.epf_employee == Decimal("240000")
+    assert parse_question("For 2026/2027 I earn 3m", SUPPORTED).employment_income == Decimal("3000000")
+
+
+def test_every_monthly_field_is_annualised():
+    """Regression (#49): only salary and raises were multiplied by 12."""
+    f = parse_question(
+        "For 2026/2027 salary LKR 250,000 per month, APIT deducted 12,000 per month",
+        SUPPORTED,
+    )
+    assert f.employment_income == Decimal("3000000")
+    assert f.apit_withheld == Decimal("144000")
+
+
+def test_period_belongs_to_the_figure_it_sits_beside():
+    """One "per month" no longer annualises every figure in the question."""
+    f = parse_question("For 2026/2027 salary 250,000 per month, bonus 300,000", SUPPORTED)
+    assert f.employment_income == Decimal("3300000")
+
+    f = parse_question(
+        "For 2026/2027 rent income 50,000 per month and salary 3,000,000", SUPPORTED
+    )
+    assert f.employment_income == Decimal("3000000")
+    assert f.investment_income == Decimal("600000")
+
+    f = parse_question("For 2026/2027 salary 3,000,000 a year, APIT 12,000 a month", SUPPORTED)
+    assert f.employment_income == Decimal("3000000")
+    assert f.apit_withheld == Decimal("144000")
+
+
+def test_period_wording_before_the_figure():
+    f = parse_question("For 2026/2027 my monthly salary is Rs. 250,000", SUPPORTED)
+    assert f.employment_income == Decimal("3000000")
+
+
+def test_period_wording_in_another_sentence_does_not_apply():
+    f = parse_question("For 2026/2027 salary 3,000,000. What is my tax per month?", SUPPORTED)
+    assert f.employment_income == Decimal("3000000")
+
+
+def test_dotted_pm_abbreviation():
+    f = parse_question("For 2026/2027 salary 250,000 p.m. and EPF 20,000 p.m.", SUPPORTED)
+    assert f.employment_income == Decimal("3000000")
+    assert f.epf_employee == Decimal("240000")
+
+
 def test_missing_year_triggers_clarify():
     assert "ya" in parse_question("I earn 3,000,000 a year", SUPPORTED).missing_required()
 

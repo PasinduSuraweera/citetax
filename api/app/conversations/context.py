@@ -66,8 +66,7 @@ _TOLERANCE = Decimal("1")
 
 # A stated amount: "5,000,000", "LKR 500,000", "5 million", "250k", "2.5 lakhs".
 # The multiplier must end the word, so the "m" of "monthly" is not a million.
-# Intake's _AMOUNT does not have that guard and reads "250,000 monthly" as 250
-# billion; that parser only runs when the model is down, and is left alone.
+# Intake's _AMOUNT uses the same guard.
 _STATED = re.compile(
     r"(?i)(?<!\d)(?<!\d[.,])"
     r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?!\d)"
