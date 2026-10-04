@@ -18,11 +18,13 @@ from app.compute.types import TaxFacts
 # --- Amount parsing --------------------------------------------------------
 # Matches "LKR 250,000", "Rs. 3,000,000", "250000", "1.5 million", "250k".
 # Thousands groups must be exactly 3 digits, so "2027 3,000,000" cannot fuse
-# into one token. \b anchors keep a figure from starting mid-number.
+# into one token, and the lookarounds keep a figure from starting or ending
+# mid-number. The multiplier must end the word: without that, the "m" of
+# "250,000 monthly" read as a million and the salary became 3 trillion.
 _AMOUNT = re.compile(
-    r"(?i)(?:lkr|rs\.?|rupees?)?\s*"
-    r"\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\b"
-    r"\s*(k|m|mn|million|lakhs?|crores?)?",
+    r"(?i)(?<!\d)(?<!\d[.,])"
+    r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?!\d)"
+    r"(?:\s*(million|mn|m|k|lakhs?|crores?)(?![a-z]))?"
 )
 
 _MULTIPLIER = {
@@ -36,8 +38,17 @@ _MULTIPLIER = {
     "crores": Decimal("10000000"),
 }
 
-_MONTHLY = re.compile(r"(?i)\b(per month|a month|monthly|pm|p\.m\.|each month)\b")
-_ANNUAL = re.compile(r"(?i)\b(per year|a year|per annum|annually|yearly|p\.a\.)\b")
+# (?<!\w) and (?!\w) rather than \b, so "p.m." still matches before a space.
+_MONTHLY = re.compile(r"(?i)(?<!\w)(?:per month|a month|monthly|pm|p\.m\.?|each month)(?!\w)")
+_ANNUAL = re.compile(r"(?i)(?<!\w)(?:per year|a year|per annum|annually|yearly|p\.a\.?)(?!\w)")
+
+# A period phrase belongs to the figure it sits beside: "EPF 20,000 a month"
+# or "monthly salary of 250,000". It reaches no further than this many
+# characters, never across another figure, and never into the next clause, so
+# "rent 50,000 per month and salary 3,000,000" leaves the salary annual.
+_PERIOD_REACH = 25
+# A sentence or clause boundary. The dot of "Rs." is not one.
+_CLAUSE_BREAK = re.compile(r"(?i)[?!;\n]|(?<!rs)\.(?=\s|$)")
 
 # A "what if I got a raise" question states a change, not a total — the
 # figure near these words is added to (or, for a cut, subtracted from) the
@@ -93,12 +104,18 @@ def _find_amount(
     best: tuple[Decimal, int] | None = None
     best_distance = float("inf")
     lowered = text.lower()
+    # Matched against the whole text, then filtered by position: matching a
+    # slice could start a figure mid-number where the window cut it.
+    amounts = list(_AMOUNT.finditer(text))
 
     for kw in keywords:
         for km in re.finditer(re.escape(kw), lowered):
             start = max(0, km.start() - window)
             end = min(len(text), km.end() + window)
-            for am in _AMOUNT.finditer(text[start:end]):
+            for am in amounts:
+                pos = am.start(1)
+                if not start <= pos < end:
+                    continue
                 value = _to_decimal(am.group(1), am.group(2))
                 # Reject bare years masquerading as amounts.
                 if value is None or value < 1000:
@@ -106,7 +123,6 @@ def _find_amount(
                 if 2000 <= value <= 2100 and not am.group(2):
                     continue
 
-                pos = start + am.start(1)
                 if pos in claimed:
                     continue
 
@@ -119,6 +135,39 @@ def _find_amount(
                     best, best_distance = (value, pos), distance
 
     return best
+
+
+def _monthly_figures(text: str) -> set[int]:
+    """Offsets of the figures stated per month.
+
+    Each period phrase belongs to the one figure it sits beside, preferring the
+    figure before it ("EPF 20,000 a month") over the one after it ("monthly
+    salary of 250,000"). A figure with no phrase of its own is taken as stated.
+    Deciding this per figure, not once for the whole question, is what keeps
+    "salary 250,000 per month, bonus 300,000" from multiplying the bonus too.
+    """
+    figures = [(m.start(1), m.end()) for m in _AMOUNT.finditer(text)]
+
+    def attached(gap: str) -> bool:
+        return len(gap) <= _PERIOD_REACH and not _CLAUSE_BREAK.search(gap)
+
+    # figure offset -> (gap length, monthly?); the closest phrase wins.
+    period: dict[int, tuple[int, bool]] = {}
+    for pattern, monthly in ((_MONTHLY, True), (_ANNUAL, False)):
+        for pm in pattern.finditer(text):
+            before = [f for f in figures if f[1] <= pm.start()]
+            after = [f for f in figures if f[0] >= pm.end()]
+            owner: tuple[int, int] | None = None
+            if before and attached(text[before[-1][1]:pm.start()]):
+                owner, gap = before[-1], pm.start() - before[-1][1]
+            elif after and attached(text[pm.end():after[0][0]]):
+                owner, gap = after[0], after[0][0] - pm.end()
+            if owner is None:
+                continue
+            if owner[0] not in period or gap < period[owner[0]][0]:
+                period[owner[0]] = (gap, monthly)
+
+    return {pos for pos, (_, monthly) in period.items() if monthly}
 
 
 def parse_year_of_assessment(text: str, supported: tuple[str, ...]) -> str | None:
@@ -151,6 +200,11 @@ def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
 
     # Offsets already assigned to a field, so one figure never fills two roles.
     claimed: set[int] = set()
+    # Figures stated per month; each is annualised where it is assigned.
+    monthly = _monthly_figures(text)
+
+    def annual(value: Decimal, pos: int) -> Decimal:
+        return value * 12 if pos in monthly else value
 
     hit = _find_amount(
         text, ["salary", "earn", "income", "paid", "wage", "make", "pay"],
@@ -172,24 +226,20 @@ def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
     if hit is not None:
         salary, pos = hit
         claimed.add(pos)
-        if _MONTHLY.search(text) and not _ANNUAL.search(text):
-            salary *= 12
-        facts.employment_income = salary
+        facts.employment_income = annual(salary, pos)
 
     increase_hit = _find_amount(text, _INCREASE_KEYWORDS, claimed=claimed)
     if increase_hit is not None:
         amount, pos = increase_hit
         claimed.add(pos)
-        if _MONTHLY.search(text) and not _ANNUAL.search(text):
-            amount *= 12
+        amount = annual(amount, pos)
         facts.employment_income = (facts.employment_income or Decimal(0)) + amount
 
     decrease_hit = _find_amount(text, _DECREASE_KEYWORDS, claimed=claimed)
     if decrease_hit is not None:
         amount, pos = decrease_hit
         claimed.add(pos)
-        if _MONTHLY.search(text) and not _ANNUAL.search(text):
-            amount *= 12
+        amount = annual(amount, pos)
         # A cut larger than the stated salary is a nonsensical input, not a
         # negative-income scenario the compute engine needs to handle.
         facts.employment_income = max(
@@ -210,6 +260,6 @@ def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
         if found is not None:
             value, pos = found
             claimed.add(pos)
-            setattr(facts, field_name, value)
+            setattr(facts, field_name, annual(value, pos))
 
     return facts
