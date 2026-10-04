@@ -11,6 +11,7 @@ Two invariants hold everywhere in this file:
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import date
 from typing import Any
@@ -24,6 +25,7 @@ from app.db.session import db_conn
 from app.rules.resolver import RuleVersion, current_snapshot
 
 router = APIRouter(prefix="/admin")
+logger = logging.getLogger(__name__)
 
 # Rule keys whose value feeds a computed figure. Changing one needs dual
 # control (spec section 5.1 E).
@@ -403,6 +405,25 @@ def approve_proposal(
 # Publication and rollback
 # ---------------------------------------------------------------------------
 
+def _reindex_rule_text(conn) -> dict[str, Any]:
+    """Re-index rule text once the current snapshot has changed (spec section
+    3.5), so the next answer quotes the law it is computed from.
+
+    Called after the commit: a failure here must not undo a publish or a
+    rollback. The agent's next cycle finds the index stale and retries.
+    """
+    from app.retrieval import indexer
+
+    try:
+        report = indexer.index_rule_versions(conn)
+    except Exception as exc:  # noqa: BLE001
+        conn.rollback()
+        logger.warning("rule text re-index failed: %s", exc)
+        return {"ok": False, "chunks": 0, "errors": [str(exc)[:160]]}
+    return {"ok": not report.errors, "chunks": report.chunks_written,
+            "errors": report.errors}
+
+
 @router.post("/snapshots/publish")
 def publish(user: ApproverDep, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Publishing is not a row update. It creates a new corpus snapshot.
@@ -548,6 +569,7 @@ def publish(user: ApproverDep, payload: dict[str, Any] = Body(...)) -> dict[str,
                snapshot_id, None, {"label": label, "changelog": changelog,
                                    "rules": created})
         conn.commit()
+        index = _reindex_rule_text(conn)
 
     return {
         "ok": True,
@@ -555,6 +577,7 @@ def publish(user: ApproverDep, payload: dict[str, Any] = Body(...)) -> dict[str,
         "label": label,
         "changelog": changelog,
         "published": created,
+        "index": index,
     }
 
 
@@ -609,12 +632,14 @@ def rollback(snapshot_id: str, user: AdminDep) -> dict[str, Any]:
                {"from": str(previous["id"]) if previous else None},
                {"to": snapshot_id, "affected_rule_keys": keys})
         conn.commit()
+        index = _reindex_rule_text(conn)
 
     return {
         "ok": True,
         "current_snapshot_id": snapshot_id,
         "label": target["label"],
         "affected_rule_keys": keys,
+        "index": index,
     }
 
 

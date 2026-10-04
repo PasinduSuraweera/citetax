@@ -1,9 +1,9 @@
 """Chunk and embed documents into the chunk table.
 
 Two kinds of text get indexed:
-  1. The quoted_text on every published rule version, tagged with its rule_key.
-     This is the highest value passage: it is the exact sentence a figure came
-     from, already reviewer approved.
+  1. The quoted_text on every rule version in the current snapshot, tagged
+     with its rule_key. This is the highest value passage: it is the exact
+     sentence a figure came from, already reviewer approved.
   2. The raw_text of source documents (crawled pages, uploaded files), so a
      general question can be answered from the law rather than from the model.
 
@@ -87,31 +87,63 @@ def _write_chunks(
         report.chunks_written += 1
 
 
+def _current_rule_texts(conn: Connection) -> list[tuple[str, str]]:
+    """(rule_key, chunk text) for each rule version in the current snapshot.
+
+    The snapshot, not status = 'published': a rollback leaves that status on
+    the versions it rolled away from, and a publish does not always clear it
+    on the version it replaces, so status would keep superseded law indexed.
+    Identical texts are indexed once.
+    """
+    rows = conn.execute(
+        text(
+            "select rv.rule_key, rv.quoted_text, rv.citation_label "
+            "  from snapshot_rule_version srv "
+            "  join corpus_snapshot s on s.id = srv.snapshot_id and s.is_current "
+            "  join rule_version rv on rv.id = srv.rule_version_id "
+            " where rv.quoted_text is not null "
+            " order by rv.rule_key, rv.effective_from"
+        )
+    ).mappings().all()
+    pairs = (
+        (r["rule_key"], f"{r['citation_label'] or r['rule_key']}: {r['quoted_text']}")
+        for r in rows
+    )
+    return list(dict.fromkeys(pairs))
+
+
+def rule_index_is_stale(conn: Connection) -> bool:
+    """True when the indexed rule text is not exactly the current snapshot's,
+    or, with dense retrieval on, a rule chunk is missing its embedding.
+
+    Two queries and no embedding call, so the agent can ask every cycle.
+    """
+    rows = conn.execute(
+        text(
+            "select rule_key, text, embedding is not null as embedded from chunk "
+            " where rule_key is not null and source_document_id is null"
+        )
+    ).all()
+    if sorted((r[0], r[1]) for r in rows) != sorted(_current_rule_texts(conn)):
+        return True
+    return embeddings.dense_enabled() and not all(r[2] for r in rows)
+
+
 def index_rule_versions(conn: Connection, report: IndexReport | None = None) -> IndexReport:
-    """Index the quoted text of every published rule version."""
+    """Index the quoted text of every rule version in the current snapshot."""
     report = report or IndexReport()
     provider = embeddings.get_provider()
 
-    rows = conn.execute(
-        text(
-            "select rv.id, rv.rule_key, rv.quoted_text, rv.citation_label, "
-            "       rv.source_document_id "
-            "  from rule_version rv where rv.status = 'published' "
-            "   and rv.quoted_text is not null"
-        )
-    ).mappings().all()
+    pairs = _current_rule_texts(conn)
 
     # Replace prior rule text chunks wholesale: they are cheap and few.
     conn.execute(
         text("delete from chunk where rule_key is not null and source_document_id is null")
     )
 
-    texts, keys = [], []
-    for r in rows:
-        body = f"{r['citation_label'] or r['rule_key']}: {r['quoted_text']}"
-        texts.append(body)
-        keys.append(r["rule_key"])
-        report.rule_versions += 1
+    keys = [key for key, _ in pairs]
+    texts = [body for _, body in pairs]
+    report.rule_versions += len(pairs)
 
     # One embedding call for all rule texts, then write per key.
     vectors: list[list[float]] = [[] for _ in texts]
