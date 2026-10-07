@@ -64,7 +64,7 @@ _PLACEHOLDER = re.compile(r"<[A-Z]+(?:_\d+)?>")
 # Textiles EPF" is still redacted whole, so fail-closed still holds.
 _TAX_TERMS = frozenset({
     "ait", "apit", "cbsl", "cgt", "epf", "esc", "etf", "iit", "ird", "lkr",
-    "nbt", "nic", "paye", "ramis", "rs", "sscl", "svat", "tin", "vat", "wht",
+    "nbt", "nic", "paye", "ramis", "rs", "set", "sscl", "svat", "tin", "vat", "wht",
     "inland revenue", "inland revenue department", "department of inland revenue",
     "commissioner general of inland revenue", "inland revenue act",
     "provident fund", "employees provident fund",
@@ -75,11 +75,54 @@ _POSSESSIVE = re.compile(r"['’]s\b")
 _NOT_WORD = re.compile(r"[^\w\s]")
 
 
+# Words that make up the names of public tax documents. spaCy tags "APIT Tax
+# Tables", "Quarterly Tax Circular" and "Statement of Estimated Tax" as
+# organisations, and as employers they cost the model the subject of the
+# question: "revised <EMPLOYER_1>" was refused as an employer's document (#89).
+_DOC_WORDS = frozenset({
+    "tax", "taxes", "income", "personal", "advance", "withholding", "table", "tables",
+    "circular", "circulars", "guideline", "guidelines", "guide", "notice", "notices",
+    "act", "acts", "amendment", "amendments", "bill", "gazette", "gazettes", "schedule",
+    "schedules", "return", "returns", "statement", "statements", "estimated", "quarterly",
+    "annual", "monthly", "form", "forms", "certificate", "certificates", "rule", "rules",
+    "rate", "rates", "band", "bands", "relief", "reliefs", "credit", "credits", "payment",
+    "payments", "deduction", "deductions", "instalment", "instalments", "installment",
+    "installments", "assessment", "year", "revised", "new", "updated", "department",
+    "commissioner", "general", "policy", "legislation", "unit", "budget", "practice",
+    "note", "notes", "faq", "faqs", "of", "and", "for", "on", "in", "to", "the",
+})
+_TAX_WORDS = frozenset(w for term in _TAX_TERMS for w in term.split())
+
+
 def _is_tax_term(span: str) -> bool:
+    """True when a span names something every taxpayer shares: a tax, a fund,
+    the authority, or a tax document. Every word must qualify, so one other
+    word ("Ceylon Textiles EPF", "Tax Solutions Ltd") and the span is still
+    redacted whole: fail-closed holds."""
     words = _NOT_WORD.sub("", _POSSESSIVE.sub("", span.lower())).split()
     if words[:1] == ["the"]:
         words = words[1:]
-    return " ".join(words) in _TAX_TERMS
+    if not words:
+        return False
+    if " ".join(words) in _TAX_TERMS:
+        return True
+    # No digits: "EPF 240000" may be a member number, so it stays redacted.
+    return all(w in _DOC_WORDS or w in _TAX_WORDS for w in words) and any(
+        w not in {"of", "and", "for", "on", "in", "to", "the", "new", "revised", "updated"} for w in words
+    )
+
+
+# The name after "I work at", "employed by", "my employer is": an employer
+# whether or not NER knows the name. "I work at Dialog Axiata" went out
+# unmasked because en_core_web_sm does not tag "Dialog Axiata" at all (#89).
+_EMPLOYER_CONTEXT = re.compile(
+    r"(?i:\b(?:i\s+work(?:ed)?\s+(?:at|for)|i\s+am\s+working\s+(?:at|for)|working\s+(?:at|for)|"
+    r"employed\s+(?:at|by|with)|my\s+employer(?:\s+is|,)?|job\s+at|i'?m\s+with)\s+)"
+    # Capitalised words, joined by "of" or "&" ("Ministry of Health"), never
+    # across a full stop ("...PLC. My colleague") and not by "and", which
+    # more often starts the next clause ("Holdings and EPF is deducted").
+    r"((?:[Tt]he\s+)?[A-Z][\w&'-]*(?:\s+(?:(?:of|&)\s+)?(?:[A-Z][\w&'-]*|\(Pvt\)))*)"
+)
 
 # A label word immediately preceding its own placeholder, e.g. "NIC <NIC>".
 _LABEL_BEFORE_PLACEHOLDER = re.compile(
@@ -180,6 +223,10 @@ class CodedRedactor:
             out, n = _ACCOUNT.subn("<ACCOUNT>", out)
             bump("ACCOUNT", n)
 
+        # --- Tier 3b: an employer named by context -------------------------
+        out, n = self._redact_employer_context(out)
+        bump("EMPLOYER", n)
+
         # --- Tier 4: names and organisations -------------------------------
         nlp = self._nlp_or_none()
         if nlp is not None:
@@ -194,6 +241,29 @@ class CodedRedactor:
         return RedactedText(
             text=out, replacements=counts, ner_available=nlp is not None
         )
+
+    def _redact_employer_context(self, text: str) -> tuple[str, int]:
+        count = 0
+        seen: dict[str, str] = {}
+
+        def sub(m: re.Match[str]) -> str:
+            nonlocal count
+            name = m.group(1)
+            if _is_tax_term(name):
+                return m.group(0)
+            key = name.lower()
+            if key not in seen:
+                seen[key] = f"<EMPLOYER_{len(seen) + 1}>"
+            count += 1
+            return m.group(0)[: m.start(1) - m.start(0)] + seen[key]
+
+        out = _EMPLOYER_CONTEXT.sub(sub, text)
+        # The same employer named again later in the question gets the same
+        # token: "I work at Commercial Bank. Commercial Bank deducts APIT."
+        for name, token in seen.items():
+            out, n = re.subn(rf"(?i)\b{re.escape(name)}\b", token, out)
+            count += n
+        return out, count
 
     def _redact_entities(self, nlp, text: str) -> tuple[str, dict[str, int]]:
         doc = nlp(text)
@@ -212,6 +282,12 @@ class CodedRedactor:
         def overlaps_placeholder(start: int, end: int) -> bool:
             return any(start < p_end and end > p_start for p_start, p_end in protected)
 
+        # Placeholders an earlier tier wrote ("<EMPLOYER_1>" from context):
+        # NER numbers on from them, so two employers never share a token.
+        already: dict[str, int] = {}
+        for m in re.finditer(r"<([A-Z]+)_(\d+)>", text):
+            already[m.group(1)] = max(already.get(m.group(1), 0), int(m.group(2)))
+
         for ent in doc.ents:
             if overlaps_placeholder(ent.start_char, ent.end_char):
                 continue
@@ -228,7 +304,7 @@ class CodedRedactor:
 
             key = f"{kind}:{ent.text.lower()}"
             if key not in seen:
-                idx = sum(1 for k in seen if k.startswith(kind)) + 1
+                idx = sum(1 for k in seen if k.startswith(kind)) + 1 + already.get(kind, 0)
                 seen[key] = f"<{kind}_{idx}>"
             spans.append((ent.start_char, ent.end_char, seen[key]))
             counts[kind] = counts.get(kind, 0) + 1
