@@ -6,7 +6,8 @@ One cycle:
   2. extract text from anything that arrived without it
   3. run the LLM extractor on documents that have a blank placeholder proposal,
      so the inbox fills with pre-filled proposals rather than empty rows
-  4. index new text into the retrieval store
+  4. index new text into the retrieval store, and re-index rule text when it
+     no longer matches the current snapshot
   5. write an agent_cycle row so the admin panel can show what the agent did
 
 What it never does: approve, publish, or touch rule_version. Human authority is
@@ -119,12 +120,12 @@ def run_cycle(trigger: str = "scheduler") -> CycleReport:
 
             # 4. index
             try:
-                have_rule_chunks = conn.execute(
-                    text("select count(*) from chunk where rule_key is not null")
-                ).scalar_one()
-                if not have_rule_chunks:
+                # Publish and rollback re-index straight away; this catches a
+                # re-index that failed there, and any other change of snapshot.
+                if indexer.rule_index_is_stale(conn):
                     ir = indexer.index_rule_versions(conn)
                     report.chunks_indexed += ir.chunks_written
+                    report.errors.extend(f"rule text: {e}" for e in ir.errors[:2])
                 ir2 = indexer.index_unindexed_documents(conn, limit=10)
                 report.chunks_indexed += ir2.chunks_written
                 report.errors.extend(ir2.errors[:3])
