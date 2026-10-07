@@ -5,9 +5,9 @@
  *
  * Renders inline in the main column, the same way a regular question's
  * answer replaces the composer, not as an overlay. Nothing is computed or
- * saved until the user confirms the extracted figures. The photo/PDF itself
- * never touches this component after the initial upload call; only the
- * numeric response from `/v1/payslip/extract` does.
+ * saved until the user confirms the extracted figures. Reading the file sends
+ * it whole to Google's Gemini model, identifiers included, so nothing is sent
+ * until the user agrees; they can type the three figures instead (#51).
  */
 
 import { FileText, Loader2, Printer, ShieldCheck, TriangleAlert, X } from "lucide-react";
@@ -36,10 +36,12 @@ interface Props {
   onClose: () => void;
 }
 
-type Phase = "extracting" | "confirm" | "computing" | "result" | "error";
+type Phase = "consent" | "extracting" | "confirm" | "computing" | "result" | "error";
 
 export function PayslipConfirm({ file, ya, onClose }: Props) {
-  const [phase, setPhase] = useState<Phase>("extracting");
+  const [phase, setPhase] = useState<Phase>("consent");
+  // Figures typed by the user rather than read from the file.
+  const [manual, setManual] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<PayslipExtractResponse | null>(null);
   const [employmentIncome, setEmploymentIncome] = useState("");
@@ -87,6 +89,7 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
   };
 
   useEffect(() => {
+    if (phase !== "extracting") return;
     let cancelled = false;
     api
       .payslipExtract(file, ya)
@@ -106,9 +109,9 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-    // Only ever runs once per uploaded file.
+    // Runs once, when the user agrees to send the file.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [phase === "extracting"]);
 
   const confirm = async () => {
     setPhase("computing");
@@ -146,6 +149,35 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
         )}
       </div>
 
+      {phase === "consent" && (
+        <div className="mt-5 rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
+          <h2 className="text-[17px] font-semibold text-ink-900">Before it is read</h2>
+          <p className="mt-2 max-w-[60ch] text-[14.5px] leading-[1.6] text-ink-700">
+            To read the figures, Citetax sends this file to Google&apos;s Gemini model.
+            Everything on it goes with it, including your name, NIC and employer.
+          </p>
+          <p className="mt-2 max-w-[60ch] text-[14px] leading-[1.6] text-ink-500">
+            Citetax does not store the file, and only the three figures you confirm
+            are kept. If you would rather not send it, type the figures yourself.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <Button onClick={() => setPhase("extracting")} className="h-10 px-4">
+              Send it to Gemini and read it
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setManual(true);
+                setPhase("confirm");
+              }}
+              className="h-10"
+            >
+              Type the figures instead
+            </Button>
+          </div>
+        </div>
+      )}
+
       {phase === "extracting" && (
         <div className="mt-5 px-1" aria-live="polite">
           <p className="flex items-center gap-2 text-[14px] text-ink-500">
@@ -170,12 +202,15 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
         </div>
       )}
 
-      {(phase === "confirm" || phase === "computing") && extraction && (
+      {(phase === "confirm" || phase === "computing") && (extraction || manual) && (
         <div className="mt-5 rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
-          <h2 className="text-[17px] font-semibold text-ink-900">Check the figures</h2>
+          <h2 className="text-[17px] font-semibold text-ink-900">
+            {manual ? "Enter the figures" : "Check the figures"}
+          </h2>
           <p className="mt-1 text-[14px] leading-[1.6] text-ink-500">
-            These were read from your payslip. Correct anything that is wrong
-            before your tax is worked out.
+            {manual
+              ? "Annual amounts from your payslip, for the whole year of assessment."
+              : "These were read from your payslip. Correct anything that is wrong before your tax is worked out."}
           </p>
 
           <div className="mt-5 flex max-w-[420px] flex-col gap-4">
@@ -184,12 +219,12 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
             <Field id="pay-apit" label="APIT already deducted this year" value={apitWithheld} onChange={setApitWithheld} />
           </div>
 
-          {extraction.pay_period === "monthly" && (
+          {extraction?.pay_period === "monthly" && (
             <p className="mt-3 text-[13px] text-ink-400">
               Your payslip showed monthly figures, so they have been multiplied by 12.
             </p>
           )}
-          {extraction.warnings.length > 0 && (
+          {extraction && extraction.warnings.length > 0 && (
             <ul className="mt-4 flex flex-col gap-1.5 rounded-lg bg-[#fdf4e0] px-4 py-3 text-[13.5px] text-[#6b4a0b]">
               {extraction.warnings.map((w) => (
                 <li key={w} className="flex items-start gap-2">
@@ -202,8 +237,9 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
 
           <p className="mt-5 flex items-start gap-2 text-[13px] leading-[1.5] text-ink-500">
             <ShieldCheck className="mt-[2px] size-4 flex-none text-good-600" />
-            Only these three figures were kept. The image and everything else
-            on it were discarded and never stored.
+            {manual
+              ? "Your payslip was not sent anywhere. Only these three figures are used."
+              : "Only these three figures were kept. The file was sent to Gemini to be read and was never stored by Citetax."}
           </p>
 
           <div className="mt-6 flex items-center gap-2">

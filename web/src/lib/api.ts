@@ -516,6 +516,9 @@ export const api = {
     const form = new FormData();
     form.append("file", file);
     form.append("ya", ya);
+    // Only called after the user agrees on the upload screen to the file
+    // being sent to Gemini; the API refuses without it.
+    form.append("consent", "gemini");
     return request<PayslipExtractResponse>("/v1/payslip/extract", {
       method: "POST",
       body: form,

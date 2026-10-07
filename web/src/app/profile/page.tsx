@@ -20,7 +20,6 @@ const NEVER_SENT = [
   { what: "Your NIC or TIN", how: "Removed by pattern before anything is sent" },
   { what: "Your name", how: "Replaced with a placeholder when the question arrives" },
   { what: "Your employer", how: "Masked; it never affects a computation" },
-  { what: "Payslip text and images", how: "Only the three figures you confirm are kept" },
 ];
 
 const KEPT = [
@@ -132,10 +131,17 @@ export default function AccountPage() {
               ))}
             </ul>
             <p className="mt-4 max-w-[56ch] text-[13px] leading-[1.6] text-ink-400">
-              Personal details are removed on the server before any outside
-              service is called. The figures a computation needs are kept,
-              which is the harder half of the job.
+              Personal details are removed from your questions on the server
+              before any outside service is called. The figures a computation
+              needs are kept, which is the harder half of the job.
             </p>
+            <div className="mt-4 max-w-[56ch] rounded-lg bg-[#fdf4e0] px-4 py-3 text-[13.5px] leading-[1.55] text-[#6b4a0b]">
+              <span className="font-semibold">One exception: a payslip you upload.</span>{" "}
+              To read the figures, the whole file is sent to Google&apos;s Gemini
+              model, including your name, NIC and employer. It happens only after
+              you agree on the upload screen, and you can type the three figures
+              instead. Citetax never stores the file.
+            </div>
           </section>
 
           <section>

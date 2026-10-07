@@ -31,7 +31,17 @@ async def extract_payslip(
     user: CurrentUserDep,
     file: UploadFile = File(...),
     ya: str = Form(...),
+    consent: str = Form(""),
 ) -> dict[str, Any]:
+    # The file goes to Google's Gemini whole, identifiers included. That only
+    # happens with the user's explicit agreement, checked here as well as on
+    # the upload screen, so no client can skip it (#51).
+    if consent != "gemini":
+        raise HTTPException(
+            400,
+            "Reading a payslip sends it to Google's Gemini model. Agree to that "
+            "on the upload screen, or type the figures yourself.",
+        )
     settings = get_settings()
     if ya not in settings.supported_yas:
         raise HTTPException(

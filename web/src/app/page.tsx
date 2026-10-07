@@ -211,9 +211,9 @@ export default async function HomePage() {
                 </div>
               ))}
               <p className="text-[15px] leading-[1.6] text-ink-500 sm:col-span-2 lg:col-span-3">
-                Signed in, you can also upload a payslip. You check the figures
-                read from it before anything is worked out, and the image is
-                never stored.
+                Signed in, you can also upload a payslip. With your agreement it
+                is sent to Google&apos;s Gemini model to read the figures, which you
+                check before anything is worked out. Citetax never stores the image.
               </p>
             </div>
           </div>
