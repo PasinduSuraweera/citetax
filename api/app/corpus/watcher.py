@@ -1,7 +1,7 @@
 """Source watcher (spec section 3.2).
 
-Fetches each index page, extracts candidate document links, and hashes the raw
-bytes of every document it finds.
+Fetches each index page, extracts candidate document links, and fingerprints
+every document it finds by what it says rather than by its bytes.
 
 The case this exists for: a URL that is already known but whose hash has
 changed is a silent revision. One IRD circular was issued on 6 August, revised,
@@ -17,6 +17,7 @@ rows in one family with revisions 1, 2, 3, never three competing documents.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import uuid
@@ -44,6 +45,18 @@ _INDEX_PATHS = {
     "/circulars", "/publications",
 }
 _LINK = re.compile(r'href=["\']([^"\']+)["\']', re.I)
+# Page 2, 3, ... of a listing: excerpts of old articles, not a document.
+_PAGINATED = re.compile(r"/page/\d+$")
+
+# Share of a page's text that is links above which it is a listing, not a
+# document. Measured: articles run 0.17 to 0.54, listings and pages whose
+# content loads by script 0.96 to 1.0.
+LISTING_LINK_SHARE = 0.9
+
+
+def _same_text(a: str | None, b: str | None) -> bool:
+    norm = lambda t: re.sub(r"\s+", " ", t or "").strip()  # noqa: E731
+    return bool(norm(a)) and norm(a) == norm(b)
 
 
 @dataclass
@@ -59,6 +72,7 @@ class WatchResult:
     new_documents: int = 0
     revisions: int = 0
     unchanged: int = 0
+    skipped: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     documents: list[dict[str, Any]] = field(default_factory=list)
 
@@ -69,6 +83,7 @@ class WatchResult:
             "new_documents": self.new_documents,
             "revisions": self.revisions,
             "unchanged": self.unchanged,
+            "skipped": self.skipped,
             "errors": self.errors,
             "documents": self.documents,
         }
@@ -108,7 +123,9 @@ def extract_links(html: str, base_url: str, limit: int = 40) -> list[Discovered]
         # navigation, not documents, and recording them fills the review queue
         # with pages that never contain a rule. A real document has something
         # after the section segment.
-        is_index_page = lowered in _INDEX_PATHS or lowered == base_path
+        is_index_page = (
+            lowered in _INDEX_PATHS or lowered == base_path or bool(_PAGINATED.search(lowered))
+        )
         if is_index_page or not (looks_like_doc or looks_like_notice):
             continue
         if absolute in seen:
@@ -128,7 +145,11 @@ def _record_document(
     content_type: str,
     result: WatchResult,
 ) -> None:
-    """Hash the bytes and decide: unchanged, new, or a silent revision."""
+    """Decide: unchanged, new, or a silent revision.
+
+    Bytes decide the quick case. Otherwise the page's own words decide, so a
+    rewritten view state or a new sidebar post is not a revision.
+    """
     sha = hashlib.sha256(body).hexdigest()
 
     existing_same_hash = conn.execute(
@@ -143,38 +164,59 @@ def _record_document(
         result.unchanged += 1
         return
 
+    # Extract text from whatever arrived: HTML, PDF, or plain text. A PDF with
+    # no text layer yields an empty string, which the extractor reports as
+    # "no extractable text" rather than guessing.
+    from app.corpus.pdf import content_fingerprint, extract_text
+
+    raw_text, text_meta = extract_text(body, content_type, url)
+    is_html = (text_meta or {}).get("kind") == "html"
+    fingerprint, link_share = content_fingerprint(body, raw_text, is_html)
+
+    # A page that is almost all links is a listing or a page whose content
+    # loads by script. Neither states a rule.
+    if is_html and link_share >= LISTING_LINK_SHARE:
+        result.skipped.append(url)
+        return
+
     prior = conn.execute(
         text(
-            "select id, family_id, revision_no from source_document "
-            " where url = :u order by revision_no desc limit 1"
+            "select id, family_id, revision_no, raw_text, "
+            "       text_meta->>'fingerprint' as fingerprint "
+            "  from source_document where url = :u order by revision_no desc limit 1"
         ),
         {"u": url},
     ).mappings().first()
+
+    if prior and (
+        prior["fingerprint"] == fingerprint
+        or (not prior["fingerprint"] and _same_text(prior["raw_text"], raw_text))
+    ):
+        conn.execute(
+            text(
+                "update source_document set last_seen_at = now(), "
+                "text_meta = coalesce(text_meta, '{}'::jsonb) || cast(:m as jsonb) "
+                "where id = :id"
+            ),
+            {"id": prior["id"], "m": json.dumps({"fingerprint": fingerprint})},
+        )
+        result.unchanged += 1
+        return
 
     doc_id = str(uuid.uuid4())
     is_revision = prior is not None
     family_id = str(prior["family_id"]) if prior else str(uuid.uuid4())
     revision_no = (prior["revision_no"] + 1) if prior else 1
-
-    # Extract text from whatever arrived: HTML, PDF, or plain text. A PDF with
-    # no text layer yields an empty string, which the extractor reports as
-    # "no extractable text" rather than guessing.
-    from app.corpus.pdf import extract_text
-
-    raw_text, text_meta = extract_text(body, content_type, url)
+    text_meta = {**(text_meta or {}), "fingerprint": fingerprint, "link_share": link_share}
     raw_text = (raw_text or "")[:200000] or None
 
     doc_type = conn.execute(
         text("select doc_type from source where source_id = :s"), {"s": source_id}
     ).scalar() or "circular"
 
-    import json as _json
-
     from app.corpus.titles import document_title
 
-    title = document_title(
-        body, raw_text, url, is_html=(text_meta or {}).get("kind") == "html"
-    )
+    title = document_title(body, raw_text, url, is_html=is_html)
 
     conn.execute(
         text(
@@ -190,13 +232,22 @@ def _record_document(
             "title": title,
             "sup": str(prior["id"]) if prior else None,
             "raw": raw_text,
-            "tm": _json.dumps(text_meta or {}),
+            "tm": json.dumps(text_meta),
         },
     )
 
-    # A revision of something already published is the highest priority a
-    # reviewer can see, because a live rule may now be wrong.
-    priority = 1 if is_revision else 4
+    # A revision of a document a published rule was taken from is the highest
+    # priority a reviewer can see, because a live rule may now be wrong. A
+    # revision of anything else is just another page to read.
+    feeds_published = is_revision and conn.execute(
+        text(
+            "select 1 from rule_version rv "
+            "  join source_document sd on sd.id = rv.source_document_id "
+            " where sd.family_id = :fam and rv.status = 'published' limit 1"
+        ),
+        {"fam": family_id},
+    ).first() is not None
+    priority = 1 if feeds_published else 4
     conn.execute(
         text(
             "insert into change_proposal (source_document_id, status, priority, "
@@ -208,9 +259,11 @@ def _record_document(
             "status": "needs_review",
             "pri": priority,
             "note": (
-                f"Silent revision detected: this URL was already known and its "
-                f"content changed. Revision {revision_no}, superseding revision "
-                f"{revision_no - 1}."
+                f"Silent revision of a published rule's source: this URL was "
+                f"already known and its content changed. Revision {revision_no}, "
+                f"superseding revision {revision_no - 1}."
+                if feeds_published
+                else f"Revised document: its content changed. Revision {revision_no}."
                 if is_revision
                 else "New document discovered. Needs extraction and review."
             ),
@@ -275,6 +328,11 @@ def watch_source(
             for link in links[:max_docs]:
                 try:
                     resp = client.get(link.url)
+                    # A dead link on someone else's page is their broken
+                    # link, not a failed crawl.
+                    if 400 <= resp.status_code < 500:
+                        result.skipped.append(link.url)
+                        continue
                     resp.raise_for_status()
                     _record_document(
                         conn, source_id, link.url, resp.content,
