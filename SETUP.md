@@ -143,3 +143,26 @@ changes through the admin **Review inbox**, not by editing the seed.
 No key is needed for the computation itself. The compute engine is pure Python
 with no network access — that is the point of spec §4.3, and it is what lets
 Citetax claim every number is cited.
+
+## Adding a year of assessment
+
+A Sri Lankan year of assessment runs 1 April to 31 March. The supported years
+live in one place, `supported_yas` in [api/app/core/config.py](api/app/core/config.py).
+The router prompt, the clarify question, the golden set, `/v1/years` and every
+year picker in the web app read it from there, and "this year" follows
+today's date in Colombo time. To add 2027/2028:
+
+1. **Rules first.** Get the 2027/2028 values reviewed and signed in the admin
+   (every required rule, plus `deadline.return_filing` for the year), then
+   publish. Publishing refuses a snapshot with a gap, so this step cannot be
+   half done.
+2. **Then the setting.** Set `SUPPORTED_YAS=["2025/2026","2026/2027","2027/2028"]`
+   in `api/.env` (or change the default in `config.py`) and restart the API.
+   The web app picks the years up from `/v1/years`; nothing is rebuilt.
+3. **Check.** Corpus health shows the new column covered, and the impact
+   preview runs the golden set for it.
+4. **Optional.** Drop the oldest year the same way, by removing it from the
+   setting. Past answers keep the snapshot and year they were computed with.
+
+Until step 2, "this year" stays the newest supported year, so on 1 April the
+app keeps answering for the last year it has rules for rather than guessing.

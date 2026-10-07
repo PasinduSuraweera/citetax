@@ -28,6 +28,7 @@ from typing import Any, Callable
 
 from sqlalchemy.engine import Connection
 
+from app.core import years
 from app.compute.engine import REQUIRED_RULE_KEYS, compute
 from app.compute.types import Computation, TaxFacts
 from app.conversations.context import ConversationContext
@@ -222,7 +223,7 @@ def run_answer_graph(
         if missing:
             result.kind = "clarify"
             result.clarify_question = r.clarify_question or {
-                "ya": "Which year of assessment are you asking about, 2025/2026 or 2026/2027?",
+                "ya": f"Which year of assessment are you asking about, {years.phrase()}?",
                 "income": "What was your total income for the year? A monthly figure is fine.",
             }.get(missing[0], "Could you give me a little more detail?")
             mark("Route", "ok", f"clarify: missing {missing[0]}", t0)

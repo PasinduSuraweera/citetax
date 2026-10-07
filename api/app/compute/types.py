@@ -9,7 +9,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-YA = Literal["2025/2026", "2026/2027"]
+# A year of assessment such as "2026/2027". Which ones are supported is config,
+# not a type (#57): app.core.years, and the scope gate refuses the rest.
+YA = str
 
 
 class TaxFacts(BaseModel):

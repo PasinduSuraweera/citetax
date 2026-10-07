@@ -9,7 +9,8 @@
 import { Check, LogOut, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PageBody, Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
+import { PageBody, Shell } from "@/components/Shell";
+import { useYa, useYears, yearsPhrase } from "@/lib/years";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,7 +40,8 @@ const ROLE_MEANING: Record<string, string> = {
 };
 
 export default function AccountPage() {
-  const [ya, setYa] = useState<YA>("2026/2027");
+  const [ya, setYa] = useYa();
+  const { years } = useYears();
   const [me, setMe] = useState<Me | null>(null);
   const { user, loading, signOut } = useSession();
 
@@ -164,7 +166,7 @@ export default function AccountPage() {
 
             <h2 className="mt-8 text-[17px] font-semibold text-ink-900">What Citetax covers</h2>
             <p className="mt-2 max-w-[56ch] text-[15px] leading-[1.6] text-ink-700">
-              Personal income tax for the years of assessment {SUPPORTED_YAS.join(" and ")}.
+              Personal income tax for the years of assessment {yearsPhrase(years)}.
               Anything else is declined with the reason, never guessed.
             </p>
             <p className="mt-2 text-[13.5px] text-ink-400">Citetax helps you work tax out. It is not a tax agent.</p>

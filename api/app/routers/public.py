@@ -471,6 +471,7 @@ def obligation(
 
 @router.get("/deadlines")
 def deadlines(ya: str = Query(...)) -> dict[str, Any]:
+    _require_supported(ya)
     with db_conn() as conn:
         snap = _require_snapshot(conn)
         try:
@@ -496,6 +497,7 @@ def deadlines(ya: str = Query(...)) -> dict[str, Any]:
 @router.get("/rules/{rule_key}")
 def get_rule(rule_key: str, ya: str = Query(...)) -> dict[str, Any]:
     """Resolved rule version with source anchor."""
+    _require_supported(ya)
     with db_conn() as conn:
         snap = _require_snapshot(conn)
         try:
@@ -517,6 +519,27 @@ def get_rule(rule_key: str, ya: str = Query(...)) -> dict[str, Any]:
         "supersedes_version_id": rv.supersedes_version_id,
         "corpus_snapshot_id": str(snap["id"]),
     }
+
+
+@router.get("/years")
+def supported_years() -> dict[str, Any]:
+    """The years of assessment Citetax answers for, and the one today falls in
+    (Colombo time, 1 April boundary). The web app reads this instead of
+    keeping its own list (#57)."""
+    from app.core import years
+
+    return {"supported": list(years.supported()), "current": years.current()}
+
+
+def _require_supported(ya: str) -> None:
+    """An unsupported year is the caller's mistake, said plainly, not a
+    "no rule in force" from deep in the resolver."""
+    from app.core import years
+
+    if ya not in years.supported():
+        raise HTTPException(
+            400, f"Year of assessment {ya} is not supported. Supported: {', '.join(years.supported())}"
+        )
 
 
 @router.get("/snapshot/current")

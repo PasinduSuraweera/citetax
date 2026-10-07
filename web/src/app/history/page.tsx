@@ -14,7 +14,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ComputationTable } from "@/components/ComputationTable";
-import { PageBody, Shell, type YA } from "@/components/Shell";
+import { PageBody, Shell } from "@/components/Shell";
+import { useYa } from "@/lib/years";
 import { INTENT_LABEL } from "@/components/TurnSummary";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -54,7 +55,7 @@ function timeOf(iso: string | null, group: string): string {
 }
 
 export default function HistoryPage() {
-  const [ya, setYa] = useState<YA>("2026/2027");
+  const [ya, setYa] = useYa();
   const [runs, setRuns] = useState<Run[]>([]);
   const [open, setOpen] = useState<Detail | null>(null);
   const [opening, setOpening] = useState<string | null>(null);

@@ -9,21 +9,25 @@ import { MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CompareTable } from "@/components/AnswerView";
-import { PageBody, Shell, type YA } from "@/components/Shell";
+import { PageBody, Shell } from "@/components/Shell";
+import { useYa, useYears } from "@/lib/years";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, formatDate, type CompareResponse, type Snapshot } from "@/lib/api";
 
 export default function ComparePage() {
-  const [ya, setYa] = useState<YA>("2026/2027");
+  const [ya, setYa] = useYa();
+  const { years } = useYears();
+  // The two newest supported years, oldest first.
+  const [fromYa, toYa] = [...years].slice(0, 2).reverse();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [data, setData] = useState<CompareResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.snapshot().then(setSnapshot).catch(() => setSnapshot(null));
-    api.compare("2025/2026", "2026/2027").then(setData).catch((e) => setError(e.message));
-  }, []);
+    api.compare(fromYa, toYa).then(setData).catch((e) => setError(e.message));
+  }, [fromYa, toYa]);
 
   const question = "What changed between 2025/2026 and 2026/2027?";
 

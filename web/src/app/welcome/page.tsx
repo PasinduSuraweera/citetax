@@ -18,7 +18,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { type YA } from "@/components/Shell";
+import { useYears, type YA } from "@/lib/years";
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useSession } from "@/lib/session";
@@ -82,11 +82,10 @@ const INCOME_LABEL: Record<Work, { label: string; hint: string }> = {
   investments: { label: "your total income", hint: "Interest, dividends, rent and any salary" },
 };
 
-const YA: YA = "2026/2027";
-
 /* ---------------------------------------------------------------- draft */
 
-function buildDraft(work: Work, goal: Goal, amount: string, monthly: boolean): string {
+/** The question the onboarding hands to the chat, for the year today falls in. */
+function buildDraft(work: Work, goal: Goal, amount: string, monthly: boolean, YA: YA): string {
   if (goal === "deadline") return `When is my tax return due for ${YA}?`;
   if (goal === "explore") return "";
 
@@ -131,6 +130,7 @@ function greetingName(name: string | null): string | null {
 export default function WelcomePage() {
   const router = useRouter();
   const { user, loading } = useSession();
+  const { current: ya } = useYears();
 
   const [step, setStep] = useState(1);
   const [work, setWork] = useState<Work | null>(null);
@@ -147,8 +147,8 @@ export default function WelcomePage() {
   const totalSteps = needsAmount || goal === null ? 3 : 2;
 
   const draft = useMemo(
-    () => (work && goal ? buildDraft(work, goal, amount, monthly) : ""),
-    [work, goal, amount, monthly],
+    () => (work && goal ? buildDraft(work, goal, amount, monthly, ya) : ""),
+    [work, goal, amount, monthly, ya],
   );
 
   const handOver = (q: string) => {
@@ -160,7 +160,7 @@ export default function WelcomePage() {
     setGoal(g);
     // Only a figure question needs a figure. The rest can leave now.
     if (g === "owe" || g === "file") setStep(3);
-    else handOver(buildDraft(work ?? "employed", g, "", monthly));
+    else handOver(buildDraft(work ?? "employed", g, "", monthly, ya));
   };
 
   if (loading) {
@@ -329,7 +329,7 @@ export default function WelcomePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handOver(buildDraft(work ?? "employed", goal ?? "owe", "", monthly))}
+                  onClick={() => handOver(buildDraft(work ?? "employed", goal ?? "owe", "", monthly, ya))}
                   disabled={leaving}
                   className="text-[13.5px] font-medium text-ink-400 transition-colors hover:text-ink-700"
                 >
