@@ -128,3 +128,13 @@ def test_docx_is_read_and_old_doc_is_refused_with_a_way_out(reviewer):
     r = _upload(headers, "old.doc", b"\xd0\xcf\x11\xe0 binary word", "application/msword")
     assert r.status_code == 400
     assert ".docx or PDF" in r.json()["detail"]
+
+
+def test_an_unknown_document_type_is_a_400_not_a_500(reviewer):
+    """#92: the database rejects other types; the endpoint now says so."""
+    headers, _ = reviewer
+    r = client.post("/admin/sources/upload", headers=headers,
+                    files={"file": ("act.pdf", _pdf([TEXT]), "application/pdf")},
+                    data={"doc_type": "act"})
+    assert r.status_code == 400
+    assert "act_amendment" in r.json()["detail"]
