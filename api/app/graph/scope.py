@@ -49,17 +49,33 @@ _EMPLOYER_FILING = re.compile(
     r"employer'?s? (?:return|obligation|filing)|remit (?:paye|apit))\b"
 )
 
-# Advisory phrasing — "what should I do" is refused (spec §1.2).
+# Advisory phrasing is refused (spec §1.2). These are planning on their own.
 _ADVISORY = re.compile(
-    r"(?i)\b(should i|what should|advise me|recommend|best way to (?:avoid|reduce|minimi[sz]e)|"
+    r"(?i)\b(best way to (?:avoid|reduce|minimi[sz]e)|"
     r"how (?:can|do) i (?:avoid|reduce|minimi[sz]e|evade|escape)|tax planning|"
     r"structure my|loophole|get around|pay less tax)\b"
 )
+# "Should I", "recommend" and "advise me" are refused only when they ask about
+# planning. "Should I file a return?" is the obligation question in ordinary
+# words, and refusing it refused one of the commonest questions there is (#46).
+_ASKS_ADVICE = re.compile(r"(?i)\b(should i|what should|advise me|recommend)\b")
+_PLANNING = re.compile(
+    r"(?i)\b(reduce|avoid|minimi[sz]e|lower|save|saving|cut|less tax|structure|split|"
+    r"shift|move (?:my |the )?(?:income|money)|hide|evade|escape|invest|scheme|"
+    r"plan(?:ning)?|transfer|in my (?:wife|husband|spouse|child)'?s? name)\b"
+)
 
-# Representation before IRD.
+# Representation before IRD. An assessment notice is in scope to explain; it
+# is representation once the user wants to contest it.
 _REPRESENTATION = re.compile(
-    r"(?i)\b(appeal|dispute|object to|represent me|tribunal|assessment notice|"
-    r"tax case|litigat)\b"
+    r"(?i)\b(appeal|dispute|object to|represent me|tribunal|tax case|litigat|"
+    r"(?:challenge|contest|fight|respond to|reply to) (?:an? |my |the )?assessment)\w*"
+)
+
+# Whether the user must file, in the words people use for it.
+OBLIGATION = re.compile(
+    r"(?i)\b(?:do|should|must|would|will) i (?:need to |have to )?(?:file|submit|lodge)\b"
+    r"|\b(?:need|have) to (?:file|submit|lodge)\b|\bam i required to file\b"
 )
 
 _INCOME_TAX_HINT = re.compile(
@@ -95,7 +111,9 @@ def check_scope(question: str, ya: str | None, supported: tuple[str, ...]) -> Sc
             "representation",
         )
 
-    if _ADVISORY.search(question):
+    if _ADVISORY.search(question) or (
+        _ASKS_ADVICE.search(question) and _PLANNING.search(question)
+    ):
         return ScopeVerdict(
             False,
             "Citetax computes what the law says you owe. It does not give tax "

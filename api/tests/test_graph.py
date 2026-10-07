@@ -95,11 +95,38 @@ def test_out_of_scope_questions_are_refused_with_a_reason(question, category):
         "When is my return due for 2025/2026?",
         "Do I need to file if I earn 1,500,000?",
         "How much APIT credit can I claim?",
+        # #46: ordinary ways of asking what the law requires.
+        "Should I file a return for 2026/2027 if I earn 150,000 a month?",
+        "Would you recommend I check my APIT?",
+        "What does an assessment notice mean for my salary tax?",
+        "Should I file if I have investment income as well?",
     ],
 )
 def test_in_scope_questions_pass(question):
     ya = parse_year_of_assessment(question, SUPPORTED)
     assert check_scope(question, ya, SUPPORTED).in_scope is True
+
+
+@pytest.mark.parametrize(
+    "question,category",
+    [
+        ("Should I split my income to pay less tax?", "advisory"),
+        ("Should I put the rental income in my wife's name?", "advisory"),
+        ("What would you recommend to reduce my tax?", "advisory"),
+        ("Should I file a return or move my income abroad to avoid tax?", "advisory"),
+        ("How do I contest my assessment?", "representation"),
+    ],
+)
+def test_planning_and_contesting_are_still_refused(question, category):
+    v = check_scope(question, None, SUPPORTED)
+    assert (v.in_scope, v.category) == (False, category)
+
+
+def test_should_i_file_routes_to_the_obligation_intent():
+    from app.graph.intent import _regex_route
+
+    routed = _regex_route("Should I file a return for 2026/2027 if I earn 150,000 a month?", SUPPORTED)
+    assert routed.routed.intent == "obligation"
 
 
 def test_scope_gate_is_not_blinded_by_redaction():
