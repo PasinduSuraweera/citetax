@@ -251,3 +251,40 @@ def test_missing_ner_model_degrades_rather_than_failing_open():
     out = r.redact("NIC 912345678V")
     assert "<NIC>" in out.text
     assert out.ner_available is False
+
+
+@pytest.mark.parametrize("question", [
+    "The Inland Revenue Department (IRD) has issued revised APIT Tax Tables in 2026 wht is it?",
+    "The IRD issued a revised Quarterly Tax Circular, what changed?",
+    "What is the SET, the Statement of Estimated Tax?",
+    "How does APIT work for a salaried employee?",
+])
+def test_tax_documents_are_not_masked_as_employers(ner, question):
+    """#89: spaCy tags tax document names as organisations; as <EMPLOYER_1>
+    they cost the model the question and it refused as an employer's matter."""
+    assert "<EMPLOYER" not in ner.redact(question).text
+
+
+@pytest.mark.parametrize("question,name", [
+    ("I work at Dialog Axiata and earn 300,000 a month", "Dialog"),
+    ("I am employed by John Keells Holdings PLC. My colleague earns more.", "Keells"),
+    ("I work for the Ministry of Health and pay APIT", "Health"),
+    ("My employer is Ceylon Textiles and EPF is deducted", "Textiles"),
+])
+def test_an_employer_named_by_context_is_masked(question, name):
+    """#89: en_core_web_sm does not tag every company; "I work at X" names an
+    employer whether or not it does. No NER needed."""
+    out = R.redact(question).text
+    assert name not in out and "<EMPLOYER_1>" in out
+
+
+def test_a_repeated_employer_keeps_one_token_and_the_rest_survives():
+    out = R.redact("I work at Commercial Bank. Commercial Bank deducts APIT and EPF.").text
+    assert out == "I work at <EMPLOYER_1>. <EMPLOYER_1> deducts APIT and EPF."
+    assert R.redact("I work in IT and earn 400,000 a month").text == "I work in IT and earn 400,000 a month"
+
+
+def test_tax_document_vocabulary_counts_as_a_tax_question():
+    from app.graph.scope import looks_like_tax_question
+
+    assert looks_like_tax_question("The Inland Revenue Department has issued a revised circular")
