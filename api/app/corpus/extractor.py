@@ -38,7 +38,7 @@ RULE_SHAPES: dict[str, dict[str, Any]] = {
     "band.progressive": {
         "bands": [{"upto": "cumulative top edge in LKR as integer, or null for the last band", "rate": "decimal string e.g. \"0.06\""}]
     },
-    "deduction.epf_employee": {"employee_rate": "decimal string e.g. \"0.08\""},
+    "deduction.epf_employee": {"employee_rate": "decimal string e.g. \"0.08\"", "deductible": "true or false: whether the employee's contribution reduces taxable income"},
     "deduction.qualifying": {"annual_cap": "LKR string, or null if uncapped"},
     "deadline.return_filing": {
         "due": "ISO date e.g. \"2027-11-30\"",

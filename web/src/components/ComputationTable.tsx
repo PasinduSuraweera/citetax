@@ -75,9 +75,20 @@ export function ComputationTable({
                 )}
                 {/* A zero step is still cited, which is the point of showing it
                     rather than dropping it (spec section 6.2 addition 4). */}
-                {step.is_zero && (
+                {step.detail?.deductible === false ? (
+                  <div className="mt-0.5 text-[12px] leading-[1.5] text-ink-400">
+                    {step.detail.contribution
+                      ? `Your contribution of LKR ${Number(step.detail.contribution).toLocaleString("en-GB")} is considered, but the law allows no deduction from employment income`
+                      : "The law allows no deduction from employment income for your own EPF contribution"}
+                  </div>
+                ) : step.is_zero ? (
                   <div className="mt-0.5 text-[12px] text-ink-300">Nothing to apply here, still traced to a rule</div>
-                )}
+                ) : step.detail?.assumed === true ? (
+                  // A figure the user never gave is said to be assumed (#47).
+                  <div className="mt-0.5 text-[12px] text-[#7e5d1b]">
+                    Assumed at the statutory rate. Give your actual figure to change it
+                  </div>
+                ) : null}
               </div>
 
               {/* Narrow, the rule tag and the value share a row below the
