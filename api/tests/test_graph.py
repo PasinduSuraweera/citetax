@@ -370,6 +370,33 @@ def test_verify_accepts_a_zero_the_ledger_holds():
     assert r.ok is True, r.unmatched_numbers
 
 
+@pytest.mark.parametrize("prose", [
+    "The top slice is taxed at 12% under the bands.",
+    "Income above LKR 2,500,000 is taxed at 30%.",
+    "Your balance payable is LKR 1,800,000.",
+    "The personal relief rose to LKR 1,800,000 in 2024.",
+])
+def test_verify_withholds_right_numbers_in_the_wrong_place(prose):
+    """#43: each figure here exists somewhere in the material, so a value
+    check alone released all four. They are wrong where they are used."""
+    r = verify(prose, _computation(), _rules(), attempt=2)
+    assert r.ok is False, prose
+
+
+@pytest.mark.parametrize("prose", [
+    "Income above LKR 2,500,000 is taxed at 36%.",
+    "The first LKR 1,000,000 is taxed at 6%.",
+    "Income over LKR 1,000,000 up to LKR 1,500,000 is taxed at 18%.",
+    "The top rate is 36%.",
+    "Your taxable income above LKR 2,500,000 would be taxed at 36%.",
+    "Your balance payable for 2026/2027 is LKR 0.00 after the APIT credit.",
+    "The personal relief is LKR 1,800,000 for 2026/2027.",
+])
+def test_verify_still_releases_correct_band_and_role_sentences(prose):
+    r = verify(prose, _computation(), _rules(), attempt=2)
+    assert r.ok is True, (prose, r.unmatched_numbers)
+
+
 def test_verify_still_accepts_a_correct_currency_figure():
     c = _computation()
     assert verify(

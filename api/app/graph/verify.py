@@ -93,9 +93,10 @@ _SCALE = {
     "crore": Decimal(10_000_000), "crores": Decimal(10_000_000),
 }
 
-# Step counts, ordinals, days of the month, years.
+# Step counts, ordinals, days of the month. Years and rates are not on it: a
+# year or a rate in the prose must come from the material (#43).
 _ALLOWLIST = {Decimal(n) for n in range(0, 32)}
-_ALLOWLIST |= {Decimal(y) for y in range(2000, 2101)}
+_YEAR = range(1900, 2101)
 
 
 def _norm(raw: str) -> Decimal | None:
@@ -197,7 +198,144 @@ def _collect_allowed(ev: Evidence) -> tuple[set[Decimal], set[str]]:
         if p.title:
             add(p.title)
 
+    # The years the material is about: each year of assessment and every date.
+    for ya in {getattr(ev.computation, "ya", None), getattr(ev.rules, "ya", None)} - {None}:
+        for y in re.findall(r"20\d{2}", ya):
+            allowed.add(Decimal(y))
+    for d in dates:
+        allowed.add(Decimal(d[:4]))
+
     return allowed, dates
+
+
+# ---------------------------------------------------------------------------
+# Roles: a figure that is right somewhere must also be right where it is used
+# ---------------------------------------------------------------------------
+
+_AMOUNT = r"(?:(?:lkr|rs\.?|rupees?)\s*)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{4,}(?:\.\d+)?)"
+# Words that make the figure after a role phrase a threshold, not the role's
+# own value: "taxable income above LKR 2,500,000".
+_THRESHOLD_WORDS = re.compile(
+    r"(?i)\b(above|over|exceed\w*|beyond|up\s?to|upto|first|next|band|slice|between|"
+    r"threshold|from|below|under|less than|more than|if|would|was|previous|last year)\b"
+)
+
+
+def _band_tables(ev: Evidence) -> list[list[tuple[Decimal, Decimal | None, Decimal]]]:
+    """Each band table in the material as (lower edge, upper edge, rate %)."""
+    raw: list[Any] = []
+    rules = list(ev.extra_rules) + (list(ev.rules.rules.values()) if ev.rules else [])
+    raw += [r.value_json.get("bands") for r in rules if r.rule_key == "band.progressive"]
+    for ch in (ev.compare or {}).get("changes", []):
+        for side in ("from", "to"):
+            value = (ch.get(side) or {}).get("value") or {}
+            if isinstance(value, dict):
+                raw.append(value.get("bands"))
+    tables = []
+    for bands in raw:
+        if not isinstance(bands, list) or not bands:
+            continue
+        table, lower = [], Decimal(0)
+        try:
+            for b in bands:
+                upto = Decimal(str(b["upto"])) if b.get("upto") is not None else None
+                rate = (Decimal(str(b["rate"])) * 100).normalize()
+                table.append((lower, upto, rate))
+                lower = upto if upto is not None else lower
+        except (KeyError, InvalidOperation, TypeError):
+            continue
+        tables.append(table)
+    return tables
+
+
+def _role_values(ev: Evidence) -> dict[str, set[Decimal]]:
+    c = ev.computation
+    if c is None:
+        return {}
+    by_key: dict[str, set[Decimal]] = {}
+    for s in c.steps:
+        by_key.setdefault(s.rule_key, set()).update({s.value, abs(s.value)})
+    relief = set(by_key.get("relief.personal", set()))
+    if ev.rules and "relief.personal" in ev.rules.rules:
+        amount = ev.rules.rules["relief.personal"].value_json.get("amount")
+        if amount is not None:
+            relief.add(Decimal(str(amount)))
+    return {
+        "balance": {c.balance_payable, abs(c.balance_payable)},
+        "taxable": {c.taxable_income},
+        "gross": {c.gross_tax},
+        "assessable": by_key.get("income.assessable", set()),
+        "relief": relief,
+        "epf": by_key.get("deduction.epf_employee", set()),
+    }
+
+
+_ROLE_PHRASES = [
+    ("balance", r"balance (?:payable|due)|tax payable|amount payable|you (?:owe|pay|will pay)|refund"),
+    ("taxable", r"taxable income"),
+    ("gross", r"gross tax|tax before credits"),
+    ("assessable", r"assessable income"),
+    ("relief", r"personal relief"),
+    ("epf", r"\bepf\b(?: (?:deduction|contribution))?"),
+]
+
+
+def _role_mismatches(prose: str, ev: Evidence) -> list[str]:
+    """Figures put against the wrong ledger line or the wrong band (#43).
+
+    Value checking alone accepts "your balance payable is LKR 1,800,000",
+    because 1,800,000 is in the ledger: it is the relief. These checks read the
+    words around a figure and hold it to the line it is said to be.
+    """
+    out: list[str] = []
+    # A year of assessment or a date between a role and its figure is not the
+    # figure: "balance payable for 2026/2027 is LKR 0.00".
+    prose = _YA_TOKEN.sub("the year", prose)
+    for pattern in (_DATE_ISO, _DATE_WORDS, _DATE_WORDS_US):
+        prose = pattern.sub("that date", prose)
+    roles = _role_values(ev)
+    for role, phrase in _ROLE_PHRASES:
+        values = roles.get(role)
+        if not values:
+            continue
+        for m in re.finditer(rf"(?i)({phrase})([^.;:\d]{{0,40}}?){_AMOUNT}", prose):
+            if _THRESHOLD_WORDS.search(m.group(2)):
+                continue
+            value = _norm(m.group(3))
+            if value is not None and value not in values and value.normalize() not in {v.normalize() for v in values}:
+                out.append(m.group(0).strip())
+
+    tables = _band_tables(ev)
+    if not tables:
+        return out
+
+    def rate_ok(edge_rates: set[tuple[Decimal, Decimal]], x: Decimal, y: Decimal) -> bool | None:
+        """None when x is not an edge of any band: then the sentence is about
+        something else and is left to the value check."""
+        rates = {r for e, r in edge_rates if e == x}
+        return None if not rates else y in rates
+
+    lowers = {(lo, r) for t in tables for lo, _, r in t}
+    uppers = {(up, r) for t in tables for _, up, r in t if up is not None}
+    tops = {t[-1][2] for t in tables}
+    sentences = re.split(r"(?<=[.;])\s+", prose)
+    for s in sentences:
+        pct = _PERCENT.search(s)
+        if not pct:
+            continue
+        y = (_norm(pct.group(1)) or Decimal(-1)).normalize()
+        above = re.search(rf"(?i)\b(?:above|over|exceeding|in excess of|more than)\s+{_AMOUNT}", s)
+        upto = re.search(rf"(?i)\b(?:first|up\s?to|upto|not exceeding)\s+{_AMOUNT}", s)
+        verdicts = []
+        if above and (x := _norm(above.group(1))) is not None:
+            verdicts.append(rate_ok(lowers, x, y))
+        if upto and (x := _norm(upto.group(1))) is not None and not above:
+            verdicts.append(rate_ok(uppers, x, y))
+        if re.search(r"(?i)\b(?:top|highest|maximum)\s+(?:rate|band|slice)", s) and not above:
+            verdicts.append(y in tops)
+        if False in verdicts:
+            out.append(s.strip())
+    return out
 
 
 _MONTH_INDEX = {
@@ -279,10 +417,12 @@ def verify(prose: str, evidence: Evidence, attempt: int = 1) -> VerifyResult:
             unmatched.append(m.group(0))
     scratch = _CURRENCY_AMOUNT.sub(" ", scratch)
 
+    # A rate is a claim about the law: traced only, so "12%" cannot pass as a
+    # small number.
     for m in _PERCENT.finditer(scratch):
         checked += 1
         value = _norm(m.group(1))
-        if value is not None and value not in allowed and value.normalize() not in allowed:
+        if value is not None and value not in traced and value.normalize() not in traced:
             unmatched.append(f"{m.group(1)}%")
     scratch = _PERCENT.sub(" ", scratch)
 
@@ -291,8 +431,12 @@ def verify(prose: str, evidence: Evidence, attempt: int = 1) -> VerifyResult:
         if value is None:
             continue
         checked += 1
-        if value not in allowed and value.normalize() not in allowed:
+        is_year = value == value.to_integral_value() and int(value) in _YEAR
+        pool = traced if is_year else allowed
+        if value not in pool and value.normalize() not in pool:
             unmatched.append(m.group(0))
+
+    unmatched.extend(_role_mismatches(prose, evidence))
 
     if pii:
         return VerifyResult(
