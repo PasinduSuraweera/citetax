@@ -256,3 +256,49 @@ def test_relief_step_carries_statutory_and_applied_when_capped():
     relief_hi = next(s for s in c_hi.steps if s.rule_key == "relief.personal")
     assert relief_hi.value == Decimal("1800000.00")
     assert relief_hi.detail["capped"] is False
+
+
+# ---------------------------------------------------------------------------
+# EPF (#47): the employee's contribution is not deductible (IRA s.10(1)(a))
+# ---------------------------------------------------------------------------
+
+NOT_DEDUCTIBLE = {"deduction.epf_employee": {"employee_rate": "0.08", "deductible": False}}
+
+
+@pytest.mark.parametrize(
+    "salary,balance",
+    [
+        # LKR 400,000 a month: the IRD's APIT Table 01 formula for 2025/26,
+        # 400,000 x 36% - 94,000 = 50,000 a month, is 600,000 for the year.
+        ("4800000", "600000.00"),
+        # 3,000,000 - 1,800,000 relief = 1,200,000: 60,000 + 200,000 x 18%.
+        ("3000000", "96000.00"),
+    ],
+)
+def test_epf_not_deductible_matches_the_ird_apit_figures(salary, balance):
+    facts = TaxFacts(ya="2026/2027", employment_income=Decimal(salary))
+    c = compute(facts, _rules(**NOT_DEDUCTIBLE))
+    assert str(c.balance_payable) == balance
+    epf = next(s for s in c.steps if s.rule_key == "deduction.epf_employee")
+    # Kept in the ledger, at zero and cited, so the user sees why.
+    assert (epf.value, epf.label) == (Decimal("0"), "EPF employee contribution, not deductible")
+    assert epf.rule_version_id is not None
+
+
+def test_a_stated_epf_figure_is_shown_but_not_deducted():
+    facts = TaxFacts(ya="2026/2027", employment_income=Decimal("3000000"), epf_employee=Decimal("240000"))
+    c = compute(facts, _rules(**NOT_DEDUCTIBLE))
+    epf = next(s for s in c.steps if s.rule_key == "deduction.epf_employee")
+    assert epf.detail["contribution"] == "240000.00" and epf.value == 0
+    assert str(c.taxable_income) == "1200000.00"
+
+
+def test_an_old_rule_version_still_deducts_and_marks_the_default_as_assumed():
+    """Until the corrected rule is signed and published, the published rule
+    decides; the code never changes the law on its own."""
+    c = compute(TaxFacts(ya="2026/2027", employment_income=Decimal("3000000")), _rules())
+    epf = next(s for s in c.steps if s.rule_key == "deduction.epf_employee")
+    assert epf.value == Decimal("240000.00") and epf.detail["assumed"] is True
+    stated = compute(TaxFacts(ya="2026/2027", employment_income=Decimal("3000000"),
+                              epf_employee=Decimal("240000")), _rules())
+    assert next(s for s in stated.steps if s.rule_key == "deduction.epf_employee").detail["assumed"] is False

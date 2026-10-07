@@ -90,11 +90,14 @@ SHARED_VERSIONS: list[tuple] = [
      "The assessable income of a person for a year of assessment from employment, "
      "business, investment or other sources."),
 
+    # The employee's 8% EPF contribution is not deductible: the Inland Revenue
+    # Act allows no deduction in calculating employment income, and the Fifth
+    # Schedule lists no relief for it (#47). The rate is kept because the ledger
+    # shows the contribution, cited, at zero.
     ("deduction.epf_employee",
-     {"employee_rate": "0.08"},
-     "EPF Act s.10",
-     "The employee's contribution to the Fund shall be eight per centum of the "
-     "total earnings of that employee."),
+     {"employee_rate": "0.08", "deductible": False},
+     "Act s.10(1)(a)",
+     "No deduction shall be made in calculating a person's income from employment."),
 
     ("deduction.qualifying",
      {"annual_cap": None},

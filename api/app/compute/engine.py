@@ -141,20 +141,35 @@ def compute(facts: TaxFacts, rules: ResolvedRuleSet) -> Computation:
     )
 
     # --- Step 2: EPF employee contribution ---------------------------------
-    # Deductible up to the statutory rate on employment income only.
+    # What the rule in force says decides this, not the code (#47). A rule
+    # version with "deductible": false keeps the step, at zero and cited, so
+    # the user sees that their contribution was considered and why it does not
+    # reduce the tax. Otherwise it is deductible up to the statutory rate on
+    # employment income, and a figure the user never gave is marked assumed.
     epf_rule = rules["deduction.epf_employee"]
     epf_rate = _d(epf_rule.value_json.get("employee_rate", "0.08"))
     employment = facts.employment_income or ZERO
     epf_cap = _round(employment * epf_rate, epf_rule.rounding_mode)
-    epf = facts.epf_employee if facts.epf_employee is not None else epf_cap
-    epf = min(_round(epf), epf_cap) if epf_cap > ZERO else ZERO
-    emit(
-        2,
-        "Less EPF employee contribution",
-        "deduction.epf_employee",
-        epf,
-        detail={"rate": str(epf_rate), "cap": str(epf_cap)},
-    )
+    stated = facts.epf_employee is not None
+    if epf_rule.value_json.get("deductible") is False:
+        epf = ZERO
+        emit(
+            2,
+            "EPF employee contribution, not deductible",
+            "deduction.epf_employee",
+            ZERO,
+            detail={"deductible": False, "contribution": str(_round(facts.epf_employee)) if stated else None},
+        )
+    else:
+        epf = facts.epf_employee if stated else epf_cap
+        epf = min(_round(epf), epf_cap) if epf_cap > ZERO else ZERO
+        emit(
+            2,
+            "Less EPF employee contribution",
+            "deduction.epf_employee",
+            epf,
+            detail={"rate": str(epf_rate), "cap": str(epf_cap), "assumed": not stated and epf > ZERO},
+        )
 
     # --- Step 3: Qualifying payments / other deductions --------------------
     qp_rule = rules["deduction.qualifying"]
