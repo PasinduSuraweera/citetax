@@ -25,6 +25,8 @@ from app.rules.resolver import (
     RuleVersion,
     UnresolvedRule,
     resolve_many,
+    ya_end_date,
+    ya_start_date,
 )
 
 NEEDED = REQUIRED_RULE_KEYS + ["deadline.return_filing"]
@@ -88,6 +90,8 @@ class ImpactReport:
     max_delta: Decimal | None
     cases: list[CaseDelta] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Years a proposal was left out of because it is not in force then.
+    notes: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:
         def s(v: Decimal | None) -> str | None:
@@ -110,6 +114,7 @@ class ImpactReport:
                 )
             ],
             "errors": self.errors,
+            "notes": self.notes,
         }
 
 
@@ -193,6 +198,7 @@ def preview(
     scenarios = golden_set()
     cases: list[CaseDelta] = []
     errors: list[str] = []
+    notes: list[str] = []
     deltas: list[Decimal] = []
 
     # Resolve the baseline once per year rather than per scenario.
@@ -212,9 +218,23 @@ def preview(
             )
             continue
 
+        # A proposal only replaces the rule in years it is in force for, on
+        # the same date the resolver would use, so a circular dated August
+        # 2026 does not appear to change 2025/2026.
+        when = min(max(base.as_of or ya_start_date(scenario.ya), ya_start_date(scenario.ya)),
+                   ya_end_date(scenario.ya))
+        applicable = {
+            k: v for k, v in proposed.items()
+            if v.effective_from <= when and (v.effective_to is None or v.effective_to >= when)
+        }
+        for k, v in proposed.items():
+            note = (f"{k} is not in force on {when.isoformat()} ({scenario.ya}), "
+                    f"so {scenario.ya} cases are unchanged by it.")
+            if k not in applicable and note not in notes:
+                notes.append(note)
         after = ResolvedRuleSet(
             ya=base.ya, snapshot_id=base.snapshot_id, as_of=base.as_of,
-            rules={**base.rules, **proposed},
+            rules={**base.rules, **applicable},
         )
 
         try:
@@ -246,4 +266,5 @@ def preview(
         max_delta=max(deltas) if deltas else None,
         cases=cases,
         errors=errors,
+        notes=notes,
     )

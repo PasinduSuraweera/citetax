@@ -36,6 +36,7 @@ class IndexReport:
     chunks_written: int = 0
     embedded: int = 0
     skipped: int = 0
+    removed: int = 0
     errors: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:
@@ -213,13 +214,41 @@ def index_document(
     return report
 
 
+# Only the newest revision of a document is searchable. Older revisions stay in
+# source_document for the audit trail, but their text is not the law any more.
+_LATEST = (
+    "not exists (select 1 from source_document n "
+    "             where n.family_id = d.family_id and n.revision_no > d.revision_no)"
+)
+# Listings and script-loaded pages are menus and sidebars, not content.
+_NOT_LISTING = (
+    "(coalesce((d.text_meta->>'link_share')::float, 0) < 0.9 "
+    " and not coalesce((d.text_meta->>'listing')::boolean, false))"
+)
+
+
+def drop_superseded_chunks(conn: Connection) -> int:
+    """Remove passages from revisions a newer revision replaced, and from
+    listing pages. Returns how many were removed."""
+    n = conn.execute(
+        text(
+            "delete from chunk c using source_document d "
+            f" where c.source_document_id = d.id and (not {_LATEST} or not {_NOT_LISTING})"
+        )
+    ).rowcount
+    conn.commit()
+    return n
+
+
 def index_unindexed_documents(conn: Connection, limit: int = 20) -> IndexReport:
     """Documents with text that have no chunks yet. Called by the scheduler."""
     report = IndexReport()
+    report.removed = drop_superseded_chunks(conn)
     ids = conn.execute(
         text(
             "select d.id from source_document d "
             " where d.raw_text is not null and length(d.raw_text) > 200 "
+            f"  and {_LATEST} and {_NOT_LISTING} "
             "   and not exists (select 1 from chunk c where c.source_document_id = d.id) "
             " order by d.fetched_at desc limit :n"
         ),
@@ -242,8 +271,9 @@ def rebuild_all(conn: Connection) -> IndexReport:
     index_rule_versions(conn, report)
     ids = conn.execute(
         text(
-            "select id from source_document where raw_text is not null "
-            "  and length(raw_text) > 200 order by fetched_at desc limit 200"
+            "select d.id from source_document d where d.raw_text is not null "
+            f"  and length(d.raw_text) > 200 and {_LATEST} and {_NOT_LISTING} "
+            " order by d.fetched_at desc limit 200"
         )
     ).scalars().all()
     cache: dict[str, set[str]] = {}
