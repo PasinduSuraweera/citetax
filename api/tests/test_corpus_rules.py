@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.corpus.extractor import ProposedChange, _why_not
 from app.corpus.pdf import content_fingerprint, html_to_text
 from app.corpus.watcher import extract_links
@@ -75,6 +77,7 @@ def test_a_year_split_between_two_versions_is_covered():
     assert not _covers([split[0]], start, end)
 
 
+@pytest.mark.db
 def test_restating_the_rule_in_force_is_dropped():
     """A page that repeats the live value with its own start date adds nothing."""
     from app.db.session import db_conn

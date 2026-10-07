@@ -22,6 +22,8 @@ from app.routers.admin import publish_snapshot
 from app.rules.resolver import current_snapshot
 from app.rules.resolver import resolve as _resolve
 
+pytestmark = pytest.mark.db
+
 client = TestClient(app)
 
 

@@ -12,6 +12,8 @@ from app.core.auth import User
 from app.db.session import db_conn
 from app.rules.resolver import RuleVersion, current_snapshot
 
+pytestmark = pytest.mark.db
+
 
 def _snapshot_id() -> str:
     with db_conn() as conn:
