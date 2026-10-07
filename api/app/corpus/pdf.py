@@ -91,11 +91,32 @@ def content_fingerprint(body: bytes, text: str, is_html: bool) -> tuple[str, flo
     return hashlib.sha256(own.encode("utf-8")).hexdigest(), round(max(0.0, link_share), 3)
 
 
+def docx_to_text(body: bytes) -> tuple[str, dict]:
+    """A .docx is a zip of XML. Paragraphs are <w:p>, text runs <w:t>; that is
+    enough for circulars without pulling in a Word library."""
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(body)) as z:
+            xml = z.read("word/document.xml").decode("utf-8", "replace")
+    except (zipfile.BadZipFile, KeyError) as exc:
+        return "", {"kind": "docx", "error": str(exc)[:160]}
+    paragraphs = []
+    for p in re.findall(r"<w:p[ >].*?</w:p>", xml, re.S):
+        runs = re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", p, re.S)
+        line = "".join(runs).replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+        if line.strip():
+            paragraphs.append(line.strip())
+    return "\n".join(paragraphs), {"kind": "docx", "paragraphs": len(paragraphs)}
+
+
 def extract_text(body: bytes, content_type: str, url: str = "") -> tuple[str, dict]:
     lower = (url or "").lower()
     ct = (content_type or "").lower()
     if "pdf" in ct or lower.endswith(".pdf"):
         return pdf_to_text(body)
+    if "wordprocessingml" in ct or lower.endswith(".docx"):
+        return docx_to_text(body)
     if "html" in ct or lower.endswith((".htm", ".html")) or body[:64].lstrip().lower().startswith(b"<!doctype html") or b"<html" in body[:512].lower():
         return html_to_text(body), {"kind": "html"}
     if "text/" in ct or lower.endswith(".txt"):

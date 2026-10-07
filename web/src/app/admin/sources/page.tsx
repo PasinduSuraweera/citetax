@@ -71,7 +71,7 @@ function Sources() {
     try {
       const r = await admin.upload(file, "circular", file.name);
       toast.success(r.is_revision ? "Uploaded as a new revision of a known document" : "Uploaded", {
-        description: "It is in the review inbox, waiting for extraction.",
+        description: `Read ${r.characters.toLocaleString()} characters${r.pages ? ` from ${r.pages} page${r.pages === 1 ? "" : "s"}` : ""}. The agent pre-fills a proposal on its next cycle.`,
       });
       await load();
       refreshAdminSummary();
@@ -95,7 +95,7 @@ function Sources() {
             <input
               ref={fileRef}
               type="file"
-              accept=".pdf,.txt,.html,.htm,.doc,.docx"
+              accept=".pdf,.docx,.html,.htm,.txt"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];

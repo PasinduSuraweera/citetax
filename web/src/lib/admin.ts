@@ -407,6 +407,8 @@ export const admin = {
       proposal_id: string;
       is_revision: boolean;
       sha256: string;
+      characters: number;
+      pages: number | null;
     }>("/admin/sources/upload", { method: "POST", body: form });
   },
 
