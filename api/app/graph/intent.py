@@ -204,7 +204,7 @@ def _to_facts(r: RoutedQuestion, supported: tuple[str, ...]) -> TaxFacts:
     facts.investment_income = dec(f.investment_income) or Decimal(0)
     facts.other_income = dec(f.other_income) or Decimal(0)
     facts.epf_employee = dec(f.epf_employee)
-    facts.apit_withheld = dec(f.apit_withheld) or Decimal(0)
+    facts.apit_withheld = dec(f.apit_withheld)
     facts.qualifying_payments = dec(f.qualifying_payments) or Decimal(0)
     facts.foreign_tax_credit = dec(f.foreign_tax_credit) or Decimal(0)
     facts.wht_credit = dec(f.wht_credit) or Decimal(0)

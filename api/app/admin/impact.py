@@ -135,6 +135,10 @@ def golden_set() -> list[Scenario]:
                                        "apit_withheld": "57600"}),
             ("salaried 3m overwithheld", {"employment_income": "3000000",
                                           "apit_withheld": "100000"}),
+            # APIT not stated, so assumed: the employer's deduction covers the
+            # tax, which is the case the APIT filing exemption is about.
+            ("salaried 3m, APIT by employer", {"employment_income": "3000000",
+                                               "apit_withheld": None}),
             ("band 1 top", {"employment_income": "2800000"}),
             ("band 2 entry", {"employment_income": "2900000"}),
             ("band 2 top", {"employment_income": "3300000"}),
@@ -162,6 +166,11 @@ def golden_set() -> list[Scenario]:
                                              "foreign_tax_credit": "1800000"}),
         ]
         for name, kw in cases:
+            fields = {k: None if v is None else Decimal(v) for k, v in kw.items()}
+            # A stated nil APIT unless a case says otherwise: an assumed APIT
+            # absorbs the tax on a salary, and a rule change would then never
+            # move a salaried balance, which is what a reviewer needs to see.
+            fields.setdefault("apit_withheld", Decimal(0))
             out.append(
                 Scenario(
                     name=name,
@@ -169,7 +178,7 @@ def golden_set() -> list[Scenario]:
                     facts=TaxFacts(
                         ya=ya,
                         source="structured",
-                        **{k: Decimal(v) for k, v in kw.items()},
+                        **fields,
                     ),
                 )
             )

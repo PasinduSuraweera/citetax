@@ -36,7 +36,10 @@ class TaxFacts(BaseModel):
     other_income: Decimal = Decimal(0)
     epf_employee: Decimal | None = None
     qualifying_payments: Decimal = Decimal(0)
-    apit_withheld: Decimal = Decimal(0)
+    # None means not stated, which for employment income is not the same as
+    # nothing withheld: the engine then assumes the APIT the employer must
+    # have deducted. Zero is a stated zero.
+    apit_withheld: Decimal | None = None
     foreign_tax_credit: Decimal = Decimal(0)
     wht_credit: Decimal = Decimal(0)
     is_resident: bool = True

@@ -86,7 +86,9 @@ export function ComputationTable({
                 ) : step.detail?.assumed === true ? (
                   // A figure the user never gave is said to be assumed (#47).
                   <div className="mt-0.5 text-[12px] text-[#7e5d1b]">
-                    Assumed at the statutory rate. Give your actual figure to change it
+                    {step.rule_key === "credit.apit"
+                      ? "Assumed: what your employer deducts from your salary over the year. Give the APIT on your payslips to change it"
+                      : "Assumed at the statutory rate. Give your actual figure to change it"}
                   </div>
                 ) : null}
               </div>

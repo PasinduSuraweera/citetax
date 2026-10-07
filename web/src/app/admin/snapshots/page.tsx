@@ -17,7 +17,7 @@ export default function SnapshotsPage() {
   return <AdminFrame>{(me) => <Snapshots me={me} />}</AdminFrame>;
 }
 
-const VALUE_BEARING = ["band.", "relief.", "credit.", "deduction.", "charge.", "deadline.", "apit.", "income."];
+const VALUE_BEARING = ["band.", "relief.", "credit.", "deduction.", "charge.", "deadline.", "apit.", "income.", "filing."];
 
 function Snapshots({ me }: { me: Me }) {
   const [snapshots, setSnapshots] = useState<SnapshotRow[] | null>(null);

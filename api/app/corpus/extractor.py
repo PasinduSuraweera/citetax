@@ -47,6 +47,7 @@ RULE_SHAPES: dict[str, dict[str, Any]] = {
         "instalments": ["ISO dates"],
     },
     "credit.apit": {"allowed": True},
+    "filing.apit_exemption": {"interest_limit": "LKR string: the most interest income an APIT-only employee may have and still not file, e.g. \"5000\""},
     "credit.foreign_wht": {"allowed": True},
     "income.assessable": {"includes": ["list of income types"]},
     "charge.taxable_income": {"formula": "string"},

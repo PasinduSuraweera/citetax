@@ -63,6 +63,7 @@ RULES = [
     ("credit.foreign_wht",    "Foreign tax and WHT credits",    "amount",     "LKR",     "half_up"),
     ("credit.apit",           "APIT credit",                    "amount",     "LKR",     "half_up"),
     ("deadline.return_filing","Return filing deadline",         "date",       "date",    "half_up"),
+    ("filing.apit_exemption", "No return for APIT-only employees", "flag",     "boolean", "half_up"),
 ]
 
 # --- Band table ------------------------------------------------------------
@@ -150,6 +151,20 @@ SHARED_VERSIONS: list[tuple] = [
      {"allowed": True},
      "Act s.80",
      "A credit shall be granted for foreign income tax paid and tax withheld."),
+
+    # No return, and no instalments, for an employee whose only tax is on
+    # employment income and was deducted as APIT. Paragraph (d), for interest
+    # of up to Rs 5,000, was added by Act No. 11 of 2026 with effect from
+    # 1 April 2025.
+    ("filing.apit_exemption",
+     {"interest_limit": "5000"},
+     "Act s.94(1)(c), (d)",
+     "(c) an individual whose tax payable for the year of assessment under paragraph (a) "
+     "of subsection (1) of section 2 relates exclusively to income from employment where "
+     "the employer has deducted Advance Personal Income Tax under section 83A and no tax "
+     "shall be payable under paragraph (b) or (c) of subsection (2) of section 82; or (d) "
+     "an individual referred to in paragraph (c) of this subsection, whose interest income "
+     "for the year of assessment does not exceed five thousand rupees."),
 
     ("credit.apit",
      {"allowed": True},

@@ -29,14 +29,16 @@ export function SavingsPanel({ savings, onRuleClick }: Props) {
               : <>Extra qualifying payments come off your taxable income before tax is worked out.</>}
           </p>
           <p className="tnum mt-1 text-[13.5px] leading-[1.55] text-ink-500">
-            Up to LKR {money(String(best), { decimals: false })} a year could come off your LKR {money(savings.baseline_balance, { decimals: false })} balance.
+            {base > 0
+              ? <>Up to LKR {money(String(best), { decimals: false })} a year could come off your LKR {money(savings.baseline_balance, { decimals: false })} balance.</>
+              : <>Your employer&apos;s APIT already covers the tax, so up to LKR {money(String(best), { decimals: false })} a year would come back to you as a refund, claimed in your return.</>}
           </p>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {savings.levers.map((lever) => (
-          <LeverCard key={`${lever.kind}-${lever.extra_deduction}`} lever={lever} base={base} onRuleClick={onRuleClick} />
+          <LeverCard key={`${lever.kind}-${lever.extra_deduction}`} lever={lever} base={base > 0 ? base : best} onRuleClick={onRuleClick} />
         ))}
       </div>
 
@@ -79,7 +81,9 @@ function LeverCard({
         <div className="h-full rounded-full bg-brand-600" style={{ width: `${pct}%` }} />
       </div>
       <div className="tnum mt-2 text-[13px] text-ink-500">
-        Balance becomes LKR {money(lever.new_balance, { decimals: false })}
+        {lever.new_balance.startsWith("-")
+          ? `A refund of LKR ${money(lever.new_balance.slice(1), { decimals: false })}`
+          : `Balance becomes LKR ${money(lever.new_balance, { decimals: false })}`}
       </div>
 
       {lever.citation_label && (
