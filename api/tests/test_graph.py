@@ -95,11 +95,38 @@ def test_out_of_scope_questions_are_refused_with_a_reason(question, category):
         "When is my return due for 2025/2026?",
         "Do I need to file if I earn 1,500,000?",
         "How much APIT credit can I claim?",
+        # #46: ordinary ways of asking what the law requires.
+        "Should I file a return for 2026/2027 if I earn 150,000 a month?",
+        "Would you recommend I check my APIT?",
+        "What does an assessment notice mean for my salary tax?",
+        "Should I file if I have investment income as well?",
     ],
 )
 def test_in_scope_questions_pass(question):
     ya = parse_year_of_assessment(question, SUPPORTED)
     assert check_scope(question, ya, SUPPORTED).in_scope is True
+
+
+@pytest.mark.parametrize(
+    "question,category",
+    [
+        ("Should I split my income to pay less tax?", "advisory"),
+        ("Should I put the rental income in my wife's name?", "advisory"),
+        ("What would you recommend to reduce my tax?", "advisory"),
+        ("Should I file a return or move my income abroad to avoid tax?", "advisory"),
+        ("How do I contest my assessment?", "representation"),
+    ],
+)
+def test_planning_and_contesting_are_still_refused(question, category):
+    v = check_scope(question, None, SUPPORTED)
+    assert (v.in_scope, v.category) == (False, category)
+
+
+def test_should_i_file_routes_to_the_obligation_intent():
+    from app.graph.intent import _regex_route
+
+    routed = _regex_route("Should I file a return for 2026/2027 if I earn 150,000 a month?", SUPPORTED)
+    assert routed.routed.intent == "obligation"
 
 
 def test_scope_gate_is_not_blinded_by_redaction():
@@ -341,6 +368,33 @@ def test_verify_accepts_a_zero_the_ledger_holds():
     assert any(s.value == 0 for s in c.steps), "fixture needs a zero step"
     r = verify("Qualifying payments come to LKR 0.00 this year.", c, _rules(), attempt=2)
     assert r.ok is True, r.unmatched_numbers
+
+
+@pytest.mark.parametrize("prose", [
+    "The top slice is taxed at 12% under the bands.",
+    "Income above LKR 2,500,000 is taxed at 30%.",
+    "Your balance payable is LKR 1,800,000.",
+    "The personal relief rose to LKR 1,800,000 in 2024.",
+])
+def test_verify_withholds_right_numbers_in_the_wrong_place(prose):
+    """#43: each figure here exists somewhere in the material, so a value
+    check alone released all four. They are wrong where they are used."""
+    r = verify(prose, _computation(), _rules(), attempt=2)
+    assert r.ok is False, prose
+
+
+@pytest.mark.parametrize("prose", [
+    "Income above LKR 2,500,000 is taxed at 36%.",
+    "The first LKR 1,000,000 is taxed at 6%.",
+    "Income over LKR 1,000,000 up to LKR 1,500,000 is taxed at 18%.",
+    "The top rate is 36%.",
+    "Your taxable income above LKR 2,500,000 would be taxed at 36%.",
+    "Your balance payable for 2026/2027 is LKR 0.00 after the APIT credit.",
+    "The personal relief is LKR 1,800,000 for 2026/2027.",
+])
+def test_verify_still_releases_correct_band_and_role_sentences(prose):
+    r = verify(prose, _computation(), _rules(), attempt=2)
+    assert r.ok is True, (prose, r.unmatched_numbers)
 
 
 def test_verify_still_accepts_a_correct_currency_figure():

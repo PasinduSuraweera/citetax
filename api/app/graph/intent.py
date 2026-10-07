@@ -116,7 +116,7 @@ A general greeting or a question unrelated to tax is out of scope with scope_cat
 
 INTENT:
 - compute: they want a tax figure or balance payable for their situation.
-- obligation: they want to know whether they must file a return.
+- obligation: they want to know whether they must file a return. "Should I file a return?" is this intent, not advice: it asks what the law requires.
 - deadline: they want dates: when the return is due, instalment dates.
 - compare: they want to know what changed between the two years, or the difference.
 - rule_lookup: they want the value or text of a specific rule (what is the personal relief, what are the bands).
@@ -212,7 +212,7 @@ def _regex_route(
         intent = "deadline"
     elif any(w in q for w in ("what changed", "difference between", "compare", "changed this year")):
         intent = "compare"
-    elif any(w in q for w in ("do i need to file", "must i file", "have to file", "need to file")):
+    elif scope.OBLIGATION.search(question):
         intent = "obligation"
     elif facts.total_income > 0 or any(w in q for w in ("owe", "how much tax", "my tax", "balance")):
         intent = "compute"
@@ -327,6 +327,21 @@ def route(
             f"model refused as {overridden}; regex sees tax vocabulary and no "
             f"{overridden} pattern, routed general"
         )
+
+    # "Should I file a return?" reads as advice to a model, but it asks what
+    # the law requires. With no planning wording the regex gate passed it, so
+    # an advisory refusal from the model is overridden to the obligation answer.
+    if (
+        not routed.in_scope
+        and routed.scope_category == "advisory"
+        and regex_verdict.in_scope
+        and scope.OBLIGATION.search(original_question)
+    ):
+        routed.in_scope = True
+        routed.intent = "obligation"
+        routed.scope_reason = None
+        routed.scope_category = None
+        notes.append("model refused a filing obligation question as advisory; routed obligation")
 
     # An unsupported year the model let through is still refused.
     if routed.year_of_assessment and routed.year_of_assessment not in supported:
