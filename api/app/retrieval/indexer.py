@@ -56,7 +56,11 @@ def _write_chunks(
     texts: list[str],
     provider: embeddings.EmbeddingProvider,
     report: IndexReport,
+    years: list[str] | None = None,
 ) -> None:
+    """Document text is secondary: no reviewer approved it, so it can explain
+    but never supply a verified figure (#44). `years` tags the passages with
+    the years of assessment the document is about."""
     if not texts:
         return
     vectors: list[list[float]] = [[] for _ in texts]
@@ -71,12 +75,14 @@ def _write_chunks(
         conn.execute(
             text(
                 "insert into chunk (id, source_document_id, rule_key, text, "
-                "embedding, embedding_model, embedding_dim, indexed_at, status) "
+                "embedding, embedding_model, embedding_dim, indexed_at, status, "
+                "trust, applies_to_ya) "
                 "values (:id, :doc, :key, :t, cast(:v as vector), :m, :d, now(), "
-                "'published')"
+                "'published', 'secondary', cast(:ya as text[]))"
             ),
             {
                 "id": str(uuid.uuid4()),
+                "ya": years or None,
                 "doc": doc_id,
                 "key": rule_key,
                 "t": body,
@@ -159,9 +165,9 @@ def index_rule_versions(conn: Connection, report: IndexReport | None = None) -> 
         conn.execute(
             text(
                 "insert into chunk (id, source_document_id, rule_key, text, "
-                "embedding, embedding_model, embedding_dim, indexed_at, status) "
+                "embedding, embedding_model, embedding_dim, indexed_at, status, trust) "
                 "values (:id, null, :key, :t, cast(:v as vector), :m, :d, now(), "
-                "'published')"
+                "'published', 'approved_law')"
             ),
             {
                 "id": str(uuid.uuid4()), "key": key, "t": body,
@@ -240,7 +246,10 @@ def index_document(
 
     conn.execute(text("delete from chunk where source_document_id = :id"), {"id": doc_id})
     pieces = chunk_text(body)
-    _write_chunks(conn, doc_id, None, [p.text for p in pieces], provider, report)
+    from app.core import years as ya_mod
+
+    _write_chunks(conn, doc_id, None, [p.text for p in pieces], provider, report,
+                  ya_mod.mentioned(row["raw_text"]))
     report.documents += 1
     conn.commit()
     return report
@@ -257,6 +266,29 @@ _NOT_LISTING = (
     "(coalesce((d.text_meta->>'link_share')::float, 0) < 0.9 "
     " and not coalesce((d.text_meta->>'listing')::boolean, false))"
 )
+
+
+def tag_document_years(conn: Connection) -> int:
+    """Fill applies_to_ya on document passages indexed before passages were
+    tagged, from their document's text, without re-embedding anything."""
+    from app.core import years as ya_mod
+
+    rows = conn.execute(
+        text(
+            "select distinct d.id, d.raw_text from source_document d "
+            "  join chunk c on c.source_document_id = d.id where c.applies_to_ya is null"
+        )
+    ).mappings().all()
+    n = 0
+    for r in rows:
+        found = ya_mod.mentioned(r["raw_text"] or "")
+        if found:
+            n += conn.execute(
+                text("update chunk set applies_to_ya = cast(:ya as text[]) where source_document_id = :d"),
+                {"ya": found, "d": r["id"]},
+            ).rowcount
+    conn.commit()
+    return n
 
 
 def drop_superseded_chunks(conn: Connection) -> int:

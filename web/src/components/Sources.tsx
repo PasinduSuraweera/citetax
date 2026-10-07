@@ -62,8 +62,9 @@ export function SourcesList({ passages, highlight }: { passages: Passage[]; high
         <SourceCard key={p.chunk_id} n={i + 1} passage={p} highlighted={highlight === i + 1} />
       ))}
       <p className="px-1 text-[12px] leading-[1.5] text-ink-400">
-        Retrieved for the explanation only. No figure in any answer comes from
-        a passage; figures come from the rules table.
+        Retrieved for the explanation only. Figures come from the rules table
+        and reviewed law; an unreviewed page can explain an idea but never
+        supplies a number.
       </p>
     </div>
   );
@@ -90,8 +91,18 @@ function SourceCard({ n, passage: p, highlighted }: { n: number; passage: Passag
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-[14px] font-semibold leading-[1.4] text-ink-900">{sourceTitle(p)}</h3>
-          <div className="mt-[2px] text-[12px] text-ink-400">
+          <div className="mt-[2px] flex flex-wrap items-center gap-2 text-[12px] text-ink-400">
             {site ?? (p.rule_key ? "Rules table" : "Citetax corpus")}
+            {p.trust === "approved_law" ? (
+              <span className="rounded-full bg-good-100 px-2 py-[1px] font-medium text-good-700">Reviewed law</span>
+            ) : !p.rule_key || p.source_document_id ? (
+              <span
+                className="rounded-full bg-[#fdf4e0] px-2 py-[1px] font-medium text-[#7e5d1b]"
+                title="No reviewer has checked this page. It can explain an idea, but no figure in the answer comes from it."
+              >
+                Unreviewed
+              </span>
+            ) : null}
           </div>
 
           <p className={`mt-2 text-[13.5px] leading-[1.6] text-ink-700 ${long && !open ? "line-clamp-3" : ""}`}>

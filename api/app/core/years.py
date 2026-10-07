@@ -10,6 +10,7 @@ signed rule versions for that year. A Sri Lankan year of assessment runs
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta, timezone
 
 from app.core.config import get_settings
@@ -46,6 +47,20 @@ def previous(ya: str) -> str | None:
     start = int(ya[:4])
     prior = f"{start - 1}/{start}"
     return prior if prior in supported() else None
+
+
+_MENTION = re.compile(r"(?<!\d)(20\d{2})\s*[/-]\s*(?:20)?(\d{2})(?!\d)")
+
+
+def mentioned(text: str) -> list[str]:
+    """Years of assessment a text names ("2025/2026", "2025/26", "2025-26"),
+    sorted. A bare "2025" is not counted: it is as often a date as a year of
+    assessment."""
+    found = set()
+    for start, end in _MENTION.findall(text or ""):
+        if int(end) == (int(start) + 1) % 100:
+            found.add(f"{start}/{int(start) + 1}")
+    return sorted(found)
 
 
 def phrase(joiner: str = "or") -> str:

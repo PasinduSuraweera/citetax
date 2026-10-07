@@ -193,7 +193,11 @@ def _collect_allowed(ev: Evidence) -> tuple[set[Decimal], set[str]]:
             add(ch.get("from", {}).get("citation_label") or "")
             add(ch.get("to", {}).get("citation_label") or "")
 
+    # Only reviewer approved law can back a figure. A crawled page may quote
+    # an old relief or a wrong rate; it can explain, never verify (#44).
     for p in ev.passages:
+        if getattr(p, "trust", "secondary") != "approved_law":
+            continue
         add(p.text)
         if p.title:
             add(p.title)

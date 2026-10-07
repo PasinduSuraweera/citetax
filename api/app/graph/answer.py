@@ -411,7 +411,7 @@ def _run_general(conn, result, r, facts, snap_id, mark, budget) -> None:
 def _retrieve(conn, result, mark, rule_keys: list[str] | None) -> None:
     t0 = time.perf_counter()
     try:
-        passages, meta = retrieval.search(conn, result.redacted_question, rule_keys)
+        passages, meta = retrieval.search(conn, result.redacted_question, rule_keys, ya=result.ya)
         result.passages = passages
         detail = f"{len(passages)} passages"
         if meta.get("dense_enabled"):
