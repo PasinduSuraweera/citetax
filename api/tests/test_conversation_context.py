@@ -240,7 +240,7 @@ def test_no_context_leaves_the_prompt_exactly_as_before(fake_model):
                      "Tax on LKR 5 million for 2026/2027?", SUPPORTED,
                      context=ConversationContext())
     for call in calls:
-        assert call["system"] == intent_mod.SYSTEM
+        assert call["system"] == intent_mod.system_prompt()
         assert call["user"] == "Tax on LKR 5 million for 2026/2027?"
 
 
@@ -251,7 +251,7 @@ def test_context_reaches_route_as_a_bounded_block(fake_model):
                       "facts": {"employment_income": 5000000, "business_income": 500000}}
     q = "What if I also earn LKR 500,000 from freelance work?"
     routed = intent_mod.route(q, q, SUPPORTED, context=_ctx_with_salary())
-    assert calls[0]["system"].startswith(intent_mod.SYSTEM)
+    assert calls[0]["system"].startswith(intent_mod.system_prompt())
     assert "CONVERSATION SO FAR" in calls[0]["user"]
     assert calls[0]["user"].endswith("NEW QUESTION:\n" + q)
     assert routed.untraced == []

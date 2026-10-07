@@ -122,7 +122,9 @@ def golden_set() -> list[Scenario]:
     """Taxpayer scenarios spanning both years, every band boundary, and the
     relief threshold (spec section 11). Grows toward 120 as the corpus does."""
     out: list[Scenario] = []
-    for ya in ("2025/2026", "2026/2027"):
+    from app.core import years
+
+    for ya in years.supported():
         cases: list[tuple[str, dict[str, Any]]] = [
             ("no income", {"employment_income": "0"}),
             ("below relief", {"employment_income": "1500000"}),

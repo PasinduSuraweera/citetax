@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 
 from app.compute.types import TaxFacts
 from app.conversations.context import ConversationContext, check_figures
-from app.core import llm
+from app.core import llm, years
 from app.graph import intake, scope
 
 Intent = Literal[
@@ -65,7 +65,7 @@ class RoutedQuestion(BaseModel):
         None, description="If out of scope: VAT | SSCL | corporate | advisory | representation | employer-filing | unsupported-year | unrelated"
     )
     year_of_assessment: str | None = Field(
-        None, description="Exactly '2025/2026' or '2026/2027' if stated or clearly implied, else null"
+        None, description="A year of assessment as YYYY/YYYY, e.g. '2026/2027', if stated or clearly implied, else null"
     )
     compare_from: str | None = Field(None, description="For compare intent: earlier year")
     compare_to: str | None = Field(None, description="For compare intent: later year")
@@ -111,7 +111,7 @@ SCOPE (in_scope=true only if ALL hold):
 - It is NOT about VAT, SSCL, corporate/company tax, stamp duty, NBT, or an EMPLOYER'S OWN duties to deduct, remit or file APIT/PAYE for staff ("as an employer", "for my employees", "our payroll"). A question from or about an EMPLOYEE'S side ("how does APIT work for a salaried employee", "how much APIT was withheld from my salary", "can I claim the APIT my employer deducted") is the individual's own tax and IS in scope.
 - It is NOT asking for advice on what to do, how to reduce/avoid/minimise tax, planning, or structuring. Asking "how much do I owe" is fine; asking "how should I structure my income" is advisory and out of scope.
 - It is NOT about appeals, disputes, assessments notices, or representation before the IRD.
-- If a year of assessment is stated, it is 2025/2026 or 2026/2027. Any other year is out of scope with scope_category "unsupported-year".
+- If a year of assessment is stated, it is {YEARS}. Any other year is out of scope with scope_category "unsupported-year".
 A general greeting or a question unrelated to tax is out of scope with scope_category "unrelated".
 
 INTENT:
@@ -125,12 +125,29 @@ INTENT:
 
 FACTS: give annual LKR amounts as numbers. A monthly figure is multiplied by 12. "1.2 million" is 1200000. "250k" is 250000. If EPF is mentioned without an amount, leave epf_employee null. If only one income figure appears and its type is unclear, treat it as employment_income.
 
-YEAR: "2026/27", "2026-2027", "26/27", "for 2026", "this year" (today is in Y/A 2026/2027) all mean 2026/2027. "last year" means 2025/2026.
+YEAR: written forms like "{CS}/{CE2}", "{CS}-{CE}", "{CS2}/{CE2}", "for {CS}" and "this year" (today is in Y/A {CURRENT}) all mean {CURRENT}.{LAST_YEAR}
 
 MISSING and CLARIFY: only for compute and obligation intents. compute needs year_of_assessment and income. obligation needs year_of_assessment and income. For deadline, compare, rule_lookup, general, missing must be empty. If the year is missing, ask for the year. If income is missing, ask for it. Ask ONE question, short and natural, no preamble.
 
 RULE_KEYS: for rule_lookup and general, list the relevant rule keys from this allowed list only:
 """ + "\n".join(f"  {k}: {d}" for k, d in RULE_KEYS)
+
+def system_prompt(today=None) -> str:
+    """SYSTEM with the supported years and today's year filled in (#57). It is
+    built per call, so the prompt rolls over on 1 April without a deploy."""
+    from app.core import years
+
+    cur = years.current(today)
+    prev = years.previous(cur)
+    start, end = cur.split("/")
+    return (
+        SYSTEM.replace("{YEARS}", years.phrase())
+        .replace("{CURRENT}", cur)
+        .replace("{CS}", start).replace("{CE}", end)
+        .replace("{CS2}", start[2:]).replace("{CE2}", end[2:])
+        .replace("{LAST_YEAR}", f' "last year" means {prev}.' if prev else "")
+    )
+
 
 # Added to SYSTEM only when the question belongs to a conversation with
 # something to carry. Without context the prompt is exactly SYSTEM.
@@ -225,7 +242,7 @@ def _regex_route(
     clarify = None
     if missing:
         clarify = {
-            "ya": "Which year of assessment are you asking about, 2025/2026 or 2026/2027?",
+            "ya": f"Which year of assessment are you asking about, {years.phrase()}?",
             "income": "What was your total income for the year? A monthly salary figure is fine.",
         }.get(missing[0])
 
@@ -274,9 +291,9 @@ def route(
         fallback.notes.append("model unavailable, regex route")
         return fallback
 
-    system, user_text = SYSTEM, redacted_question
+    system, user_text = system_prompt(), redacted_question
     if use_context:
-        system = SYSTEM + CONTEXT_RULES
+        system = system_prompt() + CONTEXT_RULES
         user_text = f"{context.prompt_block()}\n\nNEW QUESTION:\n{redacted_question}"
 
     try:
