@@ -22,6 +22,8 @@ export const INTENT_LABEL: Record<string, string> = {
   rule_lookup: "Rule",
   general: "Explanation",
   out_of_scope: "Declined",
+  // A greeting or thanks needs no label; an empty one is filtered out.
+  conversation: "",
 };
 
 function headline(answer: AnswerResponse | undefined): string | null {
@@ -45,7 +47,7 @@ export function TurnSummary({ turn, onExpand }: { turn: ConversationTurn; onExpa
   const answer = turn.reply?.answer;
   const figure = headline(answer);
   const meta = [
-    answer ? INTENT_LABEL[answer.intent] ?? answer.intent : "No reply saved",
+    answer ? (INTENT_LABEL[answer.intent] ?? answer.intent) : "No reply saved",
     answer?.ya ?? null,
     answer?.snapshot_is_current === false ? "The law has changed since" : null,
   ].filter(Boolean) as string[];

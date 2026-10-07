@@ -9,7 +9,7 @@
  * passages it drew on. Refusal and clarify share the same question header.
  */
 
-import { ArrowUpRight, Ban, MessageCircleQuestion } from "lucide-react";
+import { ArrowUpRight, Ban, MessageCircleQuestion, MessagesSquare } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { AnswerResponse, CompareChange, LedgerStep, RuleSide } from "@/lib/api";
@@ -32,9 +32,11 @@ interface Props {
   question: string;
   answer: AnswerResponse;
   onClarifyAnswer?: (text: string) => void;
+  /** Ask a suggested question; only on the latest turn. */
+  onAsk?: (text: string) => void;
 }
 
-export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
+export function AnswerView({ question, answer, onClarifyAnswer, onAsk }: Props) {
   const hasComputation = Boolean(answer.computation);
   const hasCompare = Boolean(answer.compare);
   const hasPassages = Boolean(answer.passages && answer.passages.length);
@@ -91,6 +93,39 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
             Citetax covers personal income tax for two years of assessment and
             declines anything outside that rather than guessing.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- greetings, thanks, "what can you do" ---------- */
+  // "hi", "thanks", "what can you do?": a plain reply and somewhere to start,
+  // with no badge, ledger or tabs, because there is nothing to verify.
+  if (answer.intent === "conversation") {
+    return (
+      <div className="fade-up flex flex-col gap-4">
+        <QuestionHeader question={question} />
+        <div className="rounded-xl border border-line bg-white px-5 py-5 sm:px-6">
+          <div className="flex items-center gap-2 text-[13px] font-medium text-ink-400">
+            <MessagesSquare className="size-4" />
+            Citetax
+          </div>
+          <p className="mt-2 max-w-[62ch] text-[15.5px] leading-[1.6] text-ink-700">{answer.explanation}</p>
+          {(answer.suggestions ?? []).length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {answer.suggestions!.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  disabled={!onAsk}
+                  onClick={() => onAsk?.(s)}
+                  className="rounded-full border border-line-strong bg-white px-3 py-1.5 text-[13.5px] text-ink-700 transition-colors hover:border-brand-600 hover:text-brand-700 disabled:cursor-default disabled:opacity-60"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );

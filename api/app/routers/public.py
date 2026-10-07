@@ -43,7 +43,8 @@ def _persist_run(
     section 9) and the agent's routing decisions are measurable. A logging
     failure must never cost the user their answer, but must not vanish
     either — an unrecorded run breaks the reproducibility guarantee."""
-    if result.kind != "answer":
+    # A greeting is not a computation: nothing to reproduce, nothing for History.
+    if result.kind != "answer" or result.intent == "conversation":
         return
     run_id = str(uuid.uuid4())
     try:

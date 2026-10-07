@@ -36,6 +36,7 @@ from app.core import llm
 from app.core.config import get_settings
 from app.compute import savings as savings_mod
 from app.compute.savings import Savings
+from app.graph import courtesy
 from app.graph import comply, intent as intent_mod
 from app.graph.explain import ExplainContext, explain
 from app.graph.verify import BadgeState, Evidence, VerifyResult, verify
@@ -92,6 +93,8 @@ class AnswerResult:
     prose: str | None = None
     verify_result: VerifyResult | None = None
     badge: BadgeState = BadgeState.ALL_CITED
+    # Questions to start from, offered with a greeting or "what can you do".
+    suggestions: list[str] = field(default_factory=list)
     refusal_reason: str | None = None
     refusal_pointer: str | None = None
     refusal_category: str | None = None
@@ -181,6 +184,22 @@ def run_answer_graph(
         + ("" if redacted.ner_available else "; NER unavailable"),
         t0,
     )
+
+    # --- Greetings, thanks, "what can you do?" -------------------------------
+    # No tax question, so no Route, rules or computation; refusing a greeting
+    # as out of scope was the worst possible first impression. The model
+    # writes the reply from the chat so far, under a no-figures check.
+    talk = courtesy.detect(question)
+    if talk:
+        t0 = time.perf_counter()
+        earlier = context.questions if context is not None else ()
+        result.intent = "conversation"
+        result.plan = ["Route"]
+        result.prose, by_model = courtesy.compose(talk, result.redacted_question, earlier, budget)
+        result.suggestions = courtesy.suggestions(talk, earlier)
+        how = "replied by the model" if by_model else "set reply"
+        mark("Route", "ok", f"{courtesy.DESCRIBE[talk]}, no tax question; {how}", t0)
+        return finish()
 
     # --- Route: one model call decides intent, facts, scope, and the plan ---
     t0 = time.perf_counter()
@@ -440,6 +459,7 @@ def _explain_and_verify(result: AnswerResult, mark, budget: llm.LLMBudget) -> No
         compliance=result.compliance, passages=result.passages,
         extra_rules=result.lookup, compare=result.compare,
         days_remaining=result.days_remaining,
+        question=result.redacted_question,
     )
 
     t0 = time.perf_counter()

@@ -51,7 +51,7 @@ export interface TraceEntry {
 
 export type Intent =
   | "compute" | "obligation" | "deadline" | "compare"
-  | "rule_lookup" | "general" | "out_of_scope";
+  | "rule_lookup" | "general" | "out_of_scope" | "conversation";
 
 export interface Compliance {
   must_file: boolean;
@@ -181,6 +181,8 @@ export interface AnswerResponse {
   lookup?: Citation[];
   passages?: Passage[];
   explanation?: string | null;
+  /** Questions to start from, sent with a greeting or "what can you do". */
+  suggestions?: string[];
   verify?: VerifyResult | null;
   citations?: Citation[];
   refusal?: { reason: string; pointer: string | null; category?: string | null };

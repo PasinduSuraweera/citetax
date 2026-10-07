@@ -457,3 +457,22 @@ def test_freelance_figures_are_not_read_as_salary(question, expected):
     assert got == expected
     if "employment_income" not in expected:
         assert not facts.employment_income
+
+
+@pytest.mark.parametrize("prose", [
+    # Found in the live routine: a nearer role owns the figure.
+    "Subtracting the relief from the assessable income yields taxable income of LKR 960,000.00.",
+    # "Tax on ... taxable income is X" names the tax, not the taxable income.
+    "The tax on that taxable income is LKR 57,600.00.",
+])
+def test_verify_does_not_misread_which_line_a_figure_belongs_to(prose):
+    r = verify(prose, _computation(), _rules(), attempt=2)
+    assert r.ok is True, r.unmatched_numbers
+
+
+def test_a_figure_the_user_gave_may_be_restated():
+    """'what if my salary was 400k a month' - the prose may say 400,000."""
+    ev = Evidence(computation=_computation(), rules=_rules(),
+                  question="what if my salary was 400k a month instead?")
+    assert _verify_impl("You asked about a monthly salary of Rs 400,000.", ev, attempt=2).ok is True
+    assert _verify_impl("You asked about a monthly salary of Rs 450,000.", ev, attempt=2).ok is False
