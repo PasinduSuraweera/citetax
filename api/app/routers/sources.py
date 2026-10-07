@@ -132,6 +132,9 @@ def crawl_all(user: ReviewerDep) -> dict[str, Any]:
     }
 
 
+_UPLOAD_TYPES = (".pdf", ".docx", ".html", ".htm", ".txt")
+
+
 @router.post("/upload")
 async def upload_document(
     user: ReviewerDep,
@@ -146,14 +149,35 @@ async def upload_document(
     """
     import hashlib
 
+    from app.corpus.pdf import content_fingerprint, extract_text
+
+    name = (file.filename or "").lower()
+    if not name.endswith(_UPLOAD_TYPES):
+        raise HTTPException(
+            400,
+            "Upload a PDF, Word (.docx), HTML or text file. For an old .doc file, "
+            "save it as .docx or PDF first.",
+        )
     body = await file.read()
     if not body:
         raise HTTPException(400, "empty file")
     sha = hashlib.sha256(body).hexdigest()
 
-    raw_text = None
-    if file.filename and file.filename.lower().endswith((".txt", ".html", ".htm")):
-        raw_text = body.decode("utf-8", "replace")[:200000]
+    # The same text extraction a crawled document gets (#40). The file itself
+    # is not kept, so text is the only thing a reviewer will ever see of it.
+    raw_text, text_meta = extract_text(body, file.content_type or "", name)
+    raw_text = (raw_text or "").strip()[:200000]
+    if len(raw_text) < 80:
+        detail = (
+            "No extractable text: this PDF has no text layer, so it is probably a scan. "
+            "Citetax cannot read scans yet. Upload a text PDF, or the circular's web page."
+            if name.endswith(".pdf")
+            else "No extractable text was found in this file."
+        )
+        raise HTTPException(422, detail)
+    is_html = (text_meta or {}).get("kind") == "html"
+    fingerprint, link_share = content_fingerprint(body, raw_text, is_html)
+    text_meta = {**(text_meta or {}), "fingerprint": fingerprint, "link_share": link_share}
 
     with db_conn() as conn:
         existing = conn.execute(
@@ -177,26 +201,35 @@ async def upload_document(
         ).mappings().first()
 
         doc_id = str(uuid.uuid4())
+        family_id = str(prior["family_id"]) if prior else str(uuid.uuid4())
         conn.execute(
             text(
                 "insert into source_document (id, family_id, revision_no, "
                 "source_id, url, sha256, doc_type, title, fetched_at, "
-                "last_seen_at, supersedes_id, uploaded_by, raw_text) values "
+                "last_seen_at, supersedes_id, uploaded_by, raw_text, text_meta) values "
                 "(:id, :fam, :rev, 'manual-upload', :url, :sha, :dt, :t, now(), "
-                "now(), :sup, :by, :raw)"
+                "now(), :sup, :by, :raw, cast(:tm as jsonb))"
             ),
             {
                 "id": doc_id,
-                "fam": str(prior["family_id"]) if prior else str(uuid.uuid4()),
+                "fam": family_id,
                 "rev": (prior["revision_no"] + 1) if prior else 1,
                 "url": pseudo_url, "sha": sha, "dt": doc_type,
                 "t": title or file.filename,
                 "sup": str(prior["id"]) if prior else None,
-                "by": user.email, "raw": raw_text,
+                "by": user.email, "raw": raw_text, "tm": json.dumps(text_meta),
             },
         )
 
         is_revision = prior is not None
+        # P1 only when a live rule came from this document, as for crawls (#27).
+        feeds_published = is_revision and conn.execute(
+            text(
+                "select 1 from rule_version rv join source_document sd on sd.id = rv.source_document_id "
+                " where sd.family_id = :fam and rv.status = 'published' limit 1"
+            ),
+            {"fam": family_id},
+        ).first() is not None
         proposal_id = str(uuid.uuid4())
         conn.execute(
             text(
@@ -206,7 +239,7 @@ async def upload_document(
             ),
             {
                 "id": proposal_id, "doc": doc_id,
-                "pri": 1 if is_revision else 4,
+                "pri": 1 if feeds_published else 4,
                 "note": (
                     f"Uploaded revision {prior['revision_no'] + 1} of a document "
                     "already in the corpus."
@@ -235,6 +268,8 @@ async def upload_document(
         "proposal_id": proposal_id,
         "is_revision": is_revision,
         "sha256": sha[:16],
+        "characters": len(raw_text),
+        "pages": (text_meta or {}).get("pages"),
     }
 
 

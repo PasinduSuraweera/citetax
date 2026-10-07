@@ -135,6 +135,8 @@ export interface CrawlResult {
   revisions: number;
   unchanged: number;
   skipped?: string[];
+  /** Why each skipped page was not fetched: robots, gone or listing. */
+  skip_reasons?: Record<string, string[]>;
   errors: string[];
   documents: Array<{
     id: string;
@@ -407,6 +409,8 @@ export const admin = {
       proposal_id: string;
       is_revision: boolean;
       sha256: string;
+      characters: number;
+      pages: number | null;
     }>("/admin/sources/upload", { method: "POST", body: form });
   },
 
