@@ -18,6 +18,12 @@ export default function SourcesPage() {
 
 type Families = Awaited<ReturnType<typeof admin.documents>>["families"];
 
+const SKIP_LABEL: Record<string, string> = {
+  robots: "not allowed by the site's robots.txt",
+  gone: "links that no longer exist",
+  listing: "listings or pages whose content loads by script",
+};
+
 const COLS = "minmax(0,1fr) 90px 150px 150px 110px";
 
 function Sources() {
@@ -199,9 +205,14 @@ function Sources() {
             <div className="mt-3"><ErrorNote>{result.errors.slice(0, 3).map((e) => <div key={e} className="truncate">{e}</div>)}</ErrorNote></div>
           )}
           {(result.skipped?.length ?? 0) > 0 && (
-            <p className="mt-3 text-[13px] leading-[1.5] text-ink-400">
-              Skipped pages are listings, pages whose content loads by script, and links that no longer exist.
-            </p>
+            <ul className="mt-3 flex flex-col gap-1 text-[13px] leading-[1.5] text-ink-400">
+              {Object.entries(result.skip_reasons ?? {}).map(([reason, urls]) => (
+                <li key={reason}>
+                  <span className="font-medium text-ink-500">{urls.length} {SKIP_LABEL[reason] ?? reason}</span>
+                  {reason === "robots" && <>: {urls.slice(0, 3).join(", ")}</>}
+                </li>
+              ))}
+            </ul>
           )}
         </Panel>
       )}

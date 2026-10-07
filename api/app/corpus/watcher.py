@@ -20,10 +20,12 @@ import hashlib
 import json
 import logging
 import re
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urljoin, urlparse
+from urllib.robotparser import RobotFileParser
 
 import httpx
 from sqlalchemy import text
@@ -53,6 +55,66 @@ _PAGINATED = re.compile(r"/page/\d+$")
 # content loads by script 0.96 to 1.0.
 LISTING_LINK_SHARE = 0.9
 
+# Seconds between two requests to the same host, unless robots.txt asks for
+# more with Crawl-delay (#54).
+POLITE_DELAY = 1.0
+# Tests swap in an httpx.MockTransport; None means the real network.
+_transport: httpx.BaseTransport | None = None
+
+
+class PoliteClient:
+    """Fetches the way the User-Agent says it does: robots.txt is read once per
+    host and obeyed, requests to one host are spaced out, and a page fetched
+    before is asked for only if it changed."""
+
+    def __init__(self, client: httpx.Client):
+        self.client = client
+        self.robots: dict[str, RobotFileParser | None] = {}
+        self.last_hit: dict[str, float] = {}
+
+    def _rules(self, url: str) -> RobotFileParser | None:
+        parts = urlparse(url)
+        host = f"{parts.scheme}://{parts.netloc}"
+        if host not in self.robots:
+            rp: RobotFileParser | None = RobotFileParser()
+            try:
+                resp = self._get(f"{host}/robots.txt")
+                if resp.status_code >= 500:
+                    rp = None  # server trouble: crawl nothing on this host this time
+                elif resp.status_code >= 400:
+                    rp.parse([])  # no robots.txt: everything is allowed
+                else:
+                    rp.parse(resp.text.splitlines())
+            except httpx.HTTPError:
+                rp = None
+            self.robots[host] = rp
+        return self.robots[host]
+
+    def allowed(self, url: str) -> bool:
+        rp = self._rules(url)
+        return rp is not None and rp.can_fetch(USER_AGENT, url)
+
+    def _get(self, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
+        parts = urlparse(url)
+        rp = self.robots.get(f"{parts.scheme}://{parts.netloc}")
+        asked = rp.crawl_delay(USER_AGENT) if rp else None
+        delay = max(POLITE_DELAY, float(asked or 0))
+        wait = self.last_hit.get(parts.netloc, 0) + delay - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            return self.client.get(url, headers=headers)
+        finally:
+            self.last_hit[parts.netloc] = time.monotonic()
+
+    def get(self, url: str, validators: dict[str, str] | None = None) -> httpx.Response:
+        headers = {}
+        if validators and validators.get("etag"):
+            headers["If-None-Match"] = validators["etag"]
+        if validators and validators.get("last_modified"):
+            headers["If-Modified-Since"] = validators["last_modified"]
+        return self._get(url, headers or None)
+
 
 def _same_text(a: str | None, b: str | None) -> bool:
     norm = lambda t: re.sub(r"\s+", " ", t or "").strip()  # noqa: E731
@@ -73,8 +135,13 @@ class WatchResult:
     revisions: int = 0
     unchanged: int = 0
     skipped: list[str] = field(default_factory=list)
+    skip_reasons: dict[str, list[str]] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     documents: list[dict[str, Any]] = field(default_factory=list)
+
+    def skip(self, url: str, reason: str) -> None:
+        self.skipped.append(url)
+        self.skip_reasons.setdefault(reason, []).append(url)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -84,6 +151,7 @@ class WatchResult:
             "revisions": self.revisions,
             "unchanged": self.unchanged,
             "skipped": self.skipped,
+            "skip_reasons": self.skip_reasons,
             "errors": self.errors,
             "documents": self.documents,
         }
@@ -144,6 +212,7 @@ def _record_document(
     body: bytes,
     content_type: str,
     result: WatchResult,
+    validators: dict[str, str | None] | None = None,
 ) -> None:
     """Decide: unchanged, new, or a silent revision.
 
@@ -156,10 +225,14 @@ def _record_document(
         text("select id from source_document where sha256 = :h limit 1"),
         {"h": sha},
     ).first()
+    validators = {k: v for k, v in (validators or {}).items() if v}
     if existing_same_hash:
         conn.execute(
-            text("update source_document set last_seen_at = now() where id = :id"),
-            {"id": existing_same_hash[0]},
+            text(
+                "update source_document set last_seen_at = now(), "
+                "text_meta = coalesce(text_meta, '{}'::jsonb) || cast(:m as jsonb) where id = :id"
+            ),
+            {"id": existing_same_hash[0], "m": json.dumps(validators)},
         )
         result.unchanged += 1
         return
@@ -176,7 +249,7 @@ def _record_document(
     # A page that is almost all links is a listing or a page whose content
     # loads by script. Neither states a rule.
     if is_html and link_share >= LISTING_LINK_SHARE:
-        result.skipped.append(url)
+        result.skip(url, "listing")
         return
 
     prior = conn.execute(
@@ -198,7 +271,7 @@ def _record_document(
                 "text_meta = coalesce(text_meta, '{}'::jsonb) || cast(:m as jsonb) "
                 "where id = :id"
             ),
-            {"id": prior["id"], "m": json.dumps({"fingerprint": fingerprint})},
+            {"id": prior["id"], "m": json.dumps({"fingerprint": fingerprint, **validators})},
         )
         result.unchanged += 1
         return
@@ -207,7 +280,7 @@ def _record_document(
     is_revision = prior is not None
     family_id = str(prior["family_id"]) if prior else str(uuid.uuid4())
     revision_no = (prior["revision_no"] + 1) if prior else 1
-    text_meta = {**(text_meta or {}), "fingerprint": fingerprint, "link_share": link_share}
+    text_meta = {**(text_meta or {}), "fingerprint": fingerprint, "link_share": link_share, **validators}
     raw_text = (raw_text or "")[:200000] or None
 
     doc_type = conn.execute(
@@ -318,8 +391,11 @@ def watch_source(
     try:
         with httpx.Client(
             timeout=30.0, follow_redirects=True,
-            headers={"User-Agent": USER_AGENT},
-        ) as client:
+            headers={"User-Agent": USER_AGENT}, transport=_transport,
+        ) as raw_client:
+            client = PoliteClient(raw_client)
+            if not client.allowed(row["index_url"]):
+                raise RuntimeError(f"robots.txt does not allow {row['index_url']}")
             index = client.get(row["index_url"])
             index.raise_for_status()
             links = extract_links(index.text, row["index_url"])
@@ -327,16 +403,36 @@ def watch_source(
 
             for link in links[:max_docs]:
                 try:
-                    resp = client.get(link.url)
+                    if not client.allowed(link.url):
+                        result.skip(link.url, "robots")
+                        continue
+                    known = conn.execute(
+                        text(
+                            "select id, text_meta->>'etag' as etag, "
+                            "       text_meta->>'last_modified' as last_modified "
+                            "  from source_document where url = :u order by revision_no desc limit 1"
+                        ),
+                        {"u": link.url},
+                    ).mappings().first()
+                    resp = client.get(link.url, dict(known) if known else None)
+                    if resp.status_code == 304 and known:
+                        conn.execute(
+                            text("update source_document set last_seen_at = now() where id = :id"),
+                            {"id": known["id"]},
+                        )
+                        result.unchanged += 1
+                        continue
                     # A dead link on someone else's page is their broken
                     # link, not a failed crawl.
                     if 400 <= resp.status_code < 500:
-                        result.skipped.append(link.url)
+                        result.skip(link.url, "gone")
                         continue
                     resp.raise_for_status()
                     _record_document(
                         conn, source_id, link.url, resp.content,
                         resp.headers.get("content-type", ""), result,
+                        {"etag": resp.headers.get("etag"),
+                         "last_modified": resp.headers.get("last-modified")},
                     )
                 except Exception as exc:  # noqa: BLE001 — one bad link is not fatal
                     result.errors.append(f"{link.url}: {str(exc)[:120]}")
@@ -354,12 +450,13 @@ def watch_source(
         conn.execute(
             text(
                 "update crawl_run set finished_at = now(), status = 'ok', "
-                "links_found = :lf, new_documents = :nd, revisions = :rv "
-                " where id = :id"
+                "links_found = :lf, new_documents = :nd, revisions = :rv, "
+                "skipped_json = cast(:sk as jsonb) where id = :id"
             ),
             {
                 "lf": result.links_found, "nd": result.new_documents,
                 "rv": result.revisions, "id": crawl_id,
+                "sk": json.dumps(result.skip_reasons),
             },
         )
         conn.commit()
