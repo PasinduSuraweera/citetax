@@ -85,6 +85,10 @@ _DATE_WORDS_US = re.compile(
     rf"\b({_MONTHS})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\b", re.I
 )
 _YA_TOKEN = re.compile(r"\b20\d{2}\s*/\s*20\d{2}\b")
+# "Inland Revenue Act, No. 24 of 2017", "Amendment No. 2 of 2025": the name of
+# a law, not a figure in it. Only with "Act" or "Amendment" in front, so a bare
+# "24 of 2017" is still checked.
+_ACT_NAME = re.compile(r"(?i)\b(?:act|amendment)\)?,?\s+no\.?\s*\d{1,3}\s+of\s+(?:19|20)\d{2}\b")
 _CURRENCY_AMOUNT = re.compile(r"(?i)(?:lkr|rs\.?|rupees?)\s*(\d[\d,]*(?:\.\d+)?)")
 # "1.8 million", "2.5 mn", "4 lakhs": a legitimate way to write a ledger figure.
 _SCALED = re.compile(
@@ -347,22 +351,30 @@ def _role_mismatches(prose: str, ev: Evidence) -> list[str]:
     lowers = {(lo, r) for t in tables for lo, _, r in t}
     uppers = {(up, r) for t in tables for _, up, r in t if up is not None}
     tops = {t[-1][2] for t in tables}
-    sentences = re.split(r"(?<=[.;])\s+", prose)
-    for s in sentences:
-        pct = _PERCENT.search(s)
+    def clause_ok(c: str) -> bool:
+        pct = _PERCENT.search(c)
         if not pct:
-            continue
+            return True
         y = (_norm(pct.group(1)) or Decimal(-1)).normalize()
-        above = re.search(rf"(?i)\b(?:above|over|exceeding|in excess of|more than)\s+{_AMOUNT}", s)
-        upto = re.search(rf"(?i)\b(?:first|up\s?to|upto|not exceeding)\s+{_AMOUNT}", s)
+        above = re.search(rf"(?i)\b(?:above|over|exceeding|in excess of|more than)\s+{_AMOUNT}", c)
+        upto = re.search(rf"(?i)\b(?:first|up\s?to|upto|not exceeding)\s+{_AMOUNT}", c)
         verdicts = []
         if above and (x := _norm(above.group(1))) is not None:
             verdicts.append(rate_ok(lowers, x, y))
         if upto and (x := _norm(upto.group(1))) is not None and not above:
             verdicts.append(rate_ok(uppers, x, y))
-        if re.search(r"(?i)\b(?:top|highest|maximum)\s+(?:rate|band|slice)", s) and not above:
+        if re.search(r"(?i)\b(?:top|highest|maximum)\s+(?:rate|band|slice)", c) and not above:
             verdicts.append(y in tops)
-        if False in verdicts:
+        return False not in verdicts
+
+    sentences = re.split(r"(?<=[.;])\s+", prose)
+    for s in sentences:
+        # A sentence that lists several bands ("up to 1,000,000 at 6%, ... and
+        # above 2,500,000 at 36%") is held clause by clause. Read whole, its
+        # first rate was held to its last edge and a correct table failed.
+        # Amounts keep their commas: only a comma followed by a space splits.
+        clauses = re.split(r",\s+|\s+and\s+", s) if len(_PERCENT.findall(s)) > 1 else [s]
+        if not all(clause_ok(c) for c in clauses):
             out.append(s.strip())
     return out
 
@@ -394,7 +406,7 @@ def verify(prose: str, evidence: Evidence, attempt: int = 1) -> VerifyResult:
     unmatched: list[str] = []
     checked = 0
 
-    scratch = _YA_TOKEN.sub(" ", prose)
+    scratch = _ACT_NAME.sub(" ", _YA_TOKEN.sub(" ", prose))
 
     # Dates, in either form, must be dates the material contains.
     for m in _DATE_ISO.finditer(scratch):

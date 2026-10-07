@@ -116,7 +116,12 @@ def _describe_value(rule_key: str, value: dict[str, Any]) -> str:
             s += ", instalments " + ", ".join(value["instalments"])
         return s
     if "employee_rate" in value:
-        return _pct(value["employee_rate"])
+        # The rate alone read as "a deduction of 8%": the model said EPF was
+        # deductible when the rule says it is not. Say which, in words.
+        rate = f"employee contribution {_pct(value['employee_rate'])} of employment income"
+        if value.get("deductible") is False:
+            return f"{rate}; NOT deductible, it does not reduce taxable income"
+        return f"{rate}; deductible from taxable income"
     if "annual_cap" in value:
         return "no cap" if value["annual_cap"] is None else f"cap LKR {value['annual_cap']}"
     return ", ".join(f"{k}: {v}" for k, v in value.items() if k != "citation_label")

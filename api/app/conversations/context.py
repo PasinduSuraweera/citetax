@@ -308,5 +308,24 @@ def _traceable(
     return False
 
 
+def apit_is_stale(facts: TaxFacts, context: ConversationContext, new_question: str) -> bool:
+    """An APIT carried forward unchanged onto a different salary.
+
+    "My employer deducted APIT of 96,000", then "what if my salary was 400k":
+    the 96,000 was deducted from the old salary. Carried onto the new one it
+    undercounts the APIT, and the balance comes out too high. A figure the
+    new question states is the user's own and stays.
+    """
+    carried_apit = context.facts.get("apit_withheld")
+    carried_salary = context.facts.get("employment_income")
+    if facts.apit_withheld is None or carried_apit is None or carried_salary is None:
+        return False
+    if facts.employment_income is None or _close(facts.employment_income, carried_salary):
+        return False
+    if not _close(facts.apit_withheld, carried_apit):
+        return False
+    return not any(_close(facts.apit_withheld, s) for s in stated_amounts(new_question))
+
+
 def _close(a: Decimal, b: Decimal) -> bool:
     return abs(a - b) <= _TOLERANCE
