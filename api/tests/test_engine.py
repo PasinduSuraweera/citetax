@@ -387,3 +387,9 @@ def test_without_the_new_rules_nothing_is_dropped_silently():
     assert len(c.steps) == 8
     assert any("Business expenses" in n for n in c.notes)
     assert any("15%" in n for n in c.notes)
+
+
+def test_a_freelancer_without_a_salary_gets_a_plain_nil_epf_step():
+    c = compute(TaxFacts(ya="2026/2027", business_income=Decimal("3000000")), _rules(**IRD_LAW))
+    epf = next(s for s in c.steps if s.rule_key == "deduction.epf_employee")
+    assert (epf.label, epf.value, epf.detail) == ("EPF employee contribution", Decimal("0"), None)

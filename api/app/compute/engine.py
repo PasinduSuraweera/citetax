@@ -218,7 +218,12 @@ def compute(facts: TaxFacts, rules: ResolvedRuleSet) -> Computation:
     employment = facts.employment_income or ZERO
     epf_cap = _round(employment * epf_rate, epf_rule.rounding_mode)
     stated = facts.epf_employee is not None
-    if epf_rule.value_json.get("deductible") is False:
+    if epf_rule.value_json.get("deductible") is False and employment == ZERO and not stated:
+        # No salary, no EPF: a freelancer's ledger shows a plain nil step,
+        # not a reason why a contribution they never made is not deducted.
+        epf = ZERO
+        emit("EPF employee contribution", "deduction.epf_employee", ZERO)
+    elif epf_rule.value_json.get("deductible") is False:
         epf = ZERO
         emit(
             "EPF employee contribution, not deductible",
