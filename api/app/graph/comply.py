@@ -106,7 +106,7 @@ def assess(computation: Computation, rules: ResolvedRuleSet) -> Compliance:
         )
 
     if computation.taxable_income > 0:
-        must_file, reason = True, "Taxable income exceeds the personal relief threshold."
+        must_file, reason = True, "Income is above the personal relief, so tax is payable on it."
     elif apit > 0:
         must_file, reason = (
             True,

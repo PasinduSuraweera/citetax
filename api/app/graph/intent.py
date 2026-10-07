@@ -18,6 +18,7 @@ conservative side and refusing is the safe failure.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -26,7 +27,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.compute.types import TaxFacts
-from app.conversations.context import ConversationContext, check_figures
+from app.conversations.context import ConversationContext, apit_is_stale, check_figures
 from app.core import llm, years
 from app.graph import intake, scope
 
@@ -113,6 +114,7 @@ SCOPE (in_scope=true only if ALL hold):
 - It is NOT about VAT, SSCL, corporate/company tax, stamp duty, NBT, or an EMPLOYER'S OWN duties to deduct, remit or file APIT/PAYE for staff ("as an employer", "for my employees", "our payroll"). A question from or about an EMPLOYEE'S side ("how does APIT work for a salaried employee", "how much APIT was withheld from my salary", "can I claim the APIT my employer deducted") is the individual's own tax and IS in scope.
 - It is NOT asking for advice on what to do, how to reduce/avoid/minimise tax, planning, or structuring. Asking "how much do I owe" is fine; asking "how should I structure my income" is advisory and out of scope.
 - It is NOT about appeals, disputes, assessments notices, or representation before the IRD.
+- An IRD circular, notice or amending Act about individuals' income tax (APIT, instalments, returns, reliefs, rates, deadlines) IS in scope, as intent "general". Such a circular is not corporate tax because it is a circular.
 - If a year of assessment is stated, it is {YEARS}. Any other year is out of scope with scope_category "unsupported-year".
 A general greeting or a question unrelated to tax is out of scope with scope_category "unrelated".
 
@@ -328,14 +330,23 @@ def route(
     # than a refusal. Refusals for advisory, VAT, corporate and the like stand:
     # those are the model catching what the regex may have missed.
     #
+    # And to "corporate" when the question has no business wording at all: the
+    # model has called a circular about APIT corporate because it is a
+    # circular. A question that names a company, business or firm keeps the
+    # refusal, since the regex only knows "corporate tax" and "company tax".
+    #
     # The same applies to "employer-filing": the regex gate has an explicit
     # pattern for employer phrasing ("as an employer", "for my employees",
     # "payroll"). When that pattern did not fire, the model has read "for a
     # salaried employee" as the employer's side, which it is not. Refusals for
     # advisory, representation, VAT, corporate and unsupported year stand.
+    corporate_by_mistake = (
+        routed.scope_category == "corporate"
+        and not _BUSINESS_WORDS.search(original_question)
+    )
     if (
         not routed.in_scope
-        and routed.scope_category in (None, "unrelated", "employer-filing")
+        and (routed.scope_category in (None, "unrelated", "employer-filing") or corporate_by_mistake)
         and regex_verdict.in_scope
         and scope.looks_like_tax_question(original_question)
     ):
@@ -393,6 +404,10 @@ def route(
                 "figure check: " + ", ".join(untraced)
                 + " not traceable to a stated or earlier figure"
             )
+        if apit_is_stale(facts, context, redacted_question):
+            # Left unstated, the engine assumes the APIT on the new salary.
+            facts.apit_withheld = None
+            notes.append("salary changed: the earlier APIT was for the old salary, so it is assumed anew")
 
     # Recompute missing from the typed facts rather than trusting the model's
     # list, so the two cannot disagree.
@@ -413,6 +428,13 @@ def route(
         untraced=untraced,
         untraced_question=_untraced_question(untraced) if untraced else None,
     )
+
+
+# Any of these and a "corporate" refusal stands.
+_BUSINESS_WORDS = re.compile(
+    r"(?i)\b(compan(?:y|ies)|corporat\w*|business(?:es)?|firm|partnership|pvt|ltd|limited|plc|"
+    r"entity|entities|enterprise|shareholders?|dividends? paid|profits? of)\b"
+)
 
 
 def _untraced_question(fields: list[str]) -> str:
