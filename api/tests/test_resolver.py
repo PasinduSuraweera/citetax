@@ -27,6 +27,8 @@ from app.rules.resolver import (
     ya_start_date,
 )
 
+pytestmark = pytest.mark.db
+
 YA = "2026/2027"
 
 

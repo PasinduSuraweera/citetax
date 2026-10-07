@@ -17,6 +17,8 @@ from app.corpus import extractor
 from app.db.session import db_conn
 from app.main import app
 
+pytestmark = pytest.mark.db
+
 client = TestClient(app)
 
 TEXT = (

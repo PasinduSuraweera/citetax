@@ -16,6 +16,8 @@ from app.main import app
 from app.payslip import extractor
 from app.routers import payslip as payslip_router
 
+pytestmark = pytest.mark.db
+
 client = TestClient(app)
 
 

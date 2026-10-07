@@ -13,6 +13,8 @@ from sqlalchemy import text
 from app.corpus import watcher
 from app.db.session import db_conn
 
+pytestmark = pytest.mark.db
+
 PAGE = (
     "<html><body><article><h1>Notice {n}</h1>"
     "<p>The Inland Revenue Department explains how returns are submitted online "

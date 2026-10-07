@@ -32,6 +32,8 @@ from app.privacy.redactor import CodedRedactor
 from app.routers import public as public_mod
 from app.rules.resolver import ResolvedRuleSet, RuleVersion, current_snapshot
 
+pytestmark = pytest.mark.db
+
 # Not entered as a context manager, so the corpus agent's scheduler in the
 # app lifespan does not start.
 client = TestClient(app)
