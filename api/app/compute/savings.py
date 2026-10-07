@@ -83,8 +83,16 @@ def _lever(
     """Runs the engine with `extra` more qualifying payments. None if it saves nothing."""
     if extra <= ZERO:
         return None
+    # The APIT stays what the baseline credited. An assumed APIT is what the
+    # employer deducts from the salary whatever the user later claims, so a
+    # bigger deduction comes back as a refund rather than as a smaller
+    # assumption that hides the saving.
+    apit = next((s.value for s in baseline.steps if s.rule_key == "credit.apit"), ZERO)
     alt = compute(
-        facts.model_copy(update={"qualifying_payments": facts.qualifying_payments + extra}),
+        facts.model_copy(update={
+            "qualifying_payments": facts.qualifying_payments + extra,
+            "apit_withheld": facts.apit_withheld if facts.apit_withheld is not None else apit,
+        }),
         rules,
     )
     saved = baseline.balance_payable - alt.balance_payable

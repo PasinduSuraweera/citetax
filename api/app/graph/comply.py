@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.compute.types import Computation
-from app.rules.resolver import ResolvedRuleSet
+from app.rules.resolver import ResolvedRuleSet, RuleVersion
 
 
 @dataclass
@@ -35,13 +35,43 @@ class Compliance:
         }
 
 
+def _apit_only(computation: Computation, exemption: RuleVersion) -> bool:
+    """Act s.94(1)(c) and (d): the only income is employment income, with APIT
+    deducted and nothing left to pay, plus interest of at most the rule's limit.
+
+    The facts keep interest with other investment income, so investment
+    income within the limit is read as that interest. Tax on so small a sum
+    cannot exceed the sum itself, which bounds the balance it leaves.
+    """
+    income = next(
+        (s.detail or {} for s in computation.steps if s.rule_key == "income.assessable"), {}
+    )
+
+    def amount(key: str) -> Decimal:
+        return Decimal(str(income.get(key) or 0))
+
+    if amount("employment") <= 0:
+        return False
+    if any(amount(k) != 0 for k in ("business", "foreign_service", "other")):
+        return False
+    if any(s.rule_key == "deduction.business_expenses" for s in computation.steps):
+        return False
+    interest = amount("investment")
+    if interest > Decimal(str(exemption.value_json.get("interest_limit", 0))):
+        return False
+    apit = next((s.value for s in computation.steps if s.rule_key == "credit.apit"), Decimal(0))
+    return apit > 0 and computation.balance_payable <= interest
+
+
 def assess(computation: Computation, rules: ResolvedRuleSet) -> Compliance:
     """Filing obligation and dates for the computed year.
 
-    A taxpayer with taxable income above zero has a filing obligation. Someone
-    whose income falls entirely within personal relief generally does not,
-    though APIT withheld is itself a reason to file — that is how a refund is
-    claimed.
+    A taxpayer with taxable income above zero has a filing obligation, unless
+    their tax is all on employment income and their employer has deducted it
+    as APIT (Act s.94(1)(c), and (d) for small interest income), when no
+    return and no instalments are due. Someone whose income falls entirely
+    within personal relief generally does not, though APIT withheld is itself
+    a reason to file — that is how a refund is claimed.
     """
     deadline = rules.get("deadline.return_filing")
     due = None
@@ -54,6 +84,26 @@ def assess(computation: Computation, rules: ResolvedRuleSet) -> Compliance:
         (s.value for s in computation.steps if s.rule_key == "credit.apit"),
         Decimal(0),
     )
+    exemption = rules.get("filing.apit_exemption")
+
+    if computation.taxable_income > 0 and exemption and _apit_only(computation, exemption):
+        # More APIT than tax: as below, a refund is a reason to file, since a
+        # return is how it is claimed (s.94(3) lets an exempt person file).
+        refund = computation.balance_payable < 0
+        return Compliance(
+            must_file=refund,
+            reason=(
+                "Your employer deducted more APIT than your tax. A return is how the excess "
+                "is refunded; otherwise no return or instalments would be required."
+                if refund else
+                "Your tax is all on employment income and your employer deducts it as APIT, "
+                "so no return and no instalments are required."
+            ),
+            return_due=due,
+            instalments=[],
+            rule_version_id=exemption.id,
+            citation_label=exemption.citation_label,
+        )
 
     if computation.taxable_income > 0:
         must_file, reason = True, "Taxable income exceeds the personal relief threshold."

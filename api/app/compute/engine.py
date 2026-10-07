@@ -34,6 +34,7 @@ REQUIRED_RULE_KEYS = [
 OPTIONAL_RULE_KEYS = [
     "deduction.business_expenses",
     "band.foreign_service_cap",
+    "filing.apit_exemption",
 ]
 
 ZERO = Decimal("0")
@@ -357,8 +358,27 @@ def compute(facts: TaxFacts, rules: ResolvedRuleSet) -> Computation:
     )
 
     # --- APIT already withheld -------------------------------------------
-    apit = _round(facts.apit_withheld)
-    emit("Less APIT already withheld", "credit.apit", apit)
+    # An employer must deduct APIT from employment income every month (Act
+    # s.83A). Left at zero when the user does not mention it, the ledger
+    # asked a salaried person for the whole year's tax again, already paid
+    # through their payslips. So an unstated APIT is assumed: the tax on the
+    # employment income alone, at the same bands and with the full personal
+    # relief, which is what the IRD's APIT tables deduct over a year. It is
+    # marked assumed and never makes a refund; a figure the user gives
+    # replaces it.
+    if facts.apit_withheld is None and employment > ZERO:
+        on_salary = _round(max(employment - epf - statutory_relief, ZERO))
+        expected, _ = compute_band_tax(on_salary, band_rule)
+        apit = min(expected, max(gross_tax - other_credits, ZERO))
+        emit(
+            "Less APIT deducted by your employer",
+            "credit.apit",
+            apit,
+            detail={"assumed": apit > ZERO, "on_employment_income": str(on_salary)},
+        )
+    else:
+        apit = _round(facts.apit_withheld or ZERO)
+        emit("Less APIT already withheld", "credit.apit", apit)
 
     # --- Balance payable (derived) ---------------------------------------
     balance = _round(gross_tax - other_credits - apit)

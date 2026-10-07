@@ -266,7 +266,7 @@ NOT_DEDUCTIBLE = {"deduction.epf_employee": {"employee_rate": "0.08", "deductibl
 
 
 @pytest.mark.parametrize(
-    "salary,balance",
+    "salary,tax",
     [
         # LKR 400,000 a month: the IRD's APIT Table 01 formula for 2025/26,
         # 400,000 x 36% - 94,000 = 50,000 a month, is 600,000 for the year.
@@ -275,10 +275,14 @@ NOT_DEDUCTIBLE = {"deduction.epf_employee": {"employee_rate": "0.08", "deductibl
         ("3000000", "96000.00"),
     ],
 )
-def test_epf_not_deductible_matches_the_ird_apit_figures(salary, balance):
+def test_epf_not_deductible_matches_the_ird_apit_figures(salary, tax):
     facts = TaxFacts(ya="2026/2027", employment_income=Decimal(salary))
     c = compute(facts, _rules(**NOT_DEDUCTIBLE))
-    assert str(c.balance_payable) == balance
+    assert str(c.gross_tax) == tax
+    # With no APIT stated, the employer's deduction is assumed, and it is the
+    # IRD's own APIT figure for the year, so nothing is left to pay.
+    apit = next(s for s in c.steps if s.rule_key == "credit.apit")
+    assert (str(apit.value), apit.detail["assumed"], c.balance_payable) == (tax, True, Decimal("0.00"))
     epf = next(s for s in c.steps if s.rule_key == "deduction.epf_employee")
     # Kept in the ledger, at zero and cited, so the user sees why.
     assert (epf.value, epf.label) == (Decimal("0"), "EPF employee contribution, not deductible")

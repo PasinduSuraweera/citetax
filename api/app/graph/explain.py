@@ -142,6 +142,12 @@ def build_context(ctx: ExplainContext) -> str:
                          and v not in (None, "0", "0.00", "0.0") and Decimal(str(v)) != 0]
                 if parts:
                     line += f"  MADE UP OF: {', '.join(parts)}"
+            if s.rule_key == "credit.apit" and d.get("assumed"):
+                line += (
+                    "  NOTE: the user did not say how much APIT was deducted. This is the APIT "
+                    "an employer must deduct from the salary over the year, assumed. Say it is "
+                    "assumed and that their payslips' figure replaces it."
+                )
             if d.get("capped"):
                 statutory = Decimal(str(d["statutory"]))
                 line += (
@@ -166,9 +172,11 @@ def build_context(ctx: ExplainContext) -> str:
         cp = ctx.compliance
         lines.append("FILING:")
         lines.append(f"  must file: {'yes' if cp.must_file else 'no'}. {cp.reason}")
-        if cp.return_due:
+        if cp.return_due and cp.must_file:
             lines.append(f"  return due: {cp.return_due} [{cp.citation_label}]")
-        if ctx.days_remaining is not None:
+        elif not cp.must_file and cp.citation_label:
+            lines.append(f"  basis: [{cp.citation_label}]")
+        if ctx.days_remaining is not None and cp.must_file:
             lines.append(f"  days remaining until the return is due: {ctx.days_remaining}")
         if cp.instalments:
             lines.append("  instalments: " + ", ".join(cp.instalments))

@@ -14,6 +14,9 @@ D = Decimal
 
 
 def _facts(income: str, **kw) -> TaxFacts:
+    # A stated nil APIT keeps the whole tax as the balance, which is what the
+    # arithmetic below is worked from. The assumed APIT has its own test.
+    kw.setdefault("apit_withheld", D(0))
     return TaxFacts(ya="2026/2027", employment_income=D(income), **kw)
 
 
@@ -92,3 +95,15 @@ def test_serialises_money_as_strings():
     # Tax on 3,720,000 taxable: 420,000 + 1,220,000 at 36% = 859,200.
     assert body["baseline_balance"] == "859200.00"
     assert isinstance(body["levers"][0]["tax_saved"], str)
+
+
+def test_with_apit_assumed_a_saving_comes_back_as_a_refund():
+    """The employer deducts APIT on the salary whatever the employee later
+    claims, so a bigger deduction is a refund of APIT, not a smaller one."""
+    facts = TaxFacts(ya="2026/2027", employment_income=D("6000000"))
+    rules = _rules()
+    base = compute(facts, rules)
+    assert base.balance_payable == 0
+    sv = analyse(facts, rules, base)
+    edge = sv.levers[0]
+    assert edge.tax_saved == D("439200.00") and edge.new_balance == -edge.tax_saved

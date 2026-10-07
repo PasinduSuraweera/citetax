@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # control (spec section 5.1 E).
 VALUE_BEARING_PREFIXES = (
     "band.", "relief.", "credit.", "deduction.", "charge.", "deadline.", "apit.",
-    "income.",
+    "income.", "filing.",
 )
 
 # States a reviewer can move a proposal between by editing it. Approval and
