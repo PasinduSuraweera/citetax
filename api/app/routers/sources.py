@@ -133,6 +133,8 @@ def crawl_all(user: ReviewerDep) -> dict[str, Any]:
 
 
 _UPLOAD_TYPES = (".pdf", ".docx", ".html", ".htm", ".txt")
+# The document types source_document accepts (its check constraint).
+DOC_TYPES = ("circular", "gazette", "act_amendment", "apit_table", "guideline")
 
 
 @router.post("/upload")
@@ -151,6 +153,10 @@ async def upload_document(
 
     from app.corpus.pdf import content_fingerprint, extract_text
 
+    # Checked here, not left to the database, which answered a wrong type
+    # with a 500 (#92).
+    if doc_type not in DOC_TYPES:
+        raise HTTPException(400, f"doc_type must be one of: {', '.join(DOC_TYPES)}")
     name = (file.filename or "").lower()
     if not name.endswith(_UPLOAD_TYPES):
         raise HTTPException(
