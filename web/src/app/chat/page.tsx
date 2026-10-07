@@ -35,7 +35,8 @@ import { LiveTrace } from "@/components/LiveTrace";
 import { LogoMark } from "@/components/Logo";
 import { PayslipConfirm } from "@/components/PayslipConfirm";
 import { UserAvatar } from "@/components/UserAvatar";
-import { Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
+import { Shell } from "@/components/Shell";
+import { useYa, useYears, yearsPhrase } from "@/lib/years";
 import { SnapshotNote, TurnSummary } from "@/components/TurnSummary";
 import {
   api,
@@ -135,7 +136,8 @@ function AskPageInner() {
   const owner = user?.email ?? null;
   const store = useConversations();
 
-  const [ya, setYa] = useState<YA>("2026/2027");
+  const [ya, setYa] = useYa();
+  const { years } = useYears();
   // Each "+ New chat" is a fresh draft with its own key, so an answer still
   // running for the previous draft cannot land in the new one.
   const [draftGen, setDraftGen] = useState(0);
@@ -569,7 +571,7 @@ function AskPageInner() {
         </ul>
 
         <p className="mt-8 text-[12.5px] leading-[1.6] text-ink-400">
-          Covers personal income tax for {SUPPORTED_YAS.join(" and ")}. VAT,
+          Covers personal income tax for {yearsPhrase(years)}. VAT,
           company tax and requests for advice are declined with the reason.
           Names and ID numbers are removed before anything reaches a language
           model.

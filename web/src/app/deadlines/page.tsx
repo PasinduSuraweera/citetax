@@ -8,28 +8,31 @@
 import { MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PageBody, Shell, SUPPORTED_YAS, type YA } from "@/components/Shell";
+import { PageBody, Shell } from "@/components/Shell";
+import { useYa, useYears, type YA } from "@/lib/years";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, formatDate, type DeadlinesResponse } from "@/lib/api";
 
 export default function DeadlinesPage() {
-  const [ya, setYa] = useState<YA>("2026/2027");
+  const [ya, setYa] = useYa();
+  const { years } = useYears();
   const [data, setData] = useState<Record<string, DeadlinesResponse | null>>({});
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     Promise.all(
-      SUPPORTED_YAS.map((y) => api.deadlines(y).then((d) => [y, d] as const).catch(() => [y, null] as const)),
+      years.map((y: YA) => api.deadlines(y).then((d) => [y, d] as const).catch(() => [y, null] as const)),
     )
       .then((pairs) => setData(Object.fromEntries(pairs)))
       .catch((e) => setError(e.message))
       .finally(() => setLoaded(true));
-  }, []);
+    // Again once the API has said which years are supported.
+  }, [years]);
 
   const selected = data[ya];
-  const other = SUPPORTED_YAS.find((y) => y !== ya)!;
+  const other = years.find((y) => y !== ya)!;
   const today = new Date();
 
   return (

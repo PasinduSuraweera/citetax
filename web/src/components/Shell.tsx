@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { admin, type Me } from "@/lib/admin";
 import { requestNewQuestion } from "@/lib/ask-store";
 import { useSession } from "@/lib/session";
+import { useYears, type YA } from "@/lib/years";
 import { ConversationList } from "./ConversationList";
 import { Logo } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
@@ -38,8 +39,7 @@ const NAV: Array<{ label: string; href: string; icon: LucideIcon }> = [
   { label: "Deadlines", href: "/deadlines", icon: CalendarClock },
 ];
 
-export const SUPPORTED_YAS = ["2026/2027", "2025/2026"] as const;
-export type YA = (typeof SUPPORTED_YAS)[number];
+export type { YA } from "@/lib/years";
 
 interface Props {
   ya: YA;
@@ -126,6 +126,7 @@ export function Shell(props: Props) {
 
 function SidebarContent({ ya, onYaChange, onNavigate }: Props & { onNavigate: () => void }) {
   const pathname = usePathname();
+  const { years } = useYears();
   const { user, loading, signOut } = useSession();
   const [fetchedMe, setMe] = useState<Me | null>(meCache ?? null);
   const me = user ? fetchedMe : null;
@@ -188,8 +189,13 @@ function SidebarContent({ ya, onYaChange, onNavigate }: Props & { onNavigate: ()
           always visible and never implicit (spec section 6.1). */}
       <div className="mt-5 px-2">
         <div id="ya-label" className="text-[12px] font-medium text-white/50">Year of assessment</div>
-        <div role="radiogroup" aria-labelledby="ya-label" className="mt-2 grid grid-cols-2 rounded-lg bg-white/[0.07] p-[3px]">
-          {SUPPORTED_YAS.map((year) => {
+        <div
+          role="radiogroup"
+          aria-labelledby="ya-label"
+          className="mt-2 grid rounded-lg bg-white/[0.07] p-[3px]"
+          style={{ gridTemplateColumns: `repeat(${years.length}, minmax(0, 1fr))` }}
+        >
+          {years.map((year) => {
             const selected = year === ya;
             return (
               <button

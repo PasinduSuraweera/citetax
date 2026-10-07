@@ -17,7 +17,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SUPPORTED_YAS, type YA } from "./Shell";
+import { useYears, type YA } from "@/lib/years";
 
 const PAYSLIP_TYPES = "image/jpeg,image/png,image/webp,application/pdf";
 const MAX_HEIGHT = 240;
@@ -43,6 +43,7 @@ export function Composer({
   value, onChange, onSubmit, ya, onYaChange, onAttach, inputRef, placeholder, busy = false,
   autoFocus = false, className = "",
 }: Props) {
+  const { years } = useYears();
   const disabled = busy || !value.trim();
   const fileRef = useRef<HTMLInputElement>(null);
   const ownRef = useRef<HTMLTextAreaElement>(null);
@@ -133,7 +134,7 @@ export function Composer({
               <DropdownMenuContent align="start" className="w-52">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="text-[12px] font-normal text-ink-400">Year of assessment</DropdownMenuLabel>
-                  {SUPPORTED_YAS.map((y) => (
+                  {years.map((y) => (
                     <DropdownMenuItem key={y} onClick={() => onYaChange(y)} className="tnum justify-between">
                       {y}
                       {y === ya && <Check className="text-brand-600" />}
