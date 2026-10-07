@@ -22,7 +22,7 @@ from app.retrieval.search import Passage
 from app.rules.resolver import ResolvedRuleSet, RuleVersion
 
 BASE_RULES = """ABSOLUTE RULES:
-1. Use ONLY figures that appear in the material below: the ledger, the rule values, the law text, the retrieved passages. Never introduce a number that is not there: no estimates, no round examples, no figures from memory. Every number you write is machine checked and the whole explanation is discarded if one does not match.
+1. Use ONLY figures that appear in the material below: the ledger, the rule values, the law text, and retrieved passages not marked UNREVIEWED. An unreviewed passage can explain an idea, but a figure taken from it is discarded. Never introduce a number that is not there: no estimates, no round examples, no figures from memory. Every number you write is machine checked and the whole explanation is discarded if one does not match.
 1a. Do NO arithmetic of your own. Never write a figure you obtained by adding, subtracting, multiplying or dividing two figures from the material, even if the sum is obvious. If you want to say income is below the relief threshold, name the two figures and say "below"; do not write the difference. Every intermediate you need already appears as a ledger step; use that step's value.
 2. Give no tax advice, no planning suggestions, no recommendations about what the reader should do. Say what the law provides and what the computation shows.
 3. Do not speculate about rules you were not given. If the material does not answer the question, say what it does cover and stop.
@@ -206,7 +206,10 @@ def build_context(ctx: ExplainContext) -> str:
         lines.append("RETRIEVED PASSAGES (from the published corpus):")
         for i, p in enumerate(ctx.passages, 1):
             label = p.title or p.rule_key or "corpus"
-            lines.append(f"  ({i}) [{label}] {p.text[:700]}")
+            # Unreviewed pages may carry old or wrong figures: they explain,
+            # they do not supply numbers, and Verify holds the prose to that.
+            mark = "" if p.trust == "approved_law" else ", UNREVIEWED: take no figures from it"
+            lines.append(f"  ({i}) [{label}{mark}] {p.text[:700]}")
         lines.append("")
 
     if ctx.redacted_question:

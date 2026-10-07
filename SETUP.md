@@ -138,7 +138,7 @@ changes through the admin **Review inbox**, not by editing the seed.
 |---|---|---|---|
 | `DATABASE_URL` | **Yes** | Rules, versions, snapshots, audit. Everything. | Free tier |
 | `GROQ_API_KEY` | **Yes** for prose | The Explain node only. Never sees your identity or a payslip. | Free tier |
-| `GOOGLE_API_KEY` | No, later | Embedding chunks for explanation retrieval, and reading uploaded payslips. A payslip is sent to Gemini whole, identifiers included, only after the user agrees on the upload screen; it is never stored. | Free tier |
+| `GOOGLE_API_KEY` | No, later | Embedding corpus passages and each question (with identifiers already removed) for retrieval, and reading uploaded payslips. A payslip is sent to Gemini whole, identifiers included, only after the user agrees on the upload screen; it is never stored. | Free tier |
 
 No key is needed for the computation itself. The compute engine is pure Python
 with no network access — that is the point of spec §4.3, and it is what lets

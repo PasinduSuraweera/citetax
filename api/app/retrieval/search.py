@@ -58,6 +58,8 @@ class Passage:
     url: str | None
     score: float
     matched_by: str   # "fts" | "dense" | "both"
+    # approved_law: a reviewer signed rule's text. secondary: anything else.
+    trust: str = "secondary"
     # The rule's plain name, for display. The model is still shown `title`
     # or the key, so what it cites is unchanged.
     rule_title: str | None = None
@@ -73,13 +75,14 @@ class Passage:
             "score": round(self.score, 4),
             "matched_by": self.matched_by,
             "rule_title": self.rule_title,
+            "trust": self.trust,
         }
 
 
 _FTS = text(
     """
     select c.id, c.text, c.source_document_id, c.rule_key, d.title, d.url,
-           r.title as rule_title,
+           r.title as rule_title, c.trust,
            ts_rank_cd(c.tsv, plainto_tsquery('english', :q)) as score
       from chunk c
       left join source_document d on d.id = c.source_document_id
@@ -87,6 +90,7 @@ _FTS = text(
      where c.status = 'published'
        and c.tsv @@ plainto_tsquery('english', :q)
        and (:keys_empty or c.rule_key = any(:keys) or c.rule_key is null)
+       and (:ya_any or c.applies_to_ya is null or :ya = any(c.applies_to_ya))
      order by score desc
      limit :n
     """
@@ -95,7 +99,7 @@ _FTS = text(
 _DENSE = text(
     """
     select c.id, c.text, c.source_document_id, c.rule_key, d.title, d.url,
-           r.title as rule_title,
+           r.title as rule_title, c.trust,
            1 - (c.embedding <=> cast(:v as vector)) as score
       from chunk c
       left join source_document d on d.id = c.source_document_id
@@ -103,6 +107,7 @@ _DENSE = text(
      where c.status = 'published'
        and c.embedding is not null
        and (:keys_empty or c.rule_key = any(:keys) or c.rule_key is null)
+       and (:ya_any or c.applies_to_ya is null or :ya = any(c.applies_to_ya))
      order by c.embedding <=> cast(:v as vector)
      limit :n
     """
@@ -123,10 +128,13 @@ def search(
     query: str,
     rule_keys: list[str] | None = None,
     top_k: int = TOP_K,
+    ya: str | None = None,
 ) -> tuple[list[Passage], dict[str, Any]]:
-    """Returns (passages, meta). Empty list when nothing is indexed."""
+    """Returns (passages, meta). Empty list when nothing is indexed. With a
+    year of assessment, passages about another year are left out (#44)."""
     keys = list(rule_keys or [])
-    params = {"q": query, "keys": keys or [""], "keys_empty": not keys, "n": CANDIDATES}
+    params = {"q": query, "keys": keys or [""], "keys_empty": not keys, "n": CANDIDATES,
+              "ya": ya or "", "ya_any": not ya}
     meta: dict[str, Any] = {"fts": 0, "dense": 0, "fused": 0, "dense_enabled": False}
 
     fts_rows = conn.execute(_FTS, params).mappings().all()
@@ -213,6 +221,7 @@ def search(
                 url=r["url"],
                 score=e["score"],
                 matched_by="both" if len(e["by"]) == 2 else next(iter(e["by"])),
+                trust=r["trust"] or "secondary",
                 rule_title=r["rule_title"],
             )
         )

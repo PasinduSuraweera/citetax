@@ -132,10 +132,22 @@ def test_verify_accepts_figures_that_appear_in_a_retrieved_passage():
     passage = Passage(
         chunk_id="c1", text="The personal relief is Rs. 1,800,000 for each year.",
         source_document_id=None, rule_key="relief.personal", title="Guide",
-        url=None, score=0.1, matched_by="fts",
+        url=None, score=0.1, matched_by="fts", trust="approved_law",
     )
     ev = Evidence(passages=[passage])
     assert verify("Personal relief is LKR 1,800,000 (Guide).", ev).ok is True
+
+
+def test_an_unreviewed_passage_cannot_make_a_figure_pass():
+    """#44: a crawled article quoting the old relief must not verify it."""
+    article = Passage(
+        chunk_id="c2", text="The personal relief was raised to Rs. 1,200,000 a year.",
+        source_document_id="d1", rule_key=None, title="A blog post",
+        url="https://example.invalid/post", score=0.1, matched_by="fts",
+    )
+    r = verify("Your personal relief is LKR 1,200,000.", Evidence(passages=[article]), attempt=2)
+    assert r.ok is False
+    assert "LKR 1,200,000" in r.unmatched_numbers
 
 
 def test_verify_blocks_a_figure_not_in_any_evidence():

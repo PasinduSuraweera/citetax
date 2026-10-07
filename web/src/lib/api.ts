@@ -74,6 +74,9 @@ export interface Passage {
   matched_by: "fts" | "dense" | "both";
   /** The rule's plain name. Absent on answers stored before it existed. */
   rule_title?: string | null;
+  /** approved_law: a reviewer signed rule. secondary: a page no reviewer
+   *  approved. Absent on answers stored before it existed. */
+  trust?: "approved_law" | "secondary";
 }
 
 export interface LlmUsage {
