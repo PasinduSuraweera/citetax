@@ -187,6 +187,16 @@ def parse_year_of_assessment(text: str, supported: tuple[str, ...]) -> str | Non
     return None
 
 
+# Scanned before the salary, in this order: clients abroad, then expenses,
+# then other business income.
+_BUSINESS_FIELDS = (
+    (["foreign client", "foreign clients", "clients abroad", "upwork", "fiverr",
+      "foreign currency", "from abroad", "in dollars", "paid in usd"], "foreign_service_income"),
+    (["business expenses", "expenses", "costs"], "business_expenses"),
+    (["business income", "freelance", "self-employed"], "business_income"),
+)
+
+
 def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
     """Extract everything the computation needs, and nothing that identifies."""
     facts = TaxFacts(source="question")
@@ -206,11 +216,22 @@ def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
     def annual(value: Decimal, pos: int) -> Decimal:
         return value * 12 if pos in monthly else value
 
+    # Freelance figures first: "my freelance income is 4,000,000" is not a
+    # salary, and the salary scan below would take it for one (#48).
+    business_found = False
+    for keywords, field_name in _BUSINESS_FIELDS:
+        found = _find_amount(text, keywords, claimed=claimed)
+        if found is not None:
+            value, pos = found
+            claimed.add(pos)
+            setattr(facts, field_name, annual(value, pos))
+            business_found = business_found or field_name != "business_expenses"
+
     hit = _find_amount(
         text, ["salary", "earn", "income", "paid", "wage", "make", "pay"],
         claimed=claimed,
     )
-    if hit is None:
+    if hit is None and not business_found:
         # A lone figure in a tax question is almost always the salary.
         candidates = [
             (v, m.start(1))
@@ -249,7 +270,6 @@ def parse_question(text: str, supported_yas: tuple[str, ...]) -> TaxFacts:
     for keywords, field_name in (
         (["epf", "provident"], "epf_employee"),
         (["apit", "paye", "withheld", "deducted at source"], "apit_withheld"),
-        (["business income", "freelance", "self-employed"], "business_income"),
         (["interest", "dividend", "rent", "investment"], "investment_income"),
         (["qualifying payment"], "qualifying_payments"),
         (["foreign tax credit", "tax paid abroad", "foreign tax paid"], "foreign_tax_credit"),

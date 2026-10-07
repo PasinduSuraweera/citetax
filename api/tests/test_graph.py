@@ -440,3 +440,20 @@ def test_verify_first_failure_asks_for_regeneration():
     r = verify("You owe 99,999.00.", c, _rules(), attempt=1)
     assert r.ok is False
     assert "Regenerating" in r.note
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("I earn LKR 6,000,000 a year from foreign clients on Upwork, paid in dollars, for 2026/2027",
+     {"foreign_service_income": Decimal("6000000")}),
+    ("My freelance income is 4,000,000 and business expenses are 1,000,000 for 2026/2027",
+     {"business_income": Decimal("4000000"), "business_expenses": Decimal("1000000")}),
+    ("Salary 3,000,000 a year and freelance 500,000 for 2026/2027",
+     {"employment_income": Decimal("3000000"), "business_income": Decimal("500000")}),
+])
+def test_freelance_figures_are_not_read_as_salary(question, expected):
+    """#48: the salary scan ran first and took a freelancer's figure for pay."""
+    facts = parse_question(question, SUPPORTED)
+    got = {k: getattr(facts, k) for k in expected}
+    assert got == expected
+    if "employment_income" not in expected:
+        assert not facts.employment_income

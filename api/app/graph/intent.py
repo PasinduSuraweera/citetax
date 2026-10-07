@@ -45,7 +45,9 @@ class ExtractedFacts(BaseModel):
     """Annual LKR figures. Monthly amounts are multiplied by 12 by the model."""
 
     employment_income: float | None = Field(None, description="Annual salary, LKR")
-    business_income: float | None = Field(None, description="Annual freelance or business income, LKR")
+    business_income: float | None = Field(None, description="Annual freelance or business income from Sri Lankan clients, LKR")
+    business_expenses: float | None = Field(None, description="Annual expenses of earning the business income (not equipment or other capital purchases), LKR")
+    foreign_service_income: float | None = Field(None, description="Annual income from services for clients outside Sri Lanka, paid in foreign currency and remitted through a bank, in LKR. Not also in business_income")
     investment_income: float | None = Field(None, description="Annual interest, dividends, rent, LKR")
     other_income: float | None = None
     epf_employee: float | None = Field(None, description="Employee EPF contribution actually stated, LKR. null if only 'EPF deducted' with no amount")
@@ -123,7 +125,7 @@ INTENT:
 - general: a conceptual question about how personal income tax works, with no figure for their own situation.
 - out_of_scope: anything failing the scope test.
 
-FACTS: give annual LKR amounts as numbers. A monthly figure is multiplied by 12. "1.2 million" is 1200000. "250k" is 250000. If EPF is mentioned without an amount, leave epf_employee null. If only one income figure appears and its type is unclear, treat it as employment_income.
+FACTS: give annual LKR amounts as numbers. A monthly figure is multiplied by 12. "1.2 million" is 1200000. "250k" is 250000. If EPF is mentioned without an amount, leave epf_employee null. If only one income figure appears and its type is unclear, treat it as employment_income. Freelance income from clients abroad (Upwork, Fiverr, foreign companies) paid in foreign currency goes in foreign_service_income, not business_income. Costs of earning business income go in business_expenses.
 
 YEAR: written forms like "{CS}/{CE2}", "{CS}-{CE}", "{CS2}/{CE2}", "for {CS}" and "this year" (today is in Y/A {CURRENT}) all mean {CURRENT}.{LAST_YEAR}
 
@@ -197,6 +199,8 @@ def _to_facts(r: RoutedQuestion, supported: tuple[str, ...]) -> TaxFacts:
 
     facts.employment_income = dec(f.employment_income)
     facts.business_income = dec(f.business_income) or Decimal(0)
+    facts.business_expenses = dec(f.business_expenses) or Decimal(0)
+    facts.foreign_service_income = dec(f.foreign_service_income) or Decimal(0)
     facts.investment_income = dec(f.investment_income) or Decimal(0)
     facts.other_income = dec(f.other_income) or Decimal(0)
     facts.epf_employee = dec(f.epf_employee)

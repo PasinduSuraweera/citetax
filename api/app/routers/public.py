@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
-from app.compute.engine import REQUIRED_RULE_KEYS, compute
+from app.compute.engine import OPTIONAL_RULE_KEYS, REQUIRED_RULE_KEYS, compute
 from app.compute.types import TaxFacts
 from app.conversations import envelope, store, titles
 from app.conversations.context import build_context
@@ -391,7 +391,7 @@ def compute_endpoint(req: ComputeRequest) -> dict[str, Any]:
         try:
             rules = resolve_many(
                 conn, REQUIRED_RULE_KEYS + ["deadline.return_filing"],
-                req.ya, str(snap["id"]),
+                req.ya, str(snap["id"]), optional=OPTIONAL_RULE_KEYS,
             )
         except UnresolvedRule as exc:
             raise HTTPException(422, str(exc)) from exc
@@ -420,6 +420,7 @@ def compute_endpoint(req: ComputeRequest) -> dict[str, Any]:
         "taxable_income": f"{c.taxable_income:.2f}",
         "gross_tax": f"{c.gross_tax:.2f}",
         "is_refund": c.is_refund,
+        "notes": c.notes,
         "compliance": compliance.to_json(),
         "corpus_snapshot_id": c.corpus_snapshot_id,
     }
@@ -455,6 +456,7 @@ def obligation(
                 REQUIRED_RULE_KEYS + ["deadline.return_filing"],
                 ya,
                 str(snap["id"]),
+                optional=OPTIONAL_RULE_KEYS,
             )
         except UnresolvedRule as exc:
             raise HTTPException(422, str(exc)) from exc

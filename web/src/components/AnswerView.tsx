@@ -210,14 +210,22 @@ export function AnswerView({ question, answer, onClarifyAnswer }: Props) {
 
       <div role="tabpanel">
         {tab === "computation" && c && (
-          <ComputationTable
-            steps={c.steps}
-            balance={c.balance_payable}
-            isRefund={c.is_refund}
-            onRuleClick={handleRuleClick}
-            onFlag={handleFlag}
-            citationIndex={citationIndex}
-          />
+          <>
+            {/* What the engine could not apply is said, not dropped (#48). */}
+            {(c.notes ?? []).length > 0 && (
+              <ul className="mb-3 flex flex-col gap-1.5 rounded-lg bg-[#fdf4e0] px-4 py-3 text-[13.5px] leading-[1.5] text-[#6b4a0b]">
+                {c.notes!.map((n) => <li key={n}>{n}</li>)}
+              </ul>
+            )}
+            <ComputationTable
+              steps={c.steps}
+              balance={c.balance_payable}
+              isRefund={c.is_refund}
+              onRuleClick={handleRuleClick}
+              onFlag={handleFlag}
+              citationIndex={citationIndex}
+            />
+          </>
         )}
 
         {tab === "savings" && answer.savings && (
@@ -313,8 +321,11 @@ function Headline({ answer, onSource }: { answer: AnswerResponse; onSource?: (n:
   if ((intent === "compute" || (intent === "obligation" && c)) && c) {
     const balance = c.balance_payable;
     const negative = balance.startsWith("-");
+    // Assessable income is income less business expenses, when there are any.
+    const expenses = c.steps.find((s) => s.rule_key === "deduction.business_expenses")?.value ?? "0";
+    const assessable = String(Number(c.steps[0]?.value ?? 0) - Number(expenses));
     const rows: Array<[string, React.ReactNode, string?]> = [
-      ["Effective rate", rate(c.gross_tax, c.steps[0]?.value), `of LKR ${money(c.steps[0]?.value ?? "0")} assessable income`],
+      ["Effective rate", rate(c.gross_tax, assessable), `of LKR ${money(assessable)} assessable income`],
       ["Rate on taxable income", rate(c.gross_tax, c.taxable_income), `LKR ${money(c.taxable_income)} after relief`],
     ];
     if (compliance?.return_due) {

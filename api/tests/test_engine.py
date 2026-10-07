@@ -302,3 +302,88 @@ def test_an_old_rule_version_still_deducts_and_marks_the_default_as_assumed():
     stated = compute(TaxFacts(ya="2026/2027", employment_income=Decimal("3000000"),
                               epf_employee=Decimal("240000")), _rules())
     assert next(s for s in stated.steps if s.rule_key == "deduction.epf_employee").detail["assumed"] is False
+
+
+# ---------------------------------------------------------------------------
+# The IRD's own worked examples: Guide to the Return of Income, Year of
+# Assessment 2025/2026 (Asmt_IIT_004_2025_2026_E), Illustrations 1 to 3.
+# Expected figures are the IRD's, not ours (#47, #48).
+# ---------------------------------------------------------------------------
+
+IRD_LAW = {
+    "deduction.epf_employee": {"employee_rate": "0.08", "deductible": False},
+    "deduction.business_expenses": {"capital_excluded": True},
+    "band.foreign_service_cap": {"max_rate": "0.15"},
+}
+
+
+def test_ird_example_1_salary_and_interest():
+    """Ms Yohani: salary 240,000 a month, interest 140,000, APIT 74,400, WHT 14,000."""
+    facts = TaxFacts(ya="2025/2026", employment_income=Decimal("2880000"),
+                     investment_income=Decimal("140000"), apit_withheld=Decimal("74400"),
+                     wht_credit=Decimal("14000"))
+    c = compute(facts, _rules("2025/2026", **IRD_LAW))
+    assert (c.taxable_income, c.gross_tax, c.balance_payable) == (
+        Decimal("1220000.00"), Decimal("99600.00"), Decimal("11200.00"))
+
+
+def test_ird_example_2_foreign_and_local_lecturing():
+    """Mr Chatura: foreign fees 9,000,000 (20% tax abroad), local 5,000,000
+    (5% AIT), net of expenses. Foreign at 15%: 1,350,000; local across the
+    bands: 672,000; the foreign tax credit is limited to 1,350,000."""
+    facts = TaxFacts(ya="2025/2026", business_income=Decimal("5000000"),
+                     foreign_service_income=Decimal("9000000"),
+                     foreign_tax_credit=Decimal("1800000"), wht_credit=Decimal("250000"))
+    c = compute(facts, _rules("2025/2026", **IRD_LAW))
+    by_key = {s.rule_key: s for s in c.steps}
+    assert by_key["band.progressive"].value == Decimal("672000.00")
+    assert by_key["band.foreign_service_cap"].value == Decimal("1350000.00")
+    assert c.taxable_income == Decimal("12200000.00")
+    # Before the 400,000 instalment the IRD subtracts last: 422,000.
+    assert c.balance_payable == Decimal("422000.00")
+
+
+def test_ird_example_3_youtuber_with_a_donation():
+    """Mr Amith: foreign 83,280,000, local 40,490,000, donation 2,500,000 to a
+    government school, AIT 44,500. IRD total tax 25,040,400."""
+    facts = TaxFacts(ya="2025/2026", business_income=Decimal("40490000"),
+                     foreign_service_income=Decimal("83280000"),
+                     qualifying_payments=Decimal("2500000"), wht_credit=Decimal("44500"))
+    c = compute(facts, _rules("2025/2026", **IRD_LAW))
+    by_key = {s.rule_key: s for s in c.steps}
+    # 60,000 + 90,000 + 120,000 + 150,000 + 33,690,000 x 36% (12,128,400).
+    assert by_key["band.progressive"].value == Decimal("12548400.00")
+    assert by_key["band.foreign_service_cap"].value == Decimal("12492000.00")
+    assert c.gross_tax == Decimal("25040400.00")
+    # The IRD then subtracts the 8,160,000 instalments: 16,835,900.
+    assert c.balance_payable - Decimal("8160000") == Decimal("16835900.00")
+
+
+def test_a_small_foreign_only_income_still_gets_the_6_percent_band():
+    """With no local income, foreign income takes the bands from the bottom,
+    each capped at 15%: 1,000,000 at 6% and the rest at 15%, not 18% and up."""
+    facts = TaxFacts(ya="2026/2027", foreign_service_income=Decimal("3800000"))
+    c = compute(facts, _rules(**IRD_LAW))
+    # 3,800,000 - 1,800,000 relief = 2,000,000 taxable: 60,000 + 1,000,000 x 15%.
+    assert c.gross_tax == Decimal("210000.00")
+
+
+def test_business_expenses_are_deducted_with_a_cited_step():
+    facts = TaxFacts(ya="2026/2027", business_income=Decimal("4000000"), business_expenses=Decimal("1000000"))
+    c = compute(facts, _rules(**IRD_LAW))
+    labels = [s.label for s in c.steps]
+    assert labels[:2] == ["Income before business expenses", "Less business expenses"]
+    assert c.steps[1].value == Decimal("1000000.00") and c.steps[1].rule_version_id
+    # 3,000,000 - 1,800,000 = 1,200,000 taxable: 96,000.
+    assert c.gross_tax == Decimal("96000.00")
+
+
+def test_without_the_new_rules_nothing_is_dropped_silently():
+    """Before the rules are signed and published, the figures are taxed as
+    today, and the computation says what it could not apply."""
+    facts = TaxFacts(ya="2026/2027", business_income=Decimal("4000000"),
+                     business_expenses=Decimal("1000000"), foreign_service_income=Decimal("2000000"))
+    c = compute(facts, _rules())
+    assert len(c.steps) == 8
+    assert any("Business expenses" in n for n in c.notes)
+    assert any("15%" in n for n in c.notes)

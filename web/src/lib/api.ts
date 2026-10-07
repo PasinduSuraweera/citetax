@@ -166,6 +166,9 @@ export interface AnswerResponse {
     gross_tax: string;
     is_refund: boolean;
     step_count: number;
+    /** Facts the engine could not apply, such as business expenses before
+     *  the rule allowing them is published. Absent on older answers. */
+    notes?: string[];
   };
   compliance?: Compliance;
   savings?: Savings;

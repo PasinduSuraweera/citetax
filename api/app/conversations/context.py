@@ -45,6 +45,8 @@ MAX_CONTEXT_CHARS = 1200
 FACT_FIELDS = (
     "employment_income",
     "business_income",
+    "business_expenses",
+    "foreign_service_income",
     "investment_income",
     "other_income",
     "epf_employee",

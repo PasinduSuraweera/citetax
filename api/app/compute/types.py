@@ -24,6 +24,14 @@ class TaxFacts(BaseModel):
     ya: YA | None = None
     employment_income: Decimal | None = None
     business_income: Decimal = Decimal(0)
+    # Expenses incurred in earning business income (Act s.11(1)); not capital
+    # items. The IRD's return takes business income after these (#48).
+    business_expenses: Decimal = Decimal(0)
+    # Income from services used outside Sri Lanka, paid in foreign currency
+    # and remitted through a bank: taxed at the bands capped at 15% (First
+    # Schedule 1(6), from 1 April 2025). Business income, kept apart because
+    # it is taxed differently.
+    foreign_service_income: Decimal = Decimal(0)
     investment_income: Decimal = Decimal(0)
     other_income: Decimal = Decimal(0)
     epf_employee: Decimal | None = None
@@ -55,6 +63,7 @@ class TaxFacts(BaseModel):
         return (
             (self.employment_income or Decimal(0))
             + self.business_income
+            + self.foreign_service_income
             + self.investment_income
             + self.other_income
         )
@@ -84,3 +93,6 @@ class Computation(BaseModel):
     is_refund: bool = False
     rule_version_ids: list[str] = Field(default_factory=list)
     corpus_snapshot_id: str | None = None
+    # Facts the computation could not apply, said plainly rather than dropped:
+    # "business expenses were not deducted: no rule allowing them is in force".
+    notes: list[str] = Field(default_factory=list)

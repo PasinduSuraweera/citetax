@@ -29,7 +29,7 @@ from typing import Any, Callable
 from sqlalchemy.engine import Connection
 
 from app.core import years
-from app.compute.engine import REQUIRED_RULE_KEYS, compute
+from app.compute.engine import OPTIONAL_RULE_KEYS, REQUIRED_RULE_KEYS, compute
 from app.compute.types import Computation, TaxFacts
 from app.conversations.context import ConversationContext
 from app.core import llm
@@ -287,7 +287,7 @@ def run_answer_graph(
 
 def _run_compute(conn, result, r, facts, snap_id, mark, budget) -> None:
     t0 = time.perf_counter()
-    rules = resolve_many(conn, ALL_KEYS, facts.ya, snap_id, as_of=facts.as_of)
+    rules = resolve_many(conn, ALL_KEYS, facts.ya, snap_id, as_of=facts.as_of, optional=OPTIONAL_RULE_KEYS)
     result.rules = rules
     mark("Resolve", "ok", f"{len(rules.rules)} rules at snapshot {result.snapshot['label']}", t0)
 
