@@ -144,6 +144,9 @@ def build_context(ctx: ExplainContext) -> str:
                     f"{s.value:,} is applied'. Never call {s.value:,} the relief."
                 )
             lines.append(line)
+        for n in c.notes:
+            # A fact the engine could not apply: say so, never imply it was.
+            lines.append(f"  NOT APPLIED: {n}")
         lines += [
             f"  TAXABLE INCOME: LKR {c.taxable_income:,}",
             f"  GROSS TAX: LKR {c.gross_tax:,}",

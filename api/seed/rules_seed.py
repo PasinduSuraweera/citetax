@@ -55,6 +55,8 @@ RULES = [
     ("income.assessable",     "Assessable income",              "amount",     "LKR",     "half_up"),
     ("deduction.epf_employee","EPF employee contribution",      "rate",       "percent", "half_up"),
     ("deduction.qualifying",  "Qualifying payments",            "amount",     "LKR",     "half_up"),
+    ("deduction.business_expenses", "Business expenses",        "amount",     "LKR",     "half_up"),
+    ("band.foreign_service_cap", "Foreign-currency service income rate cap", "rate", "percent", "half_up"),
     ("relief.personal",       "Personal relief",                "amount",     "LKR",     "half_up"),
     ("charge.taxable_income", "Taxable income",                 "amount",     "LKR",     "half_up"),
     ("band.progressive",      "Progressive tax bands",          "rate_table", "percent", "half_up"),
@@ -98,6 +100,27 @@ SHARED_VERSIONS: list[tuple] = [
      {"employee_rate": "0.08", "deductible": False},
      "Act s.10(1)(a)",
      "No deduction shall be made in calculating a person's income from employment."),
+
+    # Freelance and business income is taxed after the expenses of earning it
+    # (#48). Capital items are excluded by s.11(2).
+    ("deduction.business_expenses",
+     {"capital_excluded": True},
+     "Act s.11(1)",
+     "In calculating a person\u2019s income from a business or investment for a year of "
+     "assessment, expenses to the extent they are incurred during the year by the person "
+     "and in the production of income from the business or investment, shall be deducted."),
+
+    # Services for clients abroad, paid in foreign currency through a bank: the
+    # ordinary bands, at most 15% (#48). The IRD return guide for 2025/2026
+    # (illustrations 2 and 3) shows how it is applied.
+    ("band.foreign_service_cap",
+     {"max_rate": "0.15"},
+     "First Schedule para 1(6)",
+     "an individual\u2019s following gains and profits shall be taxed at the maximum rate "
+     "of 15% with effect from April 1, 2025: (a) the gains and profits earned or derived "
+     "from any service rendered in or outside Sri Lanka to any person to be utilized "
+     "outside Sri Lanka, where the payment for such services is received in foreign "
+     "currency and remitted through a bank to Sri Lanka"),
 
     ("deduction.qualifying",
      {"annual_cap": None},

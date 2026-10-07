@@ -35,6 +35,8 @@ class ComputeRequest(BaseModel):
     ya: str
     employment_income: Decimal = Decimal(0)
     business_income: Decimal = Decimal(0)
+    business_expenses: Decimal = Decimal(0)
+    foreign_service_income: Decimal = Decimal(0)
     investment_income: Decimal = Decimal(0)
     other_income: Decimal = Decimal(0)
     epf_employee: Decimal | None = None
@@ -115,6 +117,7 @@ def serialise_answer(result: AnswerResult) -> dict[str, Any]:
             "gross_tax": _money(c.gross_tax),
             "is_refund": c.is_refund,
             "step_count": len(c.steps),
+            "notes": c.notes,
         }
 
     if result.savings:

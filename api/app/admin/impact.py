@@ -17,7 +17,7 @@ from typing import Any
 
 from sqlalchemy.engine import Connection
 
-from app.compute.engine import REQUIRED_RULE_KEYS, compute
+from app.compute.engine import OPTIONAL_RULE_KEYS, REQUIRED_RULE_KEYS, compute
 from app.compute.types import TaxFacts
 from app.graph import comply
 from app.rules.resolver import (
@@ -153,6 +153,13 @@ def golden_set() -> list[Scenario]:
                                           "qualifying_payments": "300000"}),
             ("with foreign credit", {"employment_income": "4000000",
                                      "foreign_tax_credit": "50000"}),
+            # Freelancers (#48): expenses, clients abroad, and both at once.
+            ("freelance with expenses", {"business_income": "4000000",
+                                         "business_expenses": "1000000"}),
+            ("foreign clients only", {"foreign_service_income": "6000000"}),
+            ("local and foreign lecturing", {"business_income": "5000000",
+                                             "foreign_service_income": "9000000",
+                                             "foreign_tax_credit": "1800000"}),
         ]
         for name, kw in cases:
             out.append(
@@ -207,7 +214,7 @@ def preview(
     baseline: dict[str, ResolvedRuleSet] = {}
     for ya in {s.ya for s in scenarios}:
         try:
-            baseline[ya] = resolve_many(conn, NEEDED, ya, snapshot_id, as_of)
+            baseline[ya] = resolve_many(conn, NEEDED, ya, snapshot_id, as_of, optional=OPTIONAL_RULE_KEYS)
         except UnresolvedRule as exc:
             errors.append(f"{ya}: {exc}")
 

@@ -176,15 +176,26 @@ def resolve_many(
     ya: str,
     snapshot_id: str,
     as_of: date | None = None,
+    optional: list[str] | tuple[str, ...] = (),
 ) -> ResolvedRuleSet:
     """Resolve every rule a computation will need, up front (graph node 4).
 
     Resolving all of them before computing means an UnresolvedRule surfaces as
-    a clean refusal rather than a half-finished ledger.
+    a clean refusal rather than a half-finished ledger. `optional` keys are
+    resolved when a version is in force and left out when not: a treatment
+    that only some taxpayers need (#48) must not stop everyone's answer
+    before its rule is signed and published.
     """
     out = ResolvedRuleSet(ya=ya, snapshot_id=snapshot_id, as_of=as_of)
     for key in rule_keys:
         out.rules[key] = resolve(conn, key, ya, snapshot_id, as_of)
+    for key in optional:
+        if key in out.rules:
+            continue
+        try:
+            out.rules[key] = resolve(conn, key, ya, snapshot_id, as_of)
+        except UnresolvedRule:
+            pass
     return out
 
 
