@@ -64,6 +64,9 @@ class Evidence:
     extra_rules: list[RuleVersion] = field(default_factory=list)
     compare: dict[str, Any] | None = None
     days_remaining: int | None = None
+    # The question as the model saw it. A figure the user gave ("400k a
+    # month") may be restated; it is theirs, not an invention.
+    question: str | None = None
 
 
 _NUMBER = re.compile(r"\b\d[\d,]*(?:\.\d+)?\b")
@@ -186,6 +189,18 @@ def _collect_allowed(ev: Evidence) -> tuple[set[Decimal], set[str]]:
     if ev.days_remaining is not None:
         add(ev.days_remaining)
 
+    if ev.question:
+        for m in _NUMBER.finditer(ev.question):
+            d = _norm(m.group(0))
+            if d is not None:
+                _add_decimal(d)
+        # "400k", "2.5m", "2.5 lakhs": the same figure written out.
+        for m in re.finditer(r"(?i)\b(\d+(?:\.\d+)?)\s*(k|m|mn|million|lakhs?)\b", ev.question):
+            d = _norm(m.group(1))
+            mult = {"k": 1000, "m": 1_000_000, "mn": 1_000_000, "million": 1_000_000}.get(m.group(2).lower(), 100_000)
+            if d is not None:
+                _add_decimal((d * mult).normalize())
+
     if ev.compare:
         for ch in ev.compare.get("changes", []):
             _walk(ch.get("from", {}).get("value"), add)
@@ -284,6 +299,9 @@ _ROLE_PHRASES = [
 ]
 
 
+_ANY_ROLE = re.compile("(?i)" + "|".join(f"(?:{p})" for _, p in _ROLE_PHRASES))
+
+
 def _role_mismatches(prose: str, ev: Evidence) -> list[str]:
     """Figures put against the wrong ledger line or the wrong band (#43).
 
@@ -304,6 +322,13 @@ def _role_mismatches(prose: str, ev: Evidence) -> list[str]:
             continue
         for m in re.finditer(rf"(?i)({phrase})([^.;:\d]{{0,40}}?){_AMOUNT}", prose):
             if _THRESHOLD_WORDS.search(m.group(2)):
+                continue
+            # A nearer role owns the figure: "the assessable income yields
+            # taxable income of 6,200,000" is about taxable income.
+            if _ANY_ROLE.search(m.group(2)):
+                continue
+            # "the tax on that taxable income is 1,752,000" names the tax.
+            if re.search(r"(?i)\btax (?:on|of|for)\s+(?:the |that |your |this )?$", prose[max(0, m.start() - 20):m.start()]):
                 continue
             value = _norm(m.group(3))
             if value is not None and value not in values and value.normalize() not in {v.normalize() for v in values}:

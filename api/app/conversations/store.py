@@ -390,11 +390,15 @@ def append_turn(
 
         touched = conn.execute(
             text(
-                "update conversation set updated_at = now() "
+                "update conversation set updated_at = now(), "
+                # A chat that opened with "hi" takes the title of its first
+                # real question.
+                "  title = case when title = :placeholder and :t <> :placeholder "
+                "               then :t else title end "
                 " where id = :cid and user_id = :uid "
                 "returning id, title, created_at, updated_at"
             ),
-            {"cid": cid, "uid": user_id},
+            {"cid": cid, "uid": user_id, "t": title, "placeholder": PLACEHOLDER_TITLE},
         ).mappings().one()
         conn.commit()
     except Exception:
@@ -409,6 +413,10 @@ def append_turn(
         reply_id=str(reply_id),
         seq=seq,
     )
+
+
+# The title of a chat that has had only greetings and the like so far.
+PLACEHOLDER_TITLE = "New chat"
 
 
 def rename(

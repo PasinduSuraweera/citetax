@@ -73,6 +73,9 @@ def title_for_turn(
     redacted_question: str,
 ) -> str:
     """Title for a conversation, from its first turn."""
+    if intent == "conversation":
+        # Replaced by the first real question's title (store.append_turn).
+        return "New chat"
     if kind != "refusal":
         if intent == "compute":
             return _with_year(f"Tax on {_income_label(facts)}", ya)

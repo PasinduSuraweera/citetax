@@ -443,11 +443,12 @@ function AskPageInner() {
                           onClarifyAnswer={
                             latest && reply.kind === "clarify" ? (x) => void submit(x) : undefined
                           }
+                          onAsk={latest ? (x) => void submit(x) : undefined}
                         />
                       ) : (
                         <QuestionOnly question={t.question.content} />
                       )}
-                      {reply?.kind === "answer" ? (
+                      {reply?.kind === "answer" && reply.answer.intent !== "conversation" ? (
                         <SnapshotNote
                           answer={reply.answer}
                           answeredAt={reply.created_at}

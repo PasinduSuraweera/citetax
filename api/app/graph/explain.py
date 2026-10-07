@@ -134,6 +134,14 @@ def build_context(ctx: ExplainContext) -> str:
             marker = " (nil)" if s.is_zero else ""
             line = f"  Step {s.step_no}: {s.label} = LKR {s.value:,}{marker} [{s.citation_label}]"
             d = s.detail or {}
+            if s.step_no == 1 and any(k in d for k in ("employment", "business")):
+                # What the total is made of, so a follow-up ("what if my
+                # salary was 400k") is recognised as the ledger shown.
+                parts = [f"{k.replace('_', ' ')} LKR {Decimal(str(v)):,}" for k, v in d.items()
+                         if k in ("employment", "business", "foreign_service", "investment", "other")
+                         and v not in (None, "0", "0.00", "0.0") and Decimal(str(v)) != 0]
+                if parts:
+                    line += f"  MADE UP OF: {', '.join(parts)}"
             if d.get("capped"):
                 statutory = Decimal(str(d["statutory"]))
                 line += (
