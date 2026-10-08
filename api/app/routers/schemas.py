@@ -41,7 +41,9 @@ class ComputeRequest(BaseModel):
     other_income: Decimal = Decimal(0)
     epf_employee: Decimal | None = None
     qualifying_payments: Decimal = Decimal(0)
-    apit_withheld: Decimal = Decimal(0)
+    # Left out, the employer's APIT on a salary is assumed, as in the chat, so
+    # a structured answer and a typed one agree. Send 0 for a stated nil.
+    apit_withheld: Decimal | None = None
     foreign_tax_credit: Decimal = Decimal(0)
     wht_credit: Decimal = Decimal(0)
 
