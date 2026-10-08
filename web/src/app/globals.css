@@ -31,6 +31,8 @@
   --color-gold-500: #d9a441;  /* the check in the mark */
 
   --color-surface: #f5f7fa;   /* app background */
+  --color-paper: #f6f7f4;     /* the home page: paper, cooler than cream */
+  --color-night: #0a1f4c;     /* the home page dark bands, same as the video */
   --color-canvas: #eaeef4;
   --color-panel: #f8fafc;     /* inset areas */
   --color-line: #e2e7ef;

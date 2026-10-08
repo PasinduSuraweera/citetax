@@ -70,7 +70,7 @@ export default async function SignInPage({
                 <div className="flex items-baseline justify-between gap-4 pt-3">
                   <dt className="text-[14.5px] font-semibold">Tax for the year</dt>
                   <dd className="tnum text-[22px] font-semibold text-sidebar-primary">
-                    {money(ledger.balance_payable.replace(/^-/, ""), { decimals: false })}
+                    {money(ledger.gross_tax, { decimals: false })}
                   </dd>
                 </div>
               </dl>
