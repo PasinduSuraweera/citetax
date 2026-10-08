@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import type { AnswerResponse, CompareChange, LedgerStep, RuleSide } from "@/lib/api";
 import { api, formatDate, money, percent } from "@/lib/api";
 import { spokenAnswer } from "@/lib/speech-text";
+import { ShortAnswer } from "./ShortAnswer";
 import { Button } from "@/components/ui/button";
 import { AgentTrace } from "./AgentTrace";
 import { CitationsPanel } from "./CitationsPanel";
@@ -202,6 +203,8 @@ export function AnswerView({ question, answer, onClarifyAnswer, onAsk }: Props) 
   return (
     <div className="fade-up flex flex-col gap-4">
       <QuestionHeader question={question} tags={tagsFor(answer)} />
+
+      {answer.summary && <ShortAnswer text={answer.summary} />}
 
       <GuardrailBanner
         badge={answer.badge}

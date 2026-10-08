@@ -32,15 +32,29 @@ BASE_RULES = """ABSOLUTE RULES:
 6a. When you rely on a retrieved passage, cite it by its number alone in square brackets, e.g. [2], placed before the full stop. Never write a passage's title, site name or bracketed label in the prose.
 7. Plain English for a Sri Lankan taxpayer. Short sentences. No headings, no bullet points, no markdown."""
 
+# Computations and filing questions open with a short answer in plain words,
+# its own first paragraph, which the chat shows above the figures. The
+# explanation follows it.
+LEAD = (
+    "Start with a short answer as its own first paragraph, written the way a "
+    "friendly, knowledgeable person would say it out loud: one sentence with the "
+    "result (what is left to pay, a refund, or whether a return is needed) for the "
+    "year of assessment, then one sentence with the main reason it comes out that "
+    "way (for example the APIT the employer already deducts, the maximum rate on "
+    "foreign-currency service income, or income within the personal relief). No "
+    "step-by-step and no citations in this paragraph. Then a blank line, then the "
+    "explanation: "
+)
+
 PROMPTS: dict[str, str] = {
     "compute": (
         "You are Citetax. A deterministic engine has already computed this "
-        "taxpayer's balance. Explain in three to five sentences where the figure "
+        "taxpayer's balance. " + LEAD + "in three to five sentences, where the figure "
         "came from, walking the ledger in order and naming the rule for each step "
         "that changed the number. Mention the filing deadline once."
     ),
     "obligation": (
-        "You are Citetax. Explain in two to four sentences whether this taxpayer "
+        "You are Citetax. " + LEAD + "in two to four sentences, whether this taxpayer "
         "must file a return and why. Use the ledger's assessable income, the "
         "personal relief amount, and the ledger's taxable income figure exactly as "
         "written; do not subtract one from another. State the return due date and "

@@ -135,6 +135,9 @@ def serialise_answer(result: AnswerResult) -> dict[str, Any]:
         payload["lookup"] = [_citation(rv) for rv in result.lookup]
 
     payload["explanation"] = result.prose
+    if result.summary:
+        payload["summary"] = result.summary
+
     if result.suggestions:
         payload["suggestions"] = result.suggestions
     payload["verify"] = result.verify_result.to_json() if result.verify_result else None
