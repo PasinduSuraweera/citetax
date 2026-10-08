@@ -9,7 +9,7 @@
 export function ShortAnswer({ text }: { text: string }) {
   return (
     <div className="mt-1 border-t border-line pt-5">
-      <p className="max-w-[64ch] text-[17px] leading-[1.6] text-ink-900">{text}</p>
+      <p className="text-[17px] leading-[1.6] text-ink-900">{text}</p>
     </div>
   );
 }
