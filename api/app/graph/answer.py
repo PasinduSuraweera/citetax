@@ -489,7 +489,7 @@ def _explain_and_verify(result: AnswerResult, mark, budget: llm.LLMBudget) -> No
                 vr = vr2
 
     if vr.ok:
-        result.prose = prose
+        result.prose = _say_apit_is_assumed(prose, result.computation)
         result.badge = BadgeState.ALL_CITED
         mark("Verify", "ok", f"{vr.checked_numbers} figures traced", t0)
     else:
@@ -501,6 +501,25 @@ def _explain_and_verify(result: AnswerResult, mark, budget: llm.LLMBudget) -> No
             t0,
         )
     result.verify_result = vr
+
+
+ASSUMED_APIT_NOTE = (
+    "The APIT figure is assumed: it is what your employer must deduct from your salary "
+    "over the year. Give the APIT on your payslips to change it."
+)
+
+
+def _say_apit_is_assumed(prose: str, computation: Computation | None) -> str:
+    """The model is told an assumed APIT is assumed, and does not always say
+    so; "the employer-deducted APIT of 4,272,000 is credited" reads as a fact
+    Citetax knows. Said here when the model left it out. No figures, so
+    nothing for Verify to trace."""
+    if computation is None or "assum" in prose.lower():
+        return prose
+    apit = next((s for s in computation.steps if s.rule_key == "credit.apit"), None)
+    if apit is None or not (apit.detail or {}).get("assumed"):
+        return prose
+    return f"{prose} {ASSUMED_APIT_NOTE}"
 
 
 def _guess_keys(q: str) -> list[str]:
