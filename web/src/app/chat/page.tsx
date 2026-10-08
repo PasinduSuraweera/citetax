@@ -665,6 +665,15 @@ function Notice({
 }
 
 function FailureBanner({ failure }: { failure: AskFailure }) {
+  // 402: the plan's questions are used up (app.core.plans).
+  if (failure.status === 402) {
+    return (
+      <Notice tone="error" title="You have reached your plan's limit">
+        {failure.message}{" "}
+        <Link href="/pricing" className="font-medium underline underline-offset-4">See the plans</Link>
+      </Notice>
+    );
+  }
   return (
     <Notice tone="error" title={failure.status === 0 ? "Citetax is not reachable" : "That question was not answered"}>
       {failure.message}

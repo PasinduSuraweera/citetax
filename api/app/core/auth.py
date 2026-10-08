@@ -34,6 +34,8 @@ class User:
     email: str
     name: str | None
     role: str
+    # What the account pays for (app.core.plans), separate from the role.
+    plan: str = "free"
 
     @property
     def is_reviewer(self) -> bool:
@@ -90,7 +92,7 @@ def _upsert_user(email: str, name: str | None, picture: str | None) -> User:
                 "  picture = coalesce(excluded.picture, app_user.picture), "
                 "  role = case when :bootstrap then 'admin' else app_user.role end, "
                 "  last_seen_at = now() "
-                "returning id, email, name, role"
+                "returning id, email, name, role, plan"
             ),
             {
                 "e": email.lower(),
@@ -102,7 +104,8 @@ def _upsert_user(email: str, name: str | None, picture: str | None) -> User:
         ).mappings().one()
         conn.commit()
     return User(
-        id=str(row["id"]), email=row["email"], name=row["name"], role=row["role"]
+        id=str(row["id"]), email=row["email"], name=row["name"], role=row["role"],
+        plan=row["plan"],
     )
 
 

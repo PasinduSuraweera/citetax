@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.corpus import scheduler
 from app.db.session import db_healthy
 from app.routers import admin, conversations, payslip, public, sources
+from app.routers import plans as plans_router
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 settings = get_settings()
@@ -73,6 +74,7 @@ app.add_middleware(
 app.include_router(public.router)
 app.include_router(conversations.router)
 app.include_router(payslip.router)
+app.include_router(plans_router.router)
 
 # Admin routes carry their own role dependencies. In production these sit
 # behind IAP on a separate service (spec section 2.2); locally the role on the
