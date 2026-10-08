@@ -1,133 +1,133 @@
 <div align="center">
 
-# Citetax
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="web/public/brand/logo-lockup-dark.png">
+  <img src="web/public/brand/logo-lockup.png" alt="Citetax" width="320">
+</picture>
 
-**Sri Lankan personal income tax, worked out line by line. Every number, cited.**
+### Sri Lankan income tax, answered with the law behind every figure.
 
-SLIIT IT3041, Information Retrieval and Web Analytics
-
-<img src="docs/media/hero.gif" alt="A question about a hospital salary and channelling fees becoming a cited ledger: each line arrives with the section of the Act beside it, ending on a balance payable of LKR 858,000" width="480">
+The trusted tax answer for the more than one million Sri Lankans who now hold a TIN and do not pay tax yet.
 
 </div>
 
-Ask a tax question in plain words. Citetax answers with a short reply, the figure, a step by step ledger, and the section of the law behind every line. The arithmetic is plain code reading a rules table that two people sign off. The language model routes the question and writes the explanation, and every number it writes is checked against the ledger and the law before you see it.
-
-It covers the years of assessment **2025/2026** and **2026/2027**.
-
 ---
 
-## What it does
+## Why now
+
+Sri Lanka's income tax base is widening fast, and the people joining it have nowhere reliable to turn.
+
+- **1.2 million** individual income tax files have been opened, according to the IRD's Commissioner of Tax Policy and Law in August 2026.<sup>[1]</sup>
+- **1.3 million** people hold a Taxpayer Identification Number, but only about **130,000** pay any tax yet.<sup>[2]</sup> Most of the rest are new to the system, and many of them will become filers.
+
+```mermaid
+pie showData
+    title TIN holders, June 2026
+    "Paying tax" : 130000
+    "Not paying tax yet" : 1170000
+```
+
+At the same time, the law keeps moving:
+
+- **The Inland Revenue (Amendment) Act No. 2 of 2025** reset the rates and raised the personal relief to LKR 1,800,000 from 1 April 2025.
+- **Act No. 11 of 2026**, certified on 3 June 2026, changed who must file and how instalments work, backdated to 1 April 2025.
+
+A salaried worker, a freelancer paid in dollars or a doctor with channelling fees needs to know what they owe and whether they must file, under this year's law, not last year's.
+
+## The problem with today's answers
+
+| Where people go | What goes wrong |
+|---|---|
+| **Tax consultants** | Accurate, but costly for a simple question, and booked out near the 30 November deadline. |
+| **Forums and social media** | Free, but rarely sourced and often out of date after an amendment. |
+| **General AI chatbots** | Fluent, but they cannot say which law they used, mix up years, and can invent a figure. |
+
+Nobody offers a fast, affordable answer that a person can trust and check.
+
+## The product
+
+Ask a tax question in plain words. Citetax works out what you owe, says whether you need to file, and gives the dates, with the section of the Act beside every figure.
+
+- **Trustworthy by design.** Figures come from the rules in force for your year of assessment, never from a model's guess. If something cannot be backed by the law, Citetax says so instead of answering.
+- **Always current.** Citetax watches official sources for new circulars and amendments. A change only reaches answers after two people have checked and signed it.
+- **Private.** Names, NIC numbers and employers are removed before any part of a question is processed by an AI model.
+- **Local.** Built around Sri Lankan law and how Sri Lankans earn: APIT on a salary, freelance and professional fees, and services paid in foreign currency.
+
+It covers the years of assessment **2025/2026** and **2026/2027** today.
+
+## Who it is for
 
 | | |
 |---|---|
-| **Works out the tax** | Salary, freelance and professional fees, clients paid in foreign currency, interest. Personal relief, the band table, the 15% maximum on foreign-currency service income, business expenses, foreign tax credits. |
-| **Credits what is already paid** | APIT your employer deducts is credited. Left unstated, it is assumed and marked as assumed. |
-| **Says whether you need to file** | Including the APIT exemption: no return for an employee whose only tax is covered by APIT (Act s.94(1)(c) and (d)). |
-| **Knows the dates** | Return due dates and instalment dates for each year. |
-| **Explains what changed** | Rule by rule, between the two years. |
-| **Reads a payslip** | With your agreement, on a paid plan. You check the figures before anything is worked out. |
-| **Declines what it should not answer** | VAT, company tax, employer filing and requests for advice are refused with the reason. |
+| **Salaried employees** | Is the APIT on my payslip all I owe? Do I need to file at all? |
+| **Freelancers and IT exporters** | How is income from clients abroad taxed, and what do I set aside? |
+| **Professionals with side income** | Doctors, lecturers and consultants with a salary plus fees. |
+| **Practices and finance teams** | Accountants and HR teams answering the same questions for many people. |
 
-<table>
-<tr>
-<td width="50%"><img src="docs/media/answer.png" alt="An answer: a short reply, the verified banner, and the balance payable of LKR 85,200 with the tax for the year and the APIT credited"></td>
-<td width="50%"><img src="docs/media/ledger.png" alt="The ledger: eight steps, each with its rule citation, from assessable income to the APIT credited"></td>
-</tr>
-<tr>
-<td>A short answer first, then the figure.</td>
-<td>The ledger, every line traced to a rule in force.</td>
-</tr>
-</table>
+## Why it is hard to copy
 
----
+A general chatbot can sound right. Citetax is built so that it is right and can show why.
 
-## How an answer is made
+1. **A maintained body of law.** The value is not in the AI but in a versioned, reviewed record of Sri Lankan tax law that is kept current. That record grows with every amendment.
+2. **Two-person sign-off.** No change to a rate, relief or deadline reaches users until two different reviewers approve it. It is a discipline a quick competitor would skip.
+3. **Every answer can be checked.** Each answer records which law it used and when, so it can be audited later or asked again under the current law. For a practice, that record is the product.
 
-The model reads the question and picks a plan; code does everything that produces a number.
+## Business model
 
-```mermaid
-flowchart LR
-    Q([Question]) --> I[Intake<br/>names, NIC, TIN removed]
-    I --> R{Route<br/>model picks intent and facts}
-    R -->|out of scope| X([Refused, with the reason])
-    R -->|compute or filing| RS[Resolve<br/>rules in force for the year]
-    RS --> C[Compute<br/>plain Python ledger]
-    C --> CP[Comply<br/>filing and dates]
-    CP --> RT[Retrieve<br/>passages from the law]
-    RT --> E[Explain<br/>model writes the answer]
-    E --> V{Verify<br/>every figure traced?}
-    V -->|yes| A([Answer, all cited])
-    V -->|no| W([Figures shown,<br/>explanation withheld])
-```
+| | Free | Individual | Team |
+|---|---|---|---|
+| **Price** | LKR 0 | LKR 1,500 per year of assessment | LKR 5,000 per seat per month |
+| **For** | Trying Citetax | Your own return, all season | Practices and finance teams |
+| **Questions** | 20 a month, or 5 a day without an account | 300 a month | 1,000 a person a month |
+| **Payslip reading** | | Included | Included |
 
-| Step | What guarantees it |
-|---|---|
-| **Intake** | Identifiers are removed in process, before any text reaches a model. A regex pass and spaCy NER run together. |
-| **Route** | One structured model call. A regex gate checks it and its refusals always stand, so the model cannot talk its way past scope. |
-| **Resolve** | Picks the rule version in force for the year and date, and refuses rather than guessing when none is. |
-| **Compute** | Pure Python on `Decimal`. No model is anywhere near the arithmetic, so the same question always gives the same figures. |
-| **Verify** | Every number, rate and date in the prose must match the ledger, a rule value, or a reviewed passage. One that does not match withholds the explanation. |
+**Unit economics.** An answer costs about LKR 0.65 in AI model time, measured across real usage at October 2026 prices. Running costs are about LKR 20,000 a month, mainly the database and hosting. Citetax breaks even at about 14 Individual plans or 4 Team seats a month, and each Individual plan costs under LKR 400 a year to serve even for a heavy user.
 
-Each question type runs only the steps it needs:
+## Going to market
 
-| Question | Steps |
-|---|---|
-| What do I owe | Intake, Route, Resolve, Compute, Comply, Retrieve, Explain, Verify |
-| Do I need to file | Intake, Route, Resolve, Compute, Comply, Explain, Verify |
-| When is it due | Intake, Route, Resolve, Retrieve, Explain, Verify |
-| What changed | Intake, Route, Resolve, Compare, Retrieve, Explain, Verify |
-| What is the rule | Intake, Route, Resolve, Retrieve, Explain, Verify |
-| Greetings and thanks | Intake, then a short reply with no figures |
+- **The filing season.** Demand peaks before the return deadline of 30 November each year, when people look for answers and consultants are busiest.
+- **Communities first.** Freelancer and IT export communities, where the foreign-currency rules are a common source of confusion.
+- **Practices and employers.** The Team plan, for accountants and HR teams who answer the same tax questions for many people.
+- **Free to start.** The Free plan answers real questions, so people can see that Citetax is right before they pay.
+
+## Roadmap
+
+- **Payments in rupees** through a local payment gateway. Plans are activated by hand today.
+- **Team workspace:** shared clients and an exportable record of every answer.
+- **More of the law:** rent relief, terminal benefits and final withholding tax.
+- **Sinhala and Tamil.**
+
+## Where we are
+
+- **Built and running** for the years of assessment 2025/2026 and 2026/2027: tax computations, filing checks, deadlines and year-on-year changes.
+- **Plans in place.** Free, Individual and Team, with usage limits enforced and upgrades granted by hand until payments go live.
+- **The review process works.** Changes to the law go from source to answers only through two-person sign-off, and real amendments from 2025 and 2026 have already gone through it.
+- **Next:** payments, the Team workspace, and the first users in the run-up to the 30 November filing deadline.
+
+Citetax began as a project for SLIIT IT3041, Information Retrieval and Web Analytics.
 
 ---
 
-## The law, kept current
+## For developers
 
-A corpus agent watches the sources on a timer. It never decides anything: it finds changes, drafts proposals, and stops where a person has to sign.
+Citetax is a Next.js web app and a FastAPI service on Postgres, with Groq and Google Vertex AI for language and search. Setup and keys are in [SETUP.md](SETUP.md).
 
-```mermaid
-flowchart LR
-    S[(Sources<br/>IRD, Tax Advisor LK,<br/>reviewer uploads)] -->|crawl, politely| D[New or revised<br/>documents]
-    D --> P[Proposal drafted<br/>rule, value, date,<br/>quoted sentence]
-    D --> IX[Passages indexed<br/>for retrieval]
-    P --> R1{Reviewer<br/>signs}
-    R1 --> R2{A second person<br/>signs}
-    R2 --> SN[(New snapshot<br/>published)]
-    SN --> Q([Answers use it])
-```
-
-```mermaid
-stateDiagram-v2
-    [*] --> needs_review: agent or upload
-    needs_review --> in_review: reviewer opens it
-    in_review --> changes_requested
-    changes_requested --> in_review
-    in_review --> first_signature
-    first_signature --> published: second, different person signs
-    in_review --> rejected
-    published --> [*]
-```
-
-Anything that changes a computed figure needs two distinct people. Before signing, a reviewer sees an impact preview: the proposal run across a set of golden taxpayer cases, showing whose balance moves and whose filing obligation flips. Every answer records the snapshot it used, so an old answer can be checked, or asked again under today's law.
-
----
-
-## Architecture
+### Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Web["web/ (Next.js 16)"]
-      H[Home, pricing] --- CH[Chat] --- AD[Admin review]
+    subgraph Web["web/ (Next.js)"]
+      H[Home and pricing] --- CH[Chat] --- AD[Admin review]
     end
     subgraph API["api/ (FastAPI, Python 3.12)"]
       G[Answer graph] --- EN[Compute engine] --- RS[Rules resolver]
       AG[Corpus agent] --- PL[Plans and limits]
     end
-    DB[(Supabase Postgres<br/>pgvector)]
+    DB[(Supabase Postgres<br/>with pgvector)]
     LLM[Groq<br/>gpt-oss-120b]
-    EMB[Vertex AI<br/>gemini-embedding-001]
-    PS[Gemini 2.5 Flash<br/>payslips, with consent]
-    Web <-->|REST and NDJSON stream| API
+    EMB[Vertex AI<br/>embeddings]
+    PS[Gemini<br/>payslips, with consent]
+    Web <-->|REST and streaming| API
     API <--> DB
     G --> LLM
     G --> EMB
@@ -136,152 +136,58 @@ flowchart TB
     API --> PS
 ```
 
-No model weights run locally. Embeddings come from Vertex AI, the language model from Groq, and payslips are read by Gemini only after the user agrees.
+### How an answer is made
 
----
-
-## By the numbers
-
-Measured from the shared database and the stored runs on 8 October 2026.
-
-| Corpus | |
-|---|---|
-| Source documents | 303 |
-| Indexed passages | 725 |
-| Published rule versions | 18, across 12 rules |
-| Corpus snapshots | 6 |
-| Rule proposals | 6 published, 5 open, 302 rejected |
-| Agent cycles run | 43 |
+The model reads the question and picks a plan; plain code does everything that produces a number, and every figure in the written answer is checked against the law before it is shown.
 
 ```mermaid
-pie showData
-    title Indexed passages by trust
-    "Signed law (may supply figures)" : 14
-    "Secondary sources (explain only)" : 711
+flowchart LR
+    Q([Question]) --> I[Remove personal details]
+    I --> R{Route}
+    R -->|out of scope| X([Declined, with the reason])
+    R --> RS[Rules in force<br/>for the year]
+    RS --> C[Compute in code]
+    C --> E[Write the answer]
+    E --> V{Every figure<br/>traced to the law?}
+    V -->|yes| A([Answer])
+    V -->|no| W([Figures only])
 ```
 
-Only signed law may supply a figure to an answer. Secondary passages can explain an idea, but a number taken from one fails verification.
+### How the law stays current
 
 ```mermaid
-xychart-beta
-    title "Median time to answer, seconds"
-    x-axis ["What do I owe", "General", "Deadline", "Filing", "Rule", "What changed"]
-    y-axis "seconds" 0 --> 12
-    bar [10.2, 7.4, 7.6, 7.6, 8.0, 9.7]
+flowchart LR
+    S[(Official sources)] --> D[New or revised documents]
+    D --> P[Proposed rule change]
+    P --> R1{First reviewer}
+    R1 --> R2{Second reviewer}
+    R2 --> SN[(New snapshot of the law)]
+    SN --> A([Used by answers])
 ```
 
-```mermaid
-xychart-beta
-    title "Model tokens per answer (input plus output)"
-    x-axis ["What do I owe", "General", "Deadline", "Filing", "Rule", "What changed"]
-    y-axis "tokens" 0 --> 7000
-    bar [6211, 4331, 4115, 6117, 4483, 5545]
-```
-
-At October 2026 prices a computed answer costs about **LKR 0.65** in model time. The fixed costs (database and hosting, about LKR 20,000 a month) are what the plans pay for.
-
-Tests: **413** (340 unit, 73 against a database). CI runs both on every pull request, the database tests on a throwaway Postgres migrated and seeded from scratch.
-
----
-
-## The tax rules in use
-
-Inland Revenue Act No. 24 of 2017, as amended by Act No. 2 of 2025 and Act No. 11 of 2026. The rules live in a versioned table; these are the values in force for 2026/2027 at the current snapshot.
-
-| Taxable income | Rate |
-|---|---|
-| First 1,000,000 | 6% |
-| Next 500,000 | 18% |
-| Next 500,000 | 24% |
-| Next 500,000 | 30% |
-| Above 2,500,000 | 36% |
-
-| Rule | Value | Source |
-|---|---|---|
-| Personal relief | LKR 1,800,000 | Act s.52 (Amd. No. 2 of 2025) |
-| Employee EPF | Not deductible | Act s.10(1)(a) |
-| Foreign-currency service income | At most 15% | First Schedule para 1(6) |
-| Business expenses | Deductible, not capital items | Act s.11(1) |
-| No return for APIT-only employees | Interest up to LKR 5,000 allowed | Act s.94(1)(c), (d) |
-| Return due | 30 November after the year | Act s.93 |
-
----
-
-## Plans
-
-| | Free | Individual | Team |
-|---|---|---|---|
-| Price | LKR 0 | LKR 1,500 per year of assessment | LKR 5,000 per seat per month |
-| Questions | 20 a month, or 5 a day without an account | 300 a month | 1,000 a person a month |
-| Payslip reading | | ✓ | ✓ |
-
-Every plan uses the same engine, law and checks. There is no payment gateway yet: a plan is requested in the app and granted by an admin.
-
-<table>
-<tr>
-<td width="50%"><img src="docs/media/home.png" alt="The home page hero with the live answer"></td>
-<td width="50%"><img src="docs/media/pricing.png" alt="The pricing page with the three plans"></td>
-</tr>
-</table>
-
----
-
-## Privacy
-
-- Names, NIC and TIN numbers and employers are removed before any part of a question leaves Citetax.
-- A payslip is sent to Gemini only after the user agrees on the upload screen, and the image is never stored.
-- What is kept for a signed-in user is the redacted question, the figures needed to work the answer out again, and the rules it cited.
-
----
-
-## Run it
-
-Keys and first time setup are in [SETUP.md](SETUP.md).
+### Run it
 
 ```powershell
 cd api
-.venv\Scripts\python.exe preflight.py          # checks every external service
-.venv\Scripts\python.exe migrate.py            # applies db/migrations
-.venv\Scripts\python.exe seed\rules_seed.py    # loads the tax rules into an empty database
+.venv\Scripts\python.exe migrate.py
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload
 
 cd web
 npm run dev
 ```
 
-| Where | What |
-|---|---|
-| http://localhost:3000 | Home page |
-| http://localhost:3000/chat | Ask a question |
-| http://localhost:3000/pricing | Plans |
-| http://localhost:3000/admin | Review queue, needs the reviewer role |
-| http://127.0.0.1:8000/docs | API reference |
-
-```powershell
-cd api
-.venv\Scripts\python.exe -m pytest -m "not db"   # unit tests, no keys or database needed
-```
-
-### Layout
-
-```
-api/     FastAPI: answer graph, compute engine, rules resolver, privacy,
-         retrieval, corpus agent, plans, admin API
-web/     Next.js: home page, chat, pricing, admin panel
-db/      SQL migrations, applied in order by api/migrate.py
-docs/    Images used in this README
-UI/      The design export the interface was built from
-```
+Then open http://localhost:3000.
 
 ---
 
-## Known limits
+<sub>
 
-- **Residents only.** Every answer assumes a Sri Lankan tax resident.
-- **Not yet modelled:** rent relief, terminal benefits and final withholding tax.
-- **Scanned PDFs yield no text.** Documents are read from their text layer; OCR would be a separate service.
-- **Retrieval ranking is fusion,** full text and vector results combined, not a cross encoder reranker.
-- **The guest allowance is kept in memory,** per API instance.
-- **The progress trace in the chat does not tick through the steps** while an answer streams (#116).
+**Sources**
 
-Not tax advice. Citetax states what the law provides and what the computation shows.
+1. Ada Derana, 17 August 2026, quoting Nandana Kumar, Commissioner of Tax Policy and Law, Inland Revenue Department: [adaderana.lk](https://www.adaderana.lk/news/cmsww326c0009356qfyt5gtcg)
+2. Hiru News, 23 June 2026, IRD media briefing: [hirunews.lk](https://hirunews.lk/english/business/473642/tin-registrations-reach-1-3-million-only-130000-currently-pay-taxes)
+3. Inland Revenue (Amendment) Act No. 11 of 2026, certified 3 June 2026: [taxadvisor.lk](https://www.taxadvisor.lk/data/uploads/inland_revenue_amendment_act_no_11_of_2026_.pdf)
+
+Citetax states what the law provides and what the computation shows. It is not tax advice.
+
+</sub>
