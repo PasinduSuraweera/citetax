@@ -21,6 +21,7 @@ Sri Lanka's income tax base is widening fast, and the people joining it have now
 - **1.3 million** people hold a Taxpayer Identification Number, but only about **130,000** pay any tax yet.<sup>[2]</sup> Most of the rest are new to the system, and many of them will become filers.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"pie1": "#012151", "pie2": "#22d3e0", "pieStrokeColor": "#ffffff", "pieStrokeWidth": "2px", "pieOuterStrokeWidth": "0px", "pieSectionTextColor": "#ffffff", "pieTitleTextColor": "#8791a7", "pieLegendTextColor": "#8791a7", "pieOpacity": "1"}}}%%
 pie showData
     title TIN holders, June 2026
     "Paying tax" : 130000
@@ -48,9 +49,9 @@ Nobody offers a fast, affordable answer that a person can trust and check.
 
 Ask a tax question in plain words. Citetax works out what you owe, says whether you need to file, and gives the dates, with the section of the Act beside every figure.
 
-- **Trustworthy by design.** Figures come from the rules in force for your year of assessment, never from a model's guess. If something cannot be backed by the law, Citetax says so instead of answering.
-- **Always current.** Citetax watches official sources for new circulars and amendments. A change only reaches answers after two people have checked and signed it.
-- **Private.** Names, NIC numbers and employers are removed before any part of a question is processed by an AI model.
+- **Trustworthy by design.** Figures follow the law in force for your year of assessment. If something cannot be backed by the law, Citetax says so instead of guessing.
+- **Always current.** Citetax follows new circulars and amendments as they are published, and checks them before they reach anyone's answer.
+- **Private.** Personal details such as names and NIC numbers are never shared with outside AI services.
 - **Local.** Built around Sri Lankan law and how Sri Lankans earn: APIT on a salary, freelance and professional fees, and services paid in foreign currency.
 
 It covers the years of assessment **2025/2026** and **2026/2027** today.
@@ -64,13 +65,14 @@ It covers the years of assessment **2025/2026** and **2026/2027** today.
 | **Professionals with side income** | Doctors, lecturers and consultants with a salary plus fees. |
 | **Practices and finance teams** | Accountants and HR teams answering the same questions for many people. |
 
-## Why it is hard to copy
+## Our edge
 
-A general chatbot can sound right. Citetax is built so that it is right and can show why.
+A general chatbot can sound right. Citetax is built to be right, and to show it.
 
-1. **A maintained body of law.** The value is not in the AI but in a versioned, reviewed record of Sri Lankan tax law that is kept current. That record grows with every amendment.
-2. **Two-person sign-off.** No change to a rate, relief or deadline reaches users until two different reviewers approve it. It is a discipline a quick competitor would skip.
-3. **Every answer can be checked.** Each answer records which law it used and when, so it can be audited later or asked again under the current law. For a practice, that record is the product.
+- **Answers people can check.** Every figure comes with its legal basis, so a user or their accountant can verify it rather than take it on trust.
+- **Kept current, with care.** The law changes often. Citetax follows it closely, and nothing new reaches an answer until it has been checked by people.
+- **Built for Sri Lanka.** Designed around Sri Lankan law and the way Sri Lankans earn, not adapted from a foreign product.
+- **It compounds.** Every amendment, circular and answered question deepens the coverage, and that is hard for a newcomer to catch up with.
 
 ## Business model
 
@@ -101,7 +103,7 @@ A general chatbot can sound right. Citetax is built so that it is right and can 
 
 - **Built and running** for the years of assessment 2025/2026 and 2026/2027: tax computations, filing checks, deadlines and year-on-year changes.
 - **Plans in place.** Free, Individual and Team, with usage limits enforced and upgrades granted by hand until payments go live.
-- **The review process works.** Changes to the law go from source to answers only through two-person sign-off, and real amendments from 2025 and 2026 have already gone through it.
+- **Keeping up with the law works.** The 2025 and 2026 amendments are already reflected in answers.
 - **Next:** payments, the Team workspace, and the first users in the run-up to the 30 November filing deadline.
 
 Citetax began as a project for SLIIT IT3041, Information Retrieval and Web Analytics.
@@ -159,9 +161,8 @@ flowchart LR
 flowchart LR
     S[(Official sources)] --> D[New or revised documents]
     D --> P[Proposed rule change]
-    P --> R1{First reviewer}
-    R1 --> R2{Second reviewer}
-    R2 --> SN[(New snapshot of the law)]
+    P --> R1{Checked by reviewers}
+    R1 --> SN[(New snapshot of the law)]
     SN --> A([Used by answers])
 ```
 
@@ -180,14 +181,10 @@ Then open http://localhost:3000.
 
 ---
 
-<sub>
-
-**Sources**
+### Sources
 
 1. Ada Derana, 17 August 2026, quoting Nandana Kumar, Commissioner of Tax Policy and Law, Inland Revenue Department: [adaderana.lk](https://www.adaderana.lk/news/cmsww326c0009356qfyt5gtcg)
 2. Hiru News, 23 June 2026, IRD media briefing: [hirunews.lk](https://hirunews.lk/english/business/473642/tin-registrations-reach-1-3-million-only-130000-currently-pay-taxes)
 3. Inland Revenue (Amendment) Act No. 11 of 2026, certified 3 June 2026: [taxadvisor.lk](https://www.taxadvisor.lk/data/uploads/inland_revenue_amendment_act_no_11_of_2026_.pdf)
 
-Citetax states what the law provides and what the computation shows. It is not tax advice.
-
-</sub>
+*Citetax states what the law provides and what the computation shows. It is not tax advice.*
