@@ -21,6 +21,7 @@ Sri Lanka's income tax base is widening fast, and the people joining it have now
 - **1.3 million** people hold a Taxpayer Identification Number, but only about **130,000** pay any tax yet.<sup>[2]</sup> Most of the rest are new to the system, and many of them will become filers.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"pie1": "#012151", "pie2": "#22d3e0", "pieStrokeColor": "#ffffff", "pieStrokeWidth": "2px", "pieOuterStrokeWidth": "0px", "pieSectionTextColor": "#ffffff", "pieTitleTextColor": "#8791a7", "pieLegendTextColor": "#8791a7", "pieOpacity": "1"}}}%%
 pie showData
     title TIN holders, June 2026
     "Paying tax" : 130000
@@ -180,14 +181,10 @@ Then open http://localhost:3000.
 
 ---
 
-<sub>
-
-**Sources**
+### Sources
 
 1. Ada Derana, 17 August 2026, quoting Nandana Kumar, Commissioner of Tax Policy and Law, Inland Revenue Department: [adaderana.lk](https://www.adaderana.lk/news/cmsww326c0009356qfyt5gtcg)
 2. Hiru News, 23 June 2026, IRD media briefing: [hirunews.lk](https://hirunews.lk/english/business/473642/tin-registrations-reach-1-3-million-only-130000-currently-pay-taxes)
 3. Inland Revenue (Amendment) Act No. 11 of 2026, certified 3 June 2026: [taxadvisor.lk](https://www.taxadvisor.lk/data/uploads/inland_revenue_amendment_act_no_11_of_2026_.pdf)
 
-Citetax states what the law provides and what the computation shows. It is not tax advice.
-
-</sub>
+*Citetax states what the law provides and what the computation shows. It is not tax advice.*
