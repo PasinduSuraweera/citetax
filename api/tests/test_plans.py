@@ -60,6 +60,7 @@ def test_paid_plans_and_staff_go_further(monkeypatch):
     plans.check_question_allowed(None, _user("free", role="approver"))
 
 
+@pytest.mark.plan_limits
 def test_payslip_reading_is_a_paid_feature():
     with pytest.raises(HTTPException) as e:
         plans.check_payslip_allowed(_user("free"))
@@ -170,6 +171,7 @@ def test_an_admin_can_set_a_plan_directly(people):
 
 
 @pytest.mark.db
+@pytest.mark.plan_limits
 def test_payslip_upload_is_refused_on_free(people):
     client, make = people
     r = client.post("/v1/payslip/extract", headers=make("carol"),

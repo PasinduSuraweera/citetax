@@ -31,8 +31,9 @@ DATABASE_AVAILABLE = bool(_TEST_DB or _SHARED_OK)
 
 @pytest.fixture(autouse=True)
 def _lift_plan_limits(request, monkeypatch):
-    """Tests ask many questions as one user or one address; plan limits would
-    stop them partway. Only tests marked `plan_limits` run with them."""
+    """Tests ask many questions as one user or one address, and test accounts
+    are on Free; plan limits would stop them partway. Only tests marked
+    `plan_limits` run with them."""
     if "plan_limits" in request.keywords:
         from app.core import plans
 
@@ -42,6 +43,7 @@ def _lift_plan_limits(request, monkeypatch):
 
     monkeypatch.setattr(plans, "check_question_allowed", lambda *a, **k: None)
     monkeypatch.setattr(plans, "check_guest_allowed", lambda *a, **k: None)
+    monkeypatch.setattr(plans, "check_payslip_allowed", lambda *a, **k: None)
 
 
 def pytest_collection_modifyitems(config, items):
