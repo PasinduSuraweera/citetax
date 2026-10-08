@@ -1,0 +1,21 @@
+{
+  "name": "citetax-video",
+  "private": true,
+  "description": "Demo and social clips of a real Citetax answer, rendered with Remotion. Not part of the site.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "data": "cd ../api && .venv\\Scripts\\python.exe ../video/scripts/ledger_data.py",
+    "render": "remotion render src/index.ts HeroLedger out/hero.mp4 --codec h264 --crf 24 && remotion still src/index.ts HeroLedger out/hero-poster.jpg --frame 390 --image-format jpeg"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.534",
+    "@remotion/google-fonts": "4.0.534",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "remotion": "4.0.534"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}

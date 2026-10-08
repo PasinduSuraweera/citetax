@@ -1,0 +1,75 @@
+{
+  "question": "Hospital salary of LKR 350,000 a month, plus LKR 2,400,000 a year from private channelling. What do I owe for 2026/2027?",
+  "ya": "2026/2027",
+  "snapshot": "08 October 2026",
+  "steps": [
+    {
+      "no": 1,
+      "label": "Assessable income",
+      "value": "6600000.00",
+      "cite": "Act s.5",
+      "zero": false,
+      "assumed": false
+    },
+    {
+      "no": 2,
+      "label": "EPF employee contribution, not deductible",
+      "value": "0",
+      "cite": "Act s.10(1)(a)",
+      "zero": true,
+      "assumed": false
+    },
+    {
+      "no": 3,
+      "label": "Less qualifying payments",
+      "value": "0.00",
+      "cite": "Act s.52",
+      "zero": true,
+      "assumed": false
+    },
+    {
+      "no": 4,
+      "label": "Less personal relief",
+      "value": "1800000.00",
+      "cite": "Act s.52 (Amd. No. 2 of 2025)",
+      "zero": false,
+      "assumed": false
+    },
+    {
+      "no": 5,
+      "label": "Taxable income",
+      "value": "4800000.00",
+      "cite": "Act s.3",
+      "zero": false,
+      "assumed": false
+    },
+    {
+      "no": 6,
+      "label": "Gross tax across bands",
+      "value": "1248000.00",
+      "cite": "Amendment No. 2 of 2025",
+      "zero": false,
+      "assumed": false
+    },
+    {
+      "no": 7,
+      "label": "Less tax credits",
+      "value": "0.00",
+      "cite": "Act s.80",
+      "zero": true,
+      "assumed": false
+    },
+    {
+      "no": 8,
+      "label": "Less APIT deducted by your employer",
+      "value": "390000.00",
+      "cite": "APIT scheme",
+      "zero": false,
+      "assumed": true
+    }
+  ],
+  "gross_tax": "1248000.00",
+  "balance": "858000.00",
+  "must_file": true,
+  "return_due": "2027-11-30"
+}
