@@ -160,6 +160,11 @@ def _collect_allowed(ev: Evidence) -> tuple[set[Decimal], set[str]]:
 
     if ev.computation:
         c = ev.computation
+        # The year of assessment's own dates: "1 April 2026 to 31 March 2027".
+        from app.rules.resolver import ya_end_date, ya_start_date
+
+        dates.add(ya_start_date(c.ya).isoformat())
+        dates.add(ya_end_date(c.ya).isoformat())
         for step in c.steps:
             add(step.value)
             add(abs(step.value))

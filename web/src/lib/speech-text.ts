@@ -18,7 +18,9 @@ export function spokenAnswer(answer: AnswerResponse): string {
 
   const parts: string[] = [];
   const c = answer.computation;
-  if (c && answer.intent === "compute") {
+  if (answer.summary) {
+    parts.push(toSpeech(answer.summary));
+  } else if (c && answer.intent === "compute") {
     const bal = c.balance_payable;
     const refund = bal.startsWith("-");
     parts.push(

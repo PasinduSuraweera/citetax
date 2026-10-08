@@ -161,6 +161,8 @@ export interface AnswerResponse {
   lookup?: Citation[];
   passages?: Passage[];
   explanation?: string | null;
+  /** The short answer shown first, for computations and filing questions. */
+  summary?: string | null;
   /** Questions to start from, sent with a greeting or "what can you do". */
   suggestions?: string[];
   verify?: VerifyResult | null;

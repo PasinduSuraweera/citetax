@@ -21,6 +21,7 @@ intention and then fill in what actually happened.
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import date
@@ -103,6 +104,9 @@ class AnswerResult:
     latency_ms: int = 0
     llm_budget: llm.LLMBudget = field(default_factory=llm.LLMBudget)
     redacted_question: str = ""
+    # The short answer the chat shows first. The rest of the verified prose is
+    # the explanation.
+    summary: str | None = None
     days_remaining: int | None = None
 
     @property
@@ -485,7 +489,10 @@ def _explain_and_verify(result: AnswerResult, mark, budget: llm.LLMBudget) -> No
                 vr = vr2
 
     if vr.ok:
-        result.prose = _say_apit_is_assumed(prose, result.computation)
+        prose = _say_apit_is_assumed(prose, result.computation)
+        if result.intent in ("compute", "obligation"):
+            result.summary, prose = _split_summary(prose)
+        result.prose = prose
         result.badge = BadgeState.ALL_CITED
         mark("Verify", "ok", f"{vr.checked_numbers} figures traced", t0)
     else:
@@ -497,6 +504,16 @@ def _explain_and_verify(result: AnswerResult, mark, budget: llm.LLMBudget) -> No
             t0,
         )
     result.verify_result = vr
+
+
+def _split_summary(prose: str) -> tuple[str | None, str]:
+    """The short answer is the explanation's first paragraph (explain.LEAD).
+    Both halves were verified together. Without a paragraph break, or with a
+    first paragraph too long to be a short answer, there is no summary."""
+    parts = re.split(r"\n\s*\n", prose.strip(), maxsplit=1)
+    if len(parts) == 2 and 0 < len(parts[0]) <= 600 and parts[1].strip():
+        return parts[0].strip(), parts[1].strip()
+    return None, prose
 
 
 ASSUMED_APIT_NOTE = (
