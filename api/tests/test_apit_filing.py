@@ -113,3 +113,22 @@ def test_apit_beyond_the_tax_still_points_to_the_refund():
     facts = TaxFacts(ya="2026/2027", employment_income=D("3000000"), apit_withheld=D("120000"))
     cp = _filing(facts, _law(**EXEMPTION))
     assert cp.must_file is True and "refund" in cp.reason and cp.instalments == []
+
+
+def test_the_explanation_says_an_assumed_apit_is_assumed():
+    from app.graph.answer import ASSUMED_APIT_NOTE, _say_apit_is_assumed
+
+    c = compute(TaxFacts(ya="2026/2027", employment_income=D("15000000")), _law())
+    prose = "The employer-deducted APIT of LKR 4,272,000 is credited, so the balance payable is LKR 0."
+    assert _say_apit_is_assumed(prose, c).endswith(ASSUMED_APIT_NOTE)
+    said = "The APIT of LKR 4,272,000 is assumed."
+    assert _say_apit_is_assumed(said, c) == said
+    stated = compute(TaxFacts(ya="2026/2027", employment_income=D("15000000"), apit_withheld=D("4272000")), _law())
+    assert _say_apit_is_assumed(prose, stated) == prose
+
+
+def test_a_high_salary_is_taxed_and_the_apit_matches_the_ird_table():
+    """1,250,000 a month: APIT Table 01 gives 1,250,000 x 36% - 94,000 =
+    356,000 a month, 4,272,000 for the year, which is the year's tax."""
+    c = compute(TaxFacts(ya="2026/2027", employment_income=D("15000000")), _law())
+    assert (c.gross_tax, _apit(c).value, c.balance_payable) == (D("4272000.00"), D("4272000.00"), D("0.00"))

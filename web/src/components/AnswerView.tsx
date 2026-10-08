@@ -356,6 +356,8 @@ function Headline({ answer, onSource }: { answer: AnswerResponse; onSource?: (n:
   if ((intent === "compute" || (intent === "obligation" && c)) && c) {
     const balance = c.balance_payable;
     const negative = balance.startsWith("-");
+    const apitStep = c.steps.find((s) => s.rule_key === "credit.apit");
+    const apitAssumed = apitStep?.detail?.assumed === true;
     // Assessable income is income less business expenses, when there are any.
     const expenses = c.steps.find((s) => s.rule_key === "deduction.business_expenses")?.value ?? "0";
     const assessable = String(Number(c.steps[0]?.value ?? 0) - Number(expenses));
@@ -396,6 +398,21 @@ function Headline({ answer, onSource }: { answer: AnswerResponse; onSource?: (n:
                     {money(negative ? balance.slice(1) : balance)}
                   </span>
                 </div>
+                {/* "LKR 0" alone read as "no tax" to someone whose employer
+                    deducts it all. Say what the tax is and who pays it; every
+                    figure here is a ledger figure. */}
+                {apitStep && !apitStep.is_zero && (
+                  <p className="tnum mt-4 max-w-[56ch] text-[15px] leading-[1.6] text-ink-700">
+                    Your tax for the year is <strong className="font-semibold text-ink-900">LKR {money(c.gross_tax)}</strong>.{" "}
+                    {apitAssumed ? "Your employer deducts" : "Your employer has deducted"} LKR {money(apitStep.value)}
+                    {negative ? "" : " of it"} through APIT{apitAssumed ? ", assumed from your salary" : ""},{" "}
+                    {negative
+                      ? "more than the tax, so the difference is a refund."
+                      : Number(balance) === 0
+                        ? "so nothing more is due."
+                        : `leaving LKR ${money(balance)} to pay.`}
+                  </p>
+                )}
                 <p className="mt-4 max-w-[56ch] text-[15px] leading-[1.6] text-ink-500">
                   Worked out in {c.step_count} steps, each traced to a rule in force for {ya}.
                 </p>
