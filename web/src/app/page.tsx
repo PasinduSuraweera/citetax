@@ -1,11 +1,15 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { askFromHome } from "@/app/actions";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { API_BASE, formatDate, money, type ComputeResponse, type Snapshot } from "@/lib/api";
+import { isKnownVisitor } from "@/lib/guest";
 
 /**
- * The homepage, for someone who has not used Citetax yet (see proxy.ts).
+ * The homepage, the first screen for everyone (see proxy.ts). Someone who
+ * is signed in, or has carried on as a guest before, gets "Open chat" in
+ * place of "Sign in".
  *
  * The ledger on the right is not an illustration. It is computed by the
  * engine when the page renders, from the rules in force, so what it shows is
@@ -62,7 +66,8 @@ async function currentSnapshot(): Promise<Snapshot | null> {
 }
 
 export default async function HomePage() {
-  const [ledger, snapshot] = await Promise.all([sampleLedger(), currentSnapshot()]);
+  const [ledger, snapshot, jar] = await Promise.all([sampleLedger(), currentSnapshot(), cookies()]);
+  const known = isKnownVisitor(jar.getAll().map((c) => c.name));
 
   return (
     <div className="min-h-screen bg-background">
@@ -77,9 +82,18 @@ export default async function HomePage() {
           <Link href="/compare" className="hidden rounded-md px-3 py-2 text-ink-500 hover:text-ink-900 sm:block">
             What changed
           </Link>
-          <Link href="/signin" className="rounded-md px-3 py-2 font-medium text-ink-900 hover:bg-muted">
-            Sign in
-          </Link>
+          {known ? (
+            <Link
+              href="/chat"
+              className="ml-1 inline-flex h-9 items-center rounded-lg bg-primary px-4 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+            >
+              Open chat
+            </Link>
+          ) : (
+            <Link href="/signin" className="rounded-md px-3 py-2 font-medium text-ink-900 hover:bg-muted">
+              Sign in
+            </Link>
+          )}
         </nav>
       </header>
 

@@ -96,7 +96,7 @@ export function Shell(props: Props) {
         >
           <Menu />
         </Button>
-        <Link href="/chat" aria-label="Citetax">
+        <Link href="/" aria-label="Citetax home">
           <Logo height={26} />
         </Link>
         <span className="tnum w-9 text-right text-[12px] text-ink-400">{props.ya.slice(2, 4)}/{props.ya.slice(7)}</span>
@@ -153,7 +153,8 @@ function SidebarContent({ ya, onYaChange, onNavigate }: Props & { onNavigate: ()
   return (
     <>
       <div className="flex items-center justify-between px-2">
-        <Link href="/chat" onClick={newQuestion} aria-label="Citetax, new chat">
+        {/* The logo goes home; "New chat" below starts a new chat. */}
+        <Link href="/" onClick={onNavigate} aria-label="Citetax home">
           <Logo height={40} tone="dark" priority />
         </Link>
         <Button variant="ghost" size="icon-sm" onClick={onNavigate} aria-label="Close menu" className="text-white/70 hover:bg-white/10 hover:text-white lg:hidden">

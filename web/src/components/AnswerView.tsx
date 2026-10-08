@@ -21,12 +21,11 @@ import { CitationsPanel } from "./CitationsPanel";
 import { ComputationTable } from "./ComputationTable";
 import { GuardrailBanner } from "./GuardrailBanner";
 import { ReadAloudButton } from "./ReadAloudButton";
-import { SavingsPanel } from "./SavingsPanel";
 import { ProseWithSources, SourcesList } from "./Sources";
 import { INTENT_LABEL } from "./TurnSummary";
 import { UserAvatar } from "./UserAvatar";
 
-type Tab = "computation" | "savings" | "comparison" | "sources" | "citations" | "trace" | "explanation";
+type Tab = "computation" | "comparison" | "sources" | "citations" | "trace" | "explanation";
 
 interface Props {
   question: string;
@@ -191,7 +190,6 @@ export function AnswerView({ question, answer, onClarifyAnswer, onAsk }: Props) 
 
   const tabs: Array<[Tab, string]> = [];
   if (hasComputation) tabs.push(["computation", "Ledger"]);
-  if (answer.savings) tabs.push(["savings", "Ways to save"]);
   if (hasCompare) tabs.push(["comparison", "Comparison"]);
   if (!proseInHeadline) tabs.push(["explanation", "Explanation"]);
   if (hasPassages) tabs.push(["sources", `Sources ${answer.passages!.length}`]);
@@ -261,10 +259,6 @@ export function AnswerView({ question, answer, onClarifyAnswer, onAsk }: Props) 
               citationIndex={citationIndex}
             />
           </>
-        )}
-
-        {tab === "savings" && answer.savings && (
-          <SavingsPanel savings={answer.savings} onRuleClick={handleRuleClick} />
         )}
 
         {tab === "comparison" && answer.compare && <CompareTable compare={answer.compare} />}

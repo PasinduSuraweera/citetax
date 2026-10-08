@@ -120,9 +120,6 @@ def serialise_answer(result: AnswerResult) -> dict[str, Any]:
             "notes": c.notes,
         }
 
-    if result.savings:
-        payload["savings"] = result.savings.to_json()
-
     if result.compliance:
         payload["compliance"] = {
             **result.compliance.to_json(),

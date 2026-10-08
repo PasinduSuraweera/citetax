@@ -1,9 +1,11 @@
 /**
  * The front door.
  *
- *   /       The homepage, for someone who has not used Citetax yet. Anyone
- *           signed in, or who chose to carry on as a guest, goes to the chat.
- *   /chat   Needs one of those two. Otherwise the sign-in screen, which sends
+ *   /       The homepage, for everyone. It used to send anyone signed in, or
+ *           who had chosen to carry on as a guest, straight to the chat, so
+ *           once someone had used Citetax they never saw it again. It now
+ *           offers them "Open chat" instead.
+ *   /chat   Needs a session or the guest choice. Otherwise the sign-in screen, which sends
  *           them back to what they asked for (a ?c= chat, a ?q= question).
  *
  * Links from before the chat moved ("/?c=...", "/?q=...", "/?draft=...") are
@@ -15,21 +17,16 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { GUEST_COOKIE } from "@/lib/guest";
+import { isKnownVisitor } from "@/lib/guest";
 
-// NextAuth's session cookie: "__Secure-" on https, ".0", ".1" when chunked.
-const SESSION = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?$/;
 const CHAT_PARAMS = ["c", "q", "draft"];
 
 export function proxy(request: NextRequest) {
-  const cookies = request.cookies.getAll();
-  const known =
-    cookies.some((c) => SESSION.test(c.name)) || cookies.some((c) => c.name === GUEST_COOKIE);
+  const known = isKnownVisitor(request.cookies.getAll().map((c) => c.name));
   const url = request.nextUrl.clone();
 
   if (url.pathname === "/") {
-    const oldChatLink = CHAT_PARAMS.some((p) => url.searchParams.has(p));
-    if (!oldChatLink && !known) return NextResponse.next();
+    if (!CHAT_PARAMS.some((p) => url.searchParams.has(p))) return NextResponse.next();
     url.pathname = "/chat";
     return NextResponse.redirect(url);
   }
