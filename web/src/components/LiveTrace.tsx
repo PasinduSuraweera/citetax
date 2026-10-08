@@ -59,10 +59,6 @@ export function LiveTrace({ steps, plan }: Props) {
   return (
     <div className="mt-3 px-1" aria-live="polite">
       <div className="inline-flex items-center gap-[7px] rounded-full bg-brand-050 py-[5px] pl-[9px] pr-3">
-        <span className="relative flex h-[6px] w-[6px] flex-none">
-          <span className="absolute inset-0 rounded-full bg-brand-600/40 pulse-dot" />
-          <span className="absolute inset-[1.5px] rounded-full bg-brand-600" />
-        </span>
         <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-brand-600">
           Working
         </span>

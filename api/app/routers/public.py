@@ -9,7 +9,7 @@ import threading
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Response
+from fastapi import APIRouter, Body, HTTPException, Query, Request, Response
 from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
@@ -18,10 +18,11 @@ from app.compute.engine import OPTIONAL_RULE_KEYS, REQUIRED_RULE_KEYS, compute
 from app.compute.types import TaxFacts
 from app.conversations import envelope, store, titles
 from app.conversations.context import build_context
+from app.core import plans
 from app.core.auth import CurrentUserDep, OptionalUserDep, User
 from app.core.config import get_settings
 from app.db.session import db_conn
-from app.graph import comply
+from app.graph import comply, courtesy
 from app.graph.answer import AnswerResult, run_answer_graph
 from app.routers.schemas import AskRequest, ComputeRequest, serialise_answer
 from app.rules.resolver import (
@@ -33,6 +34,26 @@ from app.rules.resolver import (
 )
 
 router = APIRouter(prefix="/v1")
+
+
+def _client_address(request: Request) -> str:
+    """The asker's address, for the guest allowance. Behind a proxy the first
+    X-Forwarded-For entry is the client."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_allowance(conn, user: User | None, request: Request, question: str) -> None:
+    """Plan limits (app.core.plans), checked before any model is called. A
+    greeting or thanks costs nothing and is never counted."""
+    if courtesy.detect(question):
+        return
+    if user is None:
+        plans.check_guest_allowed(_client_address(request))
+    else:
+        plans.check_question_allowed(conn, user)
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +118,7 @@ def _require_snapshot(conn) -> dict[str, Any]:
 
 
 @router.post("/ask")
-def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
+def ask(req: AskRequest, request: Request, user: OptionalUserDep = None) -> dict[str, Any]:
     """Question → answer, ledger, citations, trace, snapshot id.
 
     Anonymous access is a supported tier, so a missing token is fine. A signed
@@ -117,6 +138,7 @@ def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
     conversation_id = str(req.conversation_id) if req.conversation_id else None
 
     with db_conn() as conn:
+        _check_allowance(conn, user, request, req.question)
         question = req.question
         facts_override: TaxFacts | None = None
         context = None
@@ -157,7 +179,7 @@ def ask(req: AskRequest, user: OptionalUserDep = None) -> dict[str, Any]:
 
 
 @router.post("/ask/stream")
-def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingResponse:
+def ask_stream(req: AskRequest, request: Request, user: OptionalUserDep = None) -> StreamingResponse:
     """Same question-in, answer-out contract as /ask, except each trace step
     is pushed the instant it actually finishes instead of arriving all at
     once at the end.
@@ -178,6 +200,11 @@ def ask_stream(req: AskRequest, user: OptionalUserDep = None) -> StreamingRespon
         raise HTTPException(422, "reask_message_id needs its conversation_id")
 
     conversation_id = str(req.conversation_id) if req.conversation_id else None
+
+    # Before the stream starts, so a limit is a plain 402 and not a stream
+    # that fails partway.
+    with db_conn() as conn:
+        _check_allowance(conn, user, request, req.question)
 
     def generate():
         q: "queue.Queue[dict[str, Any]]" = queue.Queue()

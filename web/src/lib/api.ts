@@ -268,6 +268,29 @@ export interface PayslipExtractResponse {
   warnings: string[];
 }
 
+export type PlanKey = "free" | "individual" | "team";
+
+export interface PlanInfo {
+  key: PlanKey;
+  name: string;
+  monthly_questions: number | null;
+  payslip: boolean;
+  price_lkr: number;
+  price_unit: string;
+}
+
+export interface MyPlan {
+  plan: PlanKey;
+  name: string;
+  used: number;
+  /** null for staff, who are never limited. */
+  limit: number | null;
+  resets_on: string;
+  payslip: boolean;
+  staff: boolean;
+  request: { id: string; plan: PlanKey; seats: number; created_at: string } | null;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -582,6 +605,19 @@ export const api = {
       `/v1/runs/${runId}/flag`,
       { method: "POST", body: JSON.stringify(body) },
     ),
+
+  plans: () => request<{ plans: PlanInfo[]; guest_daily_questions: number }>("/v1/plans"),
+
+  myPlan: () => request<MyPlan>("/v1/me/plan"),
+
+  requestPlan: (plan: Exclude<PlanKey, "free">, seats = 1, note?: string) =>
+    request<{ ok: boolean; id: string; plan: PlanKey; seats: number }>("/v1/plan-requests", {
+      method: "POST",
+      body: JSON.stringify({ plan, seats, note }),
+    }),
+
+  withdrawPlanRequest: () =>
+    request<{ ok: boolean; withdrawn: number }>("/v1/plan-requests/open", { method: "DELETE" }),
 };
 
 /* ---------- formatting ---------- */

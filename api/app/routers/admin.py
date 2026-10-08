@@ -1025,7 +1025,7 @@ def list_users(user: AdminDep) -> dict[str, Any]:
     with db_conn() as conn:
         rows = conn.execute(
             text(
-                "select id, email, name, picture, role, created_at, last_seen_at "
+                "select id, email, name, picture, role, plan, created_at, last_seen_at "
                 "  from app_user order by created_at"
             )
         ).mappings().all()

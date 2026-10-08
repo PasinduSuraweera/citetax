@@ -8,7 +8,8 @@ import { AdminBody, AdminFrame } from "@/components/admin/AdminShell";
 import { Confirm, ErrorNote, PageHeader, Pill, TableHead, errorText, relTime } from "@/components/admin/kit";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { admin, type Me, type Role } from "@/lib/admin";
+import { admin, type Me, type PlanRequest, type Role } from "@/lib/admin";
+import type { PlanKey } from "@/lib/api";
 
 export default function UsersPage() {
   return <AdminFrame need="admin">{(me) => <UsersList me={me} />}</AdminFrame>;
@@ -26,17 +27,22 @@ const ROLES: Array<{ role: Role; label: string; can: string }> = [
 
 type Row = Awaited<ReturnType<typeof admin.users>>["users"][number];
 
-const COLS = "minmax(0,1fr) 130px 190px";
+const COLS = "minmax(0,1fr) 120px 150px 190px";
+
+const PLAN_LABEL: Record<PlanKey, string> = { free: "Free", individual: "Individual", team: "Team" };
 
 function UsersList({ me }: { me: Me }) {
   const [users, setUsers] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ user: Row; role: Role } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [requests, setRequests] = useState<PlanRequest[]>([]);
 
   const load = useCallback(async () => {
     try {
-      setUsers((await admin.users()).users);
+      const [u, r] = await Promise.all([admin.users(), admin.planRequests()]);
+      setUsers(u.users);
+      setRequests(r.requests);
       setError(null);
     } catch (e) {
       setError(errorText(e, "Could not load users"));
@@ -64,6 +70,32 @@ function UsersList({ me }: { me: Me }) {
     }
   };
 
+  const changePlan = async (u: Row, plan: PlanKey) => {
+    setBusy(true);
+    try {
+      await admin.setPlan(u.id, plan);
+      toast.success(`${u.name ?? u.email} is now on ${PLAN_LABEL[plan]}`);
+      await load();
+    } catch (e) {
+      toast.error(errorText(e, "Could not change the plan"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decide = async (r: PlanRequest, decision: "grant" | "decline") => {
+    setBusy(true);
+    try {
+      await admin.decidePlanRequest(r.id, decision);
+      toast.success(decision === "grant" ? `${r.name ?? r.email} is now on ${PLAN_LABEL[r.plan]}` : "Request declined");
+      await load();
+    } catch (e) {
+      toast.error(errorText(e, "Could not decide the request"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const approvers = users?.filter((u) => u.role === "approver" || u.role === "admin").length ?? 2;
   const target = pending ? ROLES.find((r) => r.role === pending.role) : null;
   const losingSignOff = pending && ["approver", "admin"].includes(pending.user.role) && !["approver", "admin"].includes(pending.role);
@@ -84,14 +116,46 @@ function UsersList({ me }: { me: Me }) {
       )}
 
       {error && <div className="mt-6"><ErrorNote>{error}</ErrorNote></div>}
+
+      {/* No payments yet: a plan is requested and switched on here. */}
+      {requests.length > 0 && (
+        <section className="mt-6 rounded-xl border border-line bg-white">
+          <div className="border-b border-line px-5 py-3 text-[14.5px] font-semibold text-ink-900">
+            Plan requests <span className="ml-1 font-normal text-ink-400">{requests.length} open</span>
+          </div>
+          {requests.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line-faint px-5 py-3 last:border-b-0">
+              <div className="min-w-0">
+                <div className="truncate text-[14.5px] font-medium text-ink-900">{r.name ?? r.email}</div>
+                <div className="text-[13px] text-ink-500">
+                  {PLAN_LABEL[r.current_plan]} to {PLAN_LABEL[r.plan]}
+                  {r.plan === "team" ? `, ${r.seats} seats` : ""} · asked {relTime(r.created_at)}
+                  {r.note ? ` · "${r.note}"` : ""}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" disabled={busy} onClick={() => void decide(r, "decline")}
+                  className="h-9 rounded-lg border border-line px-3 text-[14px] text-ink-700 hover:bg-muted disabled:opacity-50">
+                  Decline
+                </button>
+                <button type="button" disabled={busy} onClick={() => void decide(r, "grant")}
+                  className="h-9 rounded-lg bg-primary px-3 text-[14px] font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50">
+                  Grant {PLAN_LABEL[r.plan]}
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
       {!users && !error && <Skeleton className="mt-6 h-72 w-full" />}
 
       {users && (
         <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
-          <div className="min-w-[640px]">
+          <div className="min-w-[780px]">
             <TableHead cols={COLS}>
               <span>Account</span>
               <span>Last seen</span>
+              <span>Plan</span>
               <span>Role</span>
             </TableHead>
             {users.map((u) => (
@@ -107,6 +171,17 @@ function UsersList({ me }: { me: Me }) {
                   </div>
                 </div>
                 <span className="text-[13.5px] text-ink-500">{relTime(u.last_seen_at)}</span>
+                <select
+                  value={u.plan}
+                  onChange={(e) => void changePlan(u, e.target.value as PlanKey)}
+                  disabled={busy}
+                  aria-label={`Plan for ${u.email}`}
+                  className="h-9 rounded-lg border border-input bg-white px-2.5 text-[14px] text-ink-700 disabled:opacity-50"
+                >
+                  {(Object.keys(PLAN_LABEL) as PlanKey[]).map((p) => (
+                    <option key={p} value={p}>{PLAN_LABEL[p]}</option>
+                  ))}
+                </select>
                 <select
                   value={u.role}
                   onChange={(e) => setPending({ user: u, role: e.target.value as Role })}

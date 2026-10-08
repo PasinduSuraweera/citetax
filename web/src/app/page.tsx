@@ -1,10 +1,8 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { askFromHome } from "@/app/actions";
-import { Logo } from "@/components/Logo";
+import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { API_BASE, formatDate, money, type ComputeResponse, type Snapshot } from "@/lib/api";
-import { isKnownVisitor } from "@/lib/guest";
 
 /**
  * The homepage, the first screen for everyone (see proxy.ts). Someone who
@@ -66,36 +64,11 @@ async function currentSnapshot(): Promise<Snapshot | null> {
 }
 
 export default async function HomePage() {
-  const [ledger, snapshot, jar] = await Promise.all([sampleLedger(), currentSnapshot(), cookies()]);
-  const known = isKnownVisitor(jar.getAll().map((c) => c.name));
+  const [ledger, snapshot] = await Promise.all([sampleLedger(), currentSnapshot()]);
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-[1180px] items-center justify-between px-5 py-5 sm:px-8">
-        <Link href="/" aria-label="Citetax home">
-          <Logo height={36} priority />
-        </Link>
-        <nav className="flex items-center gap-1 text-[14px] sm:gap-2">
-          <Link href="/deadlines" className="hidden rounded-md px-3 py-2 text-ink-500 hover:text-ink-900 sm:block">
-            Deadlines
-          </Link>
-          <Link href="/compare" className="hidden rounded-md px-3 py-2 text-ink-500 hover:text-ink-900 sm:block">
-            What changed
-          </Link>
-          {known ? (
-            <Link
-              href="/chat"
-              className="ml-1 inline-flex h-9 items-center rounded-lg bg-primary px-4 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
-            >
-              Open chat
-            </Link>
-          ) : (
-            <Link href="/signin" className="rounded-md px-3 py-2 font-medium text-ink-900 hover:bg-muted">
-              Sign in
-            </Link>
-          )}
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main>
         {/* The question and the proof side by side: what you type, and what

@@ -13,6 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from app.core import plans
 from app.core.auth import CurrentUserDep
 from app.core.config import get_settings
 from app.payslip.extractor import (
@@ -33,6 +34,8 @@ async def extract_payslip(
     ya: str = Form(...),
     consent: str = Form(""),
 ) -> dict[str, Any]:
+    # Part of the Individual and Team plans (app.core.plans).
+    plans.check_payslip_allowed(user)
     # The file goes to Google's Gemini whole, identifiers included. That only
     # happens with the user's explicit agreement, checked here as well as on
     # the upload screen, so no client can skip it (#51).

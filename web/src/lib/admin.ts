@@ -1,7 +1,7 @@
 /** Client for the admin API. Roles are enforced server side; this only shapes
  *  what the UI offers. */
 
-import { API_BASE, ApiError, getToken } from "./api";
+import { API_BASE, ApiError, getToken, type PlanKey } from "./api";
 
 export type Role =
   | "free" | "individual" | "practice"
@@ -257,6 +257,21 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface PlanRequest {
+  id: string;
+  plan: Exclude<PlanKey, "free">;
+  seats: number;
+  note: string | null;
+  status: "open" | "granted" | "declined" | "withdrawn";
+  created_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  user_id: string;
+  email: string;
+  name: string | null;
+  current_plan: PlanKey;
+}
+
 export const admin = {
   me: () => req<Me>("/admin/me"),
 
@@ -422,10 +437,26 @@ export const admin = {
         name: string | null;
         picture: string | null;
         role: Role;
+        plan: PlanKey;
         created_at: string;
         last_seen_at: string | null;
       }>;
     }>("/admin/users"),
+
+  setPlan: (userId: string, plan: PlanKey) =>
+    req<{ ok: boolean; email: string; plan: PlanKey }>(`/admin/users/${userId}/plan`, {
+      method: "PATCH",
+      body: JSON.stringify({ plan }),
+    }),
+
+  planRequests: (status: "open" | "all" = "open") =>
+    req<{ requests: PlanRequest[] }>(`/admin/plan-requests?status=${status}`),
+
+  decidePlanRequest: (id: string, decision: "grant" | "decline") =>
+    req<{ ok: boolean; status: string; email: string; plan: PlanKey }>(
+      `/admin/plan-requests/${id}/decide`,
+      { method: "POST", body: JSON.stringify({ decision }) },
+    ),
 
   setRole: (userId: string, role: Role) =>
     req<{ ok: boolean; email: string; role: Role }>(`/admin/users/${userId}`, {

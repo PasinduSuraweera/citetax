@@ -10,6 +10,7 @@ import { Check, LogOut, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageBody, Shell } from "@/components/Shell";
+import { PlanCard } from "@/components/PlanCard";
 import { useYa, useYears, yearsPhrase } from "@/lib/years";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
@@ -99,7 +100,9 @@ export default function AccountPage() {
               </div>
             )}
           </section>
-        ) : (
+        ) : null}
+        {user && <PlanCard />}
+        {!loading && !user && (
           <section className="mt-8 rounded-xl bg-muted p-6">
             <h2 className="text-[16px] font-semibold text-ink-900">You are not signed in</h2>
             <p className="mt-1 max-w-[56ch] text-[14.5px] leading-[1.6] text-ink-500">

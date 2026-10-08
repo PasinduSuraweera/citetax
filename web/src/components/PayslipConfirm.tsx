@@ -10,6 +10,7 @@
  * until the user agrees; they can type the three figures instead (#51).
  */
 
+import Link from "next/link";
 import { FileText, Loader2, Printer, ShieldCheck, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -43,6 +44,8 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
   // Figures typed by the user rather than read from the file.
   const [manual, setManual] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 402: reading a payslip is part of the paid plans.
+  const [needsPlan, setNeedsPlan] = useState(false);
   const [extraction, setExtraction] = useState<PayslipExtractResponse | null>(null);
   const [employmentIncome, setEmploymentIncome] = useState("");
   const [epfEmployee, setEpfEmployee] = useState("");
@@ -104,6 +107,7 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
       .catch((e) => {
         if (cancelled) return;
         setError(e instanceof ApiError ? e.message : "Could not read that document.");
+        setNeedsPlan(e instanceof ApiError && e.status === 402);
         setPhase("error");
       });
     return () => {
@@ -195,7 +199,15 @@ export function PayslipConfirm({ file, ya, onClose }: Props) {
       {phase === "error" && (
         <div role="alert" className="mt-5 rounded-lg bg-warn-100 px-5 py-4">
           <p className="text-[15px] font-semibold text-warn-700">This payslip could not be read</p>
-          <p className="mt-1 text-[14px] leading-[1.55] text-warn-700">{error}</p>
+          <p className="mt-1 text-[14px] leading-[1.55] text-warn-700">
+            {error}
+            {needsPlan && (
+              <>
+                {" "}
+                <Link href="/pricing" className="font-medium underline underline-offset-4">See the plans</Link>
+              </>
+            )}
+          </p>
           <Button variant="outline" onClick={onClose} className="mt-4 bg-white">
             Type the figures in a question instead
           </Button>
