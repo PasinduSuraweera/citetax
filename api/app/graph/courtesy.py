@@ -54,9 +54,11 @@ DESCRIBE = {
     "creative": "a request outside tax",
 }
 
+# A salary alone is not among them: the employer's APIT covers it, and the
+# answer is a nil balance that shows little of what Citetax does.
 SUGGESTIONS = [
-    "What do I owe on a salary of LKR 250,000 a month?",
-    "Do I need to file a return?",
+    "I earn LKR 250,000 a month and LKR 1,500,000 a year from freelance work. What do I owe?",
+    "Do I need to file a return if my only income is a salary of LKR 300,000 a month?",
     "When is my return due?",
     "What changed between the two years?",
 ]

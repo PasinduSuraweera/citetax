@@ -663,7 +663,9 @@ function tagsFor(answer: AnswerResponse): string[] {
   const epf = steps.find((s) => s.rule_key === "deduction.epf_employee");
   if (epf && !epf.is_zero) tags.push(`EPF LKR ${money(epf.value)}`);
   const apit = steps.find((s) => s.rule_key === "credit.apit");
-  if (apit && !apit.is_zero) tags.push(`APIT LKR ${money(apit.value)}`);
+  if (apit && !apit.is_zero) {
+    tags.push(`APIT LKR ${money(apit.value)}${apit.detail?.assumed === true ? " (assumed)" : ""}`);
+  }
   return tags;
 }
 

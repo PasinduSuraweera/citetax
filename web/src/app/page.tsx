@@ -18,11 +18,11 @@ const SAMPLE_YA = "2026/2027";
 
 const QUESTIONS: Array<[string, string[]]> = [
   ["What you owe", [
-    "What do I owe for 2026/2027 on a salary of LKR 250,000 a month, with EPF deducted?",
-    "How does APIT work for a salaried employee?",
+    "I earn LKR 250,000 a month and LKR 1,500,000 a year from freelance work. What do I owe for 2026/2027?",
+    "I freelance for clients abroad and earn LKR 6,000,000 a year, paid in USD. What is my tax for 2026/2027?",
   ]],
   ["Whether and when to file", [
-    "Do I need to file if I earn 1,500,000 a year?",
+    "Do I need to file a return if my only income is a salary of LKR 300,000 a month?",
     "When is my return due for 2025/2026?",
   ]],
   ["The rules themselves", [

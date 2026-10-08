@@ -16,7 +16,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
-  BookOpenText, Calculator, CalendarClock, FileCheck2, GitCompareArrows, Landmark, MoreHorizontal,
+  BookOpenText, Calculator, CalendarClock, FileCheck2, GitCompareArrows, Globe, MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -61,13 +61,15 @@ import {
 } from "@/lib/conversations";
 import { useSession } from "@/lib/session";
 
+// Each one shows something Citetax does. A salary alone is not among them:
+// the employer's APIT covers it, so the answer is a balance of nil.
 const EXAMPLES: Array<{ kind: string; icon: LucideIcon; question: string }> = [
-  { kind: "Tax on a salary", icon: Calculator, question: "What do I owe for 2026/2027 on a salary of LKR 250,000 a month, with EPF deducted?" },
+  { kind: "Salary and freelance", icon: Calculator, question: "I earn LKR 250,000 a month and LKR 1,500,000 a year from freelance work. What do I owe for 2026/2027?" },
+  { kind: "Clients abroad", icon: Globe, question: "I freelance for clients abroad and earn LKR 6,000,000 a year, paid in USD. What is my tax for 2026/2027?" },
+  { kind: "Whether to file", icon: FileCheck2, question: "Do I need to file a return if my only income is a salary of LKR 300,000 a month?" },
   { kind: "Filing deadline", icon: CalendarClock, question: "When is my return due for 2025/2026?" },
-  { kind: "A rule's value", icon: BookOpenText, question: "What is the personal relief this year?" },
   { kind: "What changed", icon: GitCompareArrows, question: "What changed between 2025/2026 and 2026/2027?" },
-  { kind: "Whether to file", icon: FileCheck2, question: "Do I need to file if I earn 1,500,000 a year?" },
-  { kind: "How a scheme works", icon: Landmark, question: "How does APIT work for a salaried employee?" },
+  { kind: "A rule's value", icon: BookOpenText, question: "What is the personal relief this year?" },
 ];
 
 /** The hour, day and month in Sri Lanka, whatever clock the server runs on,
