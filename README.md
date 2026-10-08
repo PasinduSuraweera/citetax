@@ -20,13 +20,10 @@ Sri Lanka's income tax base is widening fast, and the people joining it have now
 - **1.2 million** individual income tax files have been opened, according to the IRD's Commissioner of Tax Policy and Law in August 2026.<sup>[1]</sup>
 - **1.3 million** people hold a Taxpayer Identification Number, but only about **130,000** pay any tax yet.<sup>[2]</sup> Most of the rest are new to the system, and many of them will become filers.
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"pie1": "#012151", "pie2": "#22d3e0", "pieStrokeColor": "#ffffff", "pieStrokeWidth": "2px", "pieOuterStrokeWidth": "0px", "pieSectionTextColor": "#ffffff", "pieTitleTextColor": "#8791a7", "pieLegendTextColor": "#8791a7", "pieOpacity": "1"}}}%%
-pie showData
-    title TIN holders, June 2026
-    "Paying tax" : 130000
-    "Not paying tax yet" : 1170000
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/tin-dark.svg">
+  <img src="docs/media/tin-light.svg" alt="Of 1.3 million TIN holders in June 2026, about 130,000 pay tax and 1,170,000 do not yet" width="760">
+</picture>
 
 At the same time, the law keeps moving:
 
