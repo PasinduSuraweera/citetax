@@ -2,13 +2,14 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { ArrowDown, Check } from "lucide-react";
 import { askFromHome } from "@/app/actions";
-import { HeroDemo, type HeroLine } from "@/components/home/HeroDemo";
+import { HeroLogo } from "@/components/home/HeroLogo";
 import { HomeNav } from "@/components/home/HomeNav";
+import { ScrollBeams } from "@/components/home/ScrollBeams";
 import { Reveal } from "@/components/home/Reveal";
 import { UseList } from "@/components/home/UseList";
 import { formatDate, type ComputeResponse } from "@/lib/api";
 import { isKnownVisitor } from "@/lib/guest";
-import { HERO_QUESTION, currentSnapshot, heroAnswer, planSummary, starterAnswers, type Starter, type StarterKey } from "@/lib/sample";
+import { currentSnapshot, planSummary, starterAnswers, type Starter, type StarterKey } from "@/lib/sample";
 
 /**
  * The homepage, the first screen for everyone (see proxy.ts).
@@ -207,17 +208,13 @@ export default async function HomePage() {
   const [starters, snapshot, plans, jar] = await Promise.all([
     starterAnswers(), currentSnapshot(), planSummary(), cookies(),
   ]);
-  const hero = await heroAnswer();
-  // The lines that carry a figure; the chat shows every line.
-  const heroLines: HeroLine[] = (hero?.steps ?? [])
-    .filter((s) => !s.is_zero)
-    .map((s) => ({ label: s.label, value: s.value, cite: s.citation_label, assumed: s.detail?.assumed === true }));
   const known = isKnownVisitor(jar.getAll().map((c) => c.name));
   const byKey = Object.fromEntries(starters.map((s) => [s.key, s])) as Record<StarterKey, Starter>;
   const individual = plans?.find((p) => p.key === "individual");
 
   return (
     <div className="min-h-screen bg-paper text-ink-900">
+      <ScrollBeams />
       <HomeNav known={known} />
 
       {/* ------------------------------------------------ hero, framed */}
@@ -246,27 +243,8 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="flex flex-col justify-center border-t border-ink-900/10 p-5 sm:p-8 lg:border-l lg:border-t-0">
-            {hero && heroLines.length > 0 && (
-              <HeroDemo
-                question={HERO_QUESTION}
-                ya={hero.ya}
-                lines={heroLines}
-                balance={hero.balance_payable}
-                rules={new Set(hero.steps.map((s) => s.rule_key)).size}
-              />
-            )}
-            {/* The note in the margin: the law's own voice, in serif italic. */}
-            <div className="mt-3 flex items-start gap-2">
-              <svg aria-hidden className="mt-1 h-7 w-7 flex-none text-ink-400" viewBox="0 0 28 28" fill="none">
-                <path d="M24 24 C 12 22, 6 16, 5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                <path d="M1.5 8.5 L 5 3.5 L 9 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <div>
-                <span className="statute block text-[18px] italic leading-snug text-ink-700">each figure, with the section of the Act it comes from</span>
-                <span className="mt-1 block text-[13px] text-ink-400">A real answer for a doctor with a hospital salary and channelling fees, worked out by the engine as this page loaded.</span>
-              </div>
-            </div>
+          <div className="flex items-center justify-center border-t border-ink-900/10 p-5 sm:p-8 lg:border-l lg:border-t-0">
+            <HeroLogo />
           </div>
         </div>
       </section>
