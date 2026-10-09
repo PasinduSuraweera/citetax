@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Check } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { PlanChooser } from "@/components/PlanChooser";
-import { API_BASE, type PlanInfo, type PlanKey } from "@/lib/api";
+import { API_BASE, API_HEADERS, type PlanInfo, type PlanKey } from "@/lib/api";
 
 export const metadata: Metadata = { title: "Pricing · Citetax" };
 
@@ -42,7 +42,7 @@ const FEATURES: Record<PlanKey, { lead: string; items: string[]; soon?: string[]
 
 async function loadPlans(): Promise<{ plans: PlanInfo[]; guest_daily_questions: number } | null> {
   try {
-    const res = await fetch(`${API_BASE}/v1/plans`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API_BASE}/v1/plans`, { headers: API_HEADERS, next: { revalidate: 300 } });
     return res.ok ? await res.json() : null;
   } catch {
     return null;

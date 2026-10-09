@@ -9,6 +9,11 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
+/** Sent with every API call. When the API is reached through an ngrok
+ *  tunnel, this skips ngrok's browser warning page; anywhere else it is
+ *  ignored. */
+export const API_HEADERS: Record<string, string> = { "ngrok-skip-browser-warning": "1" };
+
 export type Badge = "all_cited" | "partial" | "cannot_answer";
 
 export interface LedgerStep {
@@ -338,6 +343,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     // A FormData body needs the browser to set its own multipart boundary —
     // forcing JSON here would break every upload call.
+    ...API_HEADERS,
     ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(init?.headers as Record<string, string>),
   };
@@ -404,7 +410,7 @@ async function askStream(
     onPlan?: (plan: string[]) => void;
   } = {},
 ): Promise<AnswerResponse> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { ...API_HEADERS, "Content-Type": "application/json" };
   if (typeof window !== "undefined") {
     const token = await getToken();
     if (token) headers.Authorization = `Bearer ${token}`;

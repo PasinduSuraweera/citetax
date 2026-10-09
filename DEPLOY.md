@@ -88,3 +88,32 @@ gcloud scheduler jobs create http citetax-agent --location asia-south1 --schedul
 
 - **Web:** push to `main`, and Vercel deploys.
 - **API:** run the same `gcloud run deploy` command again. Secrets and settings are kept.
+
+## Free setup: the API on your laptop through ngrok
+
+This costs nothing, but the site works only while the laptop is on, awake and running both commands below.
+
+```
+Browser ──> Vercel (web) ──> ngrok ──> your laptop (API, port 8000) ──> Supabase
+```
+
+1. Install ngrok and sign in once. The authtoken is on the ngrok dashboard under **Your Authtoken**.
+   ```powershell
+   winget install ngrok.ngrok
+   ngrok config add-authtoken YOUR_TOKEN
+   ```
+2. On the ngrok dashboard, under **Domains**, claim the free static domain, for example `citetax-xyz.ngrok-free.app`. It must be static, because Vercel bakes `NEXT_PUBLIC_API_BASE` into the build.
+3. In `api/.env`, add the Vercel address to the allowed origins:
+   `CORS_ORIGINS=http://localhost:3000,https://YOUR-APP.vercel.app`
+4. Start the API, without `--reload`. The corpus agent runs on its own timer here, so no scheduler is needed.
+   ```powershell
+   cd api
+   .venv\Scripts\python -m uvicorn app.main:app --port 8000
+   ```
+5. In a second terminal, open the tunnel:
+   ```powershell
+   ngrok http --domain=citetax-xyz.ngrok-free.app 8000
+   ```
+6. Set up Vercel as in section 2, with `NEXT_PUBLIC_API_BASE=https://citetax-xyz.ngrok-free.app`, and add the Google redirect URI as in section 3.
+
+The web app sends an `ngrok-skip-browser-warning` header with every API call, so ngrok's warning page never gets in the way. The free ngrok plan has monthly request and data limits, which is plenty for testing but not for real traffic.
