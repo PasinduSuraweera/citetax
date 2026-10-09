@@ -43,16 +43,23 @@ export function BrandScene() {
 
   return (
     <div ref={ref} className="brand-scene" onPointerMove={tilt} onPointerLeave={() => { rotateX.set(0); rotateY.set(0); }} aria-hidden="true">
+      {/* One badge sits behind the mark, so the ribbon passes in front of it.
+          It is placed in a frame the same size and place as the mark, so it
+          tucks under the lower arm the same way at every window width. */}
+      <div className="brand-badges brand-badges-back">
+        <div className="brand-ribbon-frame">
+          <div className="brand-badge brand-badge-source">
+            <BadgeSurface />
+            <Image className="brand-badge-icon" src="/brand/badges/source.png" alt="" width={56} height={56} draggable={false} />
+            <span>Sources cited</span>
+          </div>
+        </div>
+      </div>
       <div className="brand-badges">
         <div className="brand-badge brand-badge-income">
           <BadgeSurface />
           <Image className="brand-badge-icon" src="/brand/badges/income.png" alt="" width={56} height={56} draggable={false} />
           <span>Income &amp; reliefs</span>
-        </div>
-        <div className="brand-badge brand-badge-source">
-          <BadgeSurface />
-          <Image className="brand-badge-icon" src="/brand/badges/source.png" alt="" width={56} height={56} draggable={false} />
-          <span>Sources cited</span>
         </div>
         <div className="brand-badge brand-badge-tax">
           <BadgeSurface />

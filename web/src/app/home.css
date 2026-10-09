@@ -16,15 +16,19 @@
 .home-hero-note { display: flex; align-items: center; gap: 7px; margin-top: 17px; font-size: 12px; color: #66728c; }
 
 /* Keep the original ribbon artwork and its perspective animation. */
-.brand-scene { position: relative; min-width: 0; width: 100%; height: clamp(470px, 42vw, 690px); perspective: 1100px; isolation: isolate; }
+/* A size container: the badges scale with the scene, so they keep the same
+   place against the mark at every window width. */
+.brand-scene { position: relative; min-width: 0; width: 100%; height: clamp(470px, 42vw, 690px); perspective: 1100px; isolation: isolate; container-type: inline-size; }
 .brand-scene::before { content: ''; position: absolute; inset: 3% -12% 0 -5%; z-index: -1; background: radial-gradient(ellipse at 55% 44%, #cbeaf0 0, #e6efec99 40%, transparent 69%); }
 .brand-assembly { position: absolute; inset: 0; z-index: 2; pointer-events: none; transform-style: preserve-3d; }
 .brand-badges { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-.brand-badge { position: absolute; isolation: isolate; display: flex; align-items: center; gap: 14px; padding: 22px 34px 22px 24px; color: #012151; font-size: clamp(15px, 1.3vw, 20px); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; animation: badge-float 6s ease-in-out infinite; }
+.brand-badges-back { z-index: 1; }
+.brand-ribbon-frame { position: absolute; width: 64%; aspect-ratio: 1; top: 15%; left: 21%; }
+.brand-badge { position: absolute; isolation: isolate; display: flex; align-items: center; gap: .7em; padding: 1.1em 1.7em 1.1em 1.2em; color: #012151; font-size: clamp(11px, 2.35cqw, 20px); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; animation: badge-float 6s ease-in-out infinite; }
 .brand-badge-surface { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; overflow: visible; filter: drop-shadow(0 16px 22px #0121512e) drop-shadow(0 2px 4px #0121511a); }
-.brand-badge-icon { width: 56px; height: 56px; flex-shrink: 0; object-fit: contain; filter: drop-shadow(0 3px 2px #0766d61a); }
+.brand-badge-icon { width: clamp(28px, 6.6cqw, 56px); height: clamp(28px, 6.6cqw, 56px); flex-shrink: 0; object-fit: contain; filter: drop-shadow(0 3px 2px #0766d61a); }
 .brand-badge-income { top: 9%; left: 2%; rotate: -6deg; }
-.brand-badge-source { top: 43%; right: 0; rotate: 6deg; animation-delay: -2s; --badge-light: #f2fcff; --badge-shade: #d7edf7; }
+.brand-badge-source { top: 86%; left: 52%; rotate: 6deg; animation-delay: -2s; --badge-light: #f2fcff; --badge-shade: #d7edf7; }
 .brand-badge-source .brand-badge-surface { transform: scaleX(-1); }
 .brand-badge-tax { bottom: 13%; left: 7%; rotate: -3deg; animation-delay: -4s; }
 @keyframes badge-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
@@ -102,11 +106,8 @@
   .home-hero-actions { gap: 18px; margin-top: 24px; }
   .home-primary-link { gap: 16px; padding-inline: 21px; }
   .brand-scene { height: 430px; max-width: 540px; justify-self: center; margin-top: 10px; }
-  .brand-ribbon { width: 66%; left: 18%; }
-  .brand-badge { font-size: 14px; gap: 10px; padding: 17px 26px 17px 19px; }
-  .brand-badge-icon { width: 44px; height: 44px; }
+  .brand-ribbon, .brand-ribbon-frame { width: 66%; left: 18%; }
   .brand-badge-income { top: 7%; }
-  .brand-badge-source { top: 47%; right: 1%; }
   .brand-badge-tax { bottom: 15%; left: 5%; }
   .answer-story { grid-template-columns: 1fr; padding-block: 70px; gap: 35px; }
   .answer-story-copy { position: static; }
