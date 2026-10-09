@@ -1,0 +1,465 @@
+{
+  "computed_on": "2026-10-09",
+  "answers": {
+    "salary": {
+      "ya": "2026/2027",
+      "steps": [
+        {
+          "step_no": 1,
+          "label": "Assessable income",
+          "rule_key": "income.assessable",
+          "rule_version_id": "7bb6f621-e5be-4d9b-a43b-c60311e65a4e",
+          "citation_label": "Act s.5",
+          "value": "3300000.00",
+          "is_zero": false,
+          "detail": {
+            "employment": "3300000",
+            "business": "0.00",
+            "foreign_service": "0.00",
+            "investment": "0",
+            "other": "0"
+          }
+        },
+        {
+          "step_no": 2,
+          "label": "EPF employee contribution, not deductible",
+          "rule_key": "deduction.epf_employee",
+          "rule_version_id": "7bcd2944-9b54-4646-899d-e3634dcb959a",
+          "citation_label": "Act s.10(1)(a)",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "deductible": false,
+            "contribution": null
+          }
+        },
+        {
+          "step_no": 3,
+          "label": "Less qualifying payments",
+          "rule_key": "deduction.qualifying",
+          "rule_version_id": "d4839a5f-4c96-4bf0-a3a8-297f50d60f45",
+          "citation_label": "Act s.52",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "cap": null
+          }
+        },
+        {
+          "step_no": 4,
+          "label": "Less personal relief",
+          "rule_key": "relief.personal",
+          "rule_version_id": "ded90860-3b09-4930-96a8-fde19ecd5d58",
+          "citation_label": "Act s.52 (Amd. No. 2 of 2025)",
+          "value": "1800000.00",
+          "is_zero": false,
+          "detail": {
+            "statutory": "1800000",
+            "applied": "1800000.00",
+            "capped": false
+          }
+        },
+        {
+          "step_no": 5,
+          "label": "Taxable income",
+          "rule_key": "charge.taxable_income",
+          "rule_version_id": "0368eae4-10d6-4326-8fef-1d2cbcf3dfe9",
+          "citation_label": "Act s.3",
+          "value": "1500000.00",
+          "is_zero": false,
+          "detail": null
+        },
+        {
+          "step_no": 6,
+          "label": "Gross tax across bands",
+          "rule_key": "band.progressive",
+          "rule_version_id": "d7db9e4f-fe28-49f3-8fcc-3812de6d056b",
+          "citation_label": "Amendment No. 2 of 2025",
+          "value": "150000.00",
+          "is_zero": false,
+          "detail": {
+            "bands": [
+              {
+                "from": "0",
+                "to": "1000000",
+                "rate": "0.06",
+                "amount": "1000000",
+                "tax": "60000.00"
+              },
+              {
+                "from": "1000000",
+                "to": "1500000",
+                "rate": "0.18",
+                "amount": "500000.00",
+                "tax": "90000.00"
+              }
+            ]
+          }
+        },
+        {
+          "step_no": 7,
+          "label": "Less tax credits",
+          "rule_key": "credit.foreign_wht",
+          "rule_version_id": "c9f6a0a9-f9ec-4a92-9763-26dd791930f9",
+          "citation_label": "Act s.80",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "foreign": "0",
+            "foreign_allowed": "0.00",
+            "wht": "0"
+          }
+        },
+        {
+          "step_no": 8,
+          "label": "Less APIT deducted by your employer",
+          "rule_key": "credit.apit",
+          "rule_version_id": "8c868b11-71d3-4715-943e-a8b88efbd104",
+          "citation_label": "APIT scheme",
+          "value": "150000.00",
+          "is_zero": false,
+          "detail": {
+            "assumed": true,
+            "on_employment_income": "1500000.00"
+          }
+        }
+      ],
+      "balance_payable": "0.00",
+      "taxable_income": "1500000.00",
+      "gross_tax": "150000.00",
+      "is_refund": false,
+      "notes": [],
+      "compliance": {
+        "must_file": false,
+        "reason": "Your tax is all on employment income and your employer deducts it as APIT, so no return and no instalments are required.",
+        "return_due": "2027-11-30",
+        "instalments": [],
+        "rule_version_id": "edd98951-3769-48f4-af3f-17f93c8f51e5",
+        "citation_label": "Act s.94(1)(c), (d)"
+      },
+      "corpus_snapshot_id": "b3af1cb1-af49-420a-8f70-cd876f7a40b8"
+    },
+    "abroad": {
+      "ya": "2026/2027",
+      "steps": [
+        {
+          "step_no": 1,
+          "label": "Assessable income",
+          "rule_key": "income.assessable",
+          "rule_version_id": "7bb6f621-e5be-4d9b-a43b-c60311e65a4e",
+          "citation_label": "Act s.5",
+          "value": "4800000.00",
+          "is_zero": false,
+          "detail": {
+            "employment": "0",
+            "business": "0.00",
+            "foreign_service": "4800000.00",
+            "investment": "0",
+            "other": "0"
+          }
+        },
+        {
+          "step_no": 2,
+          "label": "EPF employee contribution",
+          "rule_key": "deduction.epf_employee",
+          "rule_version_id": "7bcd2944-9b54-4646-899d-e3634dcb959a",
+          "citation_label": "Act s.10(1)(a)",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": null
+        },
+        {
+          "step_no": 3,
+          "label": "Less qualifying payments",
+          "rule_key": "deduction.qualifying",
+          "rule_version_id": "d4839a5f-4c96-4bf0-a3a8-297f50d60f45",
+          "citation_label": "Act s.52",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "cap": null
+          }
+        },
+        {
+          "step_no": 4,
+          "label": "Less personal relief",
+          "rule_key": "relief.personal",
+          "rule_version_id": "ded90860-3b09-4930-96a8-fde19ecd5d58",
+          "citation_label": "Act s.52 (Amd. No. 2 of 2025)",
+          "value": "1800000.00",
+          "is_zero": false,
+          "detail": {
+            "statutory": "1800000",
+            "applied": "1800000.00",
+            "capped": false
+          }
+        },
+        {
+          "step_no": 5,
+          "label": "Taxable income",
+          "rule_key": "charge.taxable_income",
+          "rule_version_id": "0368eae4-10d6-4326-8fef-1d2cbcf3dfe9",
+          "citation_label": "Act s.3",
+          "value": "3000000.00",
+          "is_zero": false,
+          "detail": null
+        },
+        {
+          "step_no": 6,
+          "label": "Tax on local income across bands",
+          "rule_key": "band.progressive",
+          "rule_version_id": "d7db9e4f-fe28-49f3-8fcc-3812de6d056b",
+          "citation_label": "Amendment No. 2 of 2025",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "bands": [],
+            "taxable": "0.00"
+          }
+        },
+        {
+          "step_no": 7,
+          "label": "Tax on foreign-currency service income, at most 15%",
+          "rule_key": "band.foreign_service_cap",
+          "rule_version_id": "8d47395e-0aad-4e77-95fa-7016a08e5700",
+          "citation_label": "First Schedule para 1(6)",
+          "value": "360000.00",
+          "is_zero": false,
+          "detail": {
+            "bands": [
+              {
+                "from": "0",
+                "to": "1000000",
+                "rate": "0.06",
+                "band_rate": "0.06",
+                "amount": "1000000",
+                "tax": "60000.00"
+              },
+              {
+                "from": "1000000",
+                "to": "1500000",
+                "rate": "0.15",
+                "band_rate": "0.18",
+                "amount": "500000",
+                "tax": "75000.00"
+              },
+              {
+                "from": "1500000",
+                "to": "2000000",
+                "rate": "0.15",
+                "band_rate": "0.24",
+                "amount": "500000",
+                "tax": "75000.00"
+              },
+              {
+                "from": "2000000",
+                "to": "2500000",
+                "rate": "0.15",
+                "band_rate": "0.30",
+                "amount": "500000",
+                "tax": "75000.00"
+              },
+              {
+                "from": "2500000",
+                "to": "3000000.00",
+                "rate": "0.15",
+                "band_rate": "0.36",
+                "amount": "500000.00",
+                "tax": "75000.00"
+              }
+            ],
+            "taxable": "3000000.00",
+            "max_rate": "0.15",
+            "relief_against": "local income"
+          }
+        },
+        {
+          "step_no": 8,
+          "label": "Less tax credits",
+          "rule_key": "credit.foreign_wht",
+          "rule_version_id": "c9f6a0a9-f9ec-4a92-9763-26dd791930f9",
+          "citation_label": "Act s.80",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "foreign": "0",
+            "foreign_allowed": "0.00",
+            "wht": "0"
+          }
+        },
+        {
+          "step_no": 9,
+          "label": "Less APIT already withheld",
+          "rule_key": "credit.apit",
+          "rule_version_id": "8c868b11-71d3-4715-943e-a8b88efbd104",
+          "citation_label": "APIT scheme",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": null
+        }
+      ],
+      "balance_payable": "360000.00",
+      "taxable_income": "3000000.00",
+      "gross_tax": "360000.00",
+      "is_refund": false,
+      "notes": [],
+      "compliance": {
+        "must_file": true,
+        "reason": "Income is above the personal relief, so tax is payable on it.",
+        "return_due": "2027-11-30",
+        "instalments": [
+          "2026-08-15",
+          "2026-11-15",
+          "2027-02-15",
+          "2027-05-15"
+        ],
+        "rule_version_id": "7ee43a9b-69fc-4839-9de0-0f889a14a67f",
+        "citation_label": "Act s.93"
+      },
+      "corpus_snapshot_id": "b3af1cb1-af49-420a-8f70-cd876f7a40b8"
+    },
+    "side": {
+      "ya": "2026/2027",
+      "steps": [
+        {
+          "step_no": 1,
+          "label": "Assessable income",
+          "rule_key": "income.assessable",
+          "rule_version_id": "7bb6f621-e5be-4d9b-a43b-c60311e65a4e",
+          "citation_label": "Act s.5",
+          "value": "3060000.00",
+          "is_zero": false,
+          "detail": {
+            "employment": "2160000",
+            "business": "900000.00",
+            "foreign_service": "0.00",
+            "investment": "0",
+            "other": "0"
+          }
+        },
+        {
+          "step_no": 2,
+          "label": "EPF employee contribution, not deductible",
+          "rule_key": "deduction.epf_employee",
+          "rule_version_id": "7bcd2944-9b54-4646-899d-e3634dcb959a",
+          "citation_label": "Act s.10(1)(a)",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "deductible": false,
+            "contribution": null
+          }
+        },
+        {
+          "step_no": 3,
+          "label": "Less qualifying payments",
+          "rule_key": "deduction.qualifying",
+          "rule_version_id": "d4839a5f-4c96-4bf0-a3a8-297f50d60f45",
+          "citation_label": "Act s.52",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "cap": null
+          }
+        },
+        {
+          "step_no": 4,
+          "label": "Less personal relief",
+          "rule_key": "relief.personal",
+          "rule_version_id": "ded90860-3b09-4930-96a8-fde19ecd5d58",
+          "citation_label": "Act s.52 (Amd. No. 2 of 2025)",
+          "value": "1800000.00",
+          "is_zero": false,
+          "detail": {
+            "statutory": "1800000",
+            "applied": "1800000.00",
+            "capped": false
+          }
+        },
+        {
+          "step_no": 5,
+          "label": "Taxable income",
+          "rule_key": "charge.taxable_income",
+          "rule_version_id": "0368eae4-10d6-4326-8fef-1d2cbcf3dfe9",
+          "citation_label": "Act s.3",
+          "value": "1260000.00",
+          "is_zero": false,
+          "detail": null
+        },
+        {
+          "step_no": 6,
+          "label": "Gross tax across bands",
+          "rule_key": "band.progressive",
+          "rule_version_id": "d7db9e4f-fe28-49f3-8fcc-3812de6d056b",
+          "citation_label": "Amendment No. 2 of 2025",
+          "value": "106800.00",
+          "is_zero": false,
+          "detail": {
+            "bands": [
+              {
+                "from": "0",
+                "to": "1000000",
+                "rate": "0.06",
+                "amount": "1000000",
+                "tax": "60000.00"
+              },
+              {
+                "from": "1000000",
+                "to": "1500000",
+                "rate": "0.18",
+                "amount": "260000.00",
+                "tax": "46800.00"
+              }
+            ]
+          }
+        },
+        {
+          "step_no": 7,
+          "label": "Less tax credits",
+          "rule_key": "credit.foreign_wht",
+          "rule_version_id": "c9f6a0a9-f9ec-4a92-9763-26dd791930f9",
+          "citation_label": "Act s.80",
+          "value": "0.00",
+          "is_zero": true,
+          "detail": {
+            "foreign": "0",
+            "foreign_allowed": "0.00",
+            "wht": "0"
+          }
+        },
+        {
+          "step_no": 8,
+          "label": "Less APIT deducted by your employer",
+          "rule_key": "credit.apit",
+          "rule_version_id": "8c868b11-71d3-4715-943e-a8b88efbd104",
+          "citation_label": "APIT scheme",
+          "value": "21600.00",
+          "is_zero": false,
+          "detail": {
+            "assumed": true,
+            "on_employment_income": "360000.00"
+          }
+        }
+      ],
+      "balance_payable": "85200.00",
+      "taxable_income": "1260000.00",
+      "gross_tax": "106800.00",
+      "is_refund": false,
+      "notes": [],
+      "compliance": {
+        "must_file": true,
+        "reason": "Income is above the personal relief, so tax is payable on it.",
+        "return_due": "2027-11-30",
+        "instalments": [
+          "2026-08-15",
+          "2026-11-15",
+          "2027-02-15",
+          "2027-05-15"
+        ],
+        "rule_version_id": "7ee43a9b-69fc-4839-9de0-0f889a14a67f",
+        "citation_label": "Act s.93"
+      },
+      "corpus_snapshot_id": "b3af1cb1-af49-420a-8f70-cd876f7a40b8"
+    }
+  }
+}
