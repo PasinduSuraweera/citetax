@@ -50,6 +50,73 @@
 .answer-story-step p { color: #66728c; font-size: 14px; line-height: 1.65; margin-top: 7px; max-width: 40ch; }
 .answer-story-stage { min-width: 0; perspective: 1400px; }
 .answer-demo-note { margin-top: 24px; font-size: 12px; color: #66728c; line-height: 1.7; max-width: 62ch; }
+/* A three-scene product walkthrough, with a stable frame while scenes change. */
+.tax-film { container-type: inline-size; overflow: hidden; border: 1px solid #0121511a; border-radius: 22px; background: #f8fafc; box-shadow: 0 30px 75px -35px #0121514d, 0 2px 5px #01215106; }
+.tax-film-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 21px 26px; border-bottom: 1px solid #01215112; background: #ffffffc9; }
+.tax-film-header img { width: 102px; height: auto; }
+.tax-film-header > span { font-size: 11px; color: #586b86; text-align: right; }
+.tax-film-stage { position: relative; height: 520px; background: radial-gradient(ellipse at 100% 0%, #c4e8f25c, transparent 65%), #f4f7fa; }
+.tax-film-scene { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 30px; }
+.tax-film-scene-0 { justify-content: center; }
+.tax-film-eyebrow { color: #526884; font-size: 13px; margin-bottom: 13px; }
+.tax-film-intro h3 { font-size: clamp(27px, 6.5cqw, 42px); font-weight: 500; line-height: 1.12; letter-spacing: -.045em; }
+.tax-film-question { margin-top: 27px; padding: 23px; border: 1px solid #fff; border-radius: 18px 18px 5px 18px; background: #fff; box-shadow: 0 12px 35px -20px #01215140; }
+.tax-film-question p { position: relative; font-size: clamp(15px, 3.3cqw, 19px); line-height: 1.65; letter-spacing: -.015em; }
+.tax-film-question-reserve { visibility: hidden; }
+.tax-film-question-text { position: absolute; inset: 0; }
+.tax-film-caret { display: inline-block; height: 1em; width: 2px; margin-left: 2px; vertical-align: -.1em; background: #0766d6; }
+.tax-film-question-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 19px; }
+.tax-film-question-bottom > span:first-child { font-size: 11px; color: #687a93; }
+.tax-film-send { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: white; }
+.tax-film-intro-note { margin-top: 22px; font-size: 12px; color: #62748c; }
+.tax-film-calculation-heading { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 19px; }
+.tax-film-calculation-heading h3 { font-size: clamp(25px, 5.5cqw, 34px); font-weight: 500; letter-spacing: -.04em; }
+.tax-film-calculation-heading > span { font-size: 11px; color: #617590; }
+.tax-film-ledger { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #cbd9e7 transparent; border-block: 1px solid #01215115; }
+.tax-film-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 66px; padding: 13px 12px; text-align: left; cursor: pointer; border-bottom: 1px solid #0121510d; transition: background .35s; }
+.tax-film-row:hover { background: #eaf2fb; }
+.tax-film-row[data-active="true"] { background: #dfedfc; }
+.tax-film-row > span { font-size: 14px; line-height: 1.4; }
+.tax-film-row strong { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tax-film-row small, .tax-film-summary small { display: block; color: #806329; font-size: 10px; margin-top: 4px; }
+.tax-film-source { margin-top: 20px; padding: 17px 20px; min-height: 108px; border-radius: 13px; background: #fff; }
+.tax-film-source > span { display: block; font-size: 10px; color: #62748c; margin-bottom: 7px; }
+.tax-film-source strong { display: block; font-size: 13px; font-weight: 500; }
+.tax-film-source cite { display: block; font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: #0766d6; margin-top: 4px; }
+.tax-film-scene-2 { background: #fff; }
+.tax-film-result { margin: -30px -30px 0; padding: 28px 30px 25px; background: #012151; color: white; }
+.tax-film-result > p { font-size: 13px; color: #c2d4ef; }
+.tax-film-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-block: 7px; }
+.tax-film-total > span { font-size: 16px; color: #72d5ed; }
+.tax-film-total strong { font-size: clamp(36px, 9cqw, 59px); line-height: 1.13; letter-spacing: -.05em; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tax-film-result-year { font-size: 11px; color: #c2d4ef; }
+.tax-film-summary { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #cbd9e7 transparent; margin-top: 16px; }
+.tax-film-summary > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; padding: 11px 3px; border-bottom: 1px solid #01215112; font-size: 13px; }
+.tax-film-summary strong { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tax-film-summary cite { display: block; font-family: Georgia, serif; font-size: 11px; color: #526b8b; margin-top: 4px; }
+.tax-film-result-note { padding-top: 16px; font-size: 11px; color: #526b8b; }
+.tax-film-controls { display: flex; align-items: center; gap: 20px; padding: 19px 26px; background: #fff; border-top: 1px solid #01215112; }
+.tax-film-chapters { display: flex; flex: 1; gap: 13px; min-width: 0; }
+.tax-film-chapters button { flex: 1; text-align: left; color: #62748c; font-size: 11px; cursor: pointer; padding-block: 6px; }
+.tax-film-chapters button[aria-pressed="true"] { color: #0766d6; }
+.tax-film-chapter-track { display: block; overflow: hidden; height: 2px; margin-bottom: 10px; background: #e5ebf1; }
+.tax-film-chapter-track > span { display: block; height: 100%; background: #0766d6; transform-origin: left; }
+.tax-film button:focus-visible, .tax-film [tabindex]:focus-visible { outline: 2px solid #0766d6; outline-offset: 3px; }
+@container (max-width: 400px) {
+  .tax-film-header { padding: 17px; gap: 10px; }
+  .tax-film-header img { width: 86px; }
+  .tax-film-header > span { max-width: 120px; }
+  .tax-film-scene { padding: 22px 17px; }
+  .tax-film-question { padding: 18px; }
+  .tax-film-row { padding-inline: 8px; gap: 10px; }
+  .tax-film-row > span { font-size: 12px; }
+  .tax-film-summary > div { font-size: 12px; }
+  .tax-film-row strong { font-size: 14px; }
+  .tax-film-result { margin: -22px -17px 0; padding: 25px 20px; }
+  .tax-film-controls { padding: 15px 17px; gap: 12px; }
+  .tax-film-chapters { gap: 8px; }
+  .tax-film-chapters button { font-size: 10px; }
+}
 .answer-demo-unavailable { padding: clamp(25px, 4vw, 60px); border: 1px solid #01215114; border-radius: 16px; background: white; box-shadow: 0 30px 70px -50px #01215155; }
 .answer-demo-unavailable p { font-size: clamp(24px, 2.2vw, 34px); line-height: 1.4; letter-spacing: -.03em; }
 .answer-demo-unavailable > span { display: block; font-size: 14px; color: #66728c; line-height: 1.6; margin-top: 25px; }

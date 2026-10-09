@@ -1,0 +1,71 @@
+{
+    "computed_on":  "2026-10-09",
+    "ya":  "2026/2027",
+    "balance_payable":  "858000.00",
+    "steps":  [
+                  {
+                      "rule_key":  "income.assessable",
+                      "label":  "Assessable income",
+                      "value":  "6600000.00",
+                      "citation_label":  "Act s.5",
+                      "is_zero":  false,
+                      "assumed":  false
+                  },
+                  {
+                      "rule_key":  "deduction.epf_employee",
+                      "label":  "EPF employee contribution, not deductible",
+                      "value":  "0.00",
+                      "citation_label":  "Act s.10(1)(a)",
+                      "is_zero":  true,
+                      "assumed":  false
+                  },
+                  {
+                      "rule_key":  "deduction.qualifying",
+                      "label":  "Less qualifying payments",
+                      "value":  "0.00",
+                      "citation_label":  "Act s.52",
+                      "is_zero":  true,
+                      "assumed":  false
+                  },
+                  {
+                      "rule_key":  "relief.personal",
+                      "label":  "Less personal relief",
+                      "value":  "1800000.00",
+                      "citation_label":  "Act s.52 (Amd. No. 2 of 2025)",
+                      "is_zero":  false,
+                      "assumed":  false
+                  },
+                  {
+                      "rule_key":  "charge.taxable_income",
+                      "label":  "Taxable income",
+                      "value":  "4800000.00",
+                      "citation_label":  "Act s.3",
+                      "is_zero":  false,
+                      "assumed":  false
+                  },
+                  {
+                      "rule_key":  "band.progressive",
+                      "label":  "Gross tax across bands",
+                      "value":  "1248000.00",
+                      "citation_label":  "Amendment No. 2 of 2025",
+                      "is_zero":  false,
+                      "assumed":  false
+                  },
+                  {
+                      "rule_key":  "credit.foreign_wht",
+                      "label":  "Less tax credits",
+                      "value":  "0.00",
+                      "citation_label":  "Act s.80",
+                      "is_zero":  true,
+                      "assumed":  false
+                  },
+                  {
+                      "rule_key":  "credit.apit",
+                      "label":  "Less APIT deducted by your employer",
+                      "value":  "390000.00",
+                      "citation_label":  "APIT scheme",
+                      "is_zero":  false,
+                      "assumed":  true
+                  }
+              ]
+}
