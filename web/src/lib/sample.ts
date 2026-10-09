@@ -7,6 +7,7 @@
  */
 
 import { API_BASE, API_HEADERS, type ComputeResponse, type Snapshot } from "./api";
+import STARTERS_SAVED from "./starter-answers.json";
 
 export const SAMPLE_MONTHLY = "250000";
 export const SAMPLE_YA = "2026/2027";
@@ -37,8 +38,8 @@ export async function currentSnapshot(): Promise<Snapshot | null> {
 /**
  * The starter questions with the answer the engine gives each one now. The
  * facts are the ones the question states, so the figure beside a question is
- * what asking it returns. The answer is left out when the API cannot be
- * reached, never filled in.
+ * what asking it returns. When the API cannot be reached, the engine's saved
+ * answer to the same facts is used, never a figure typed in.
  */
 export interface Starter {
   key: StarterKey;
@@ -73,36 +74,41 @@ const STARTERS: Array<Pick<Starter, "question" | "facts"> & { key: StarterKey }>
   },
 ];
 
+async function liveStarter(facts: Record<string, string>): Promise<ComputeResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/v1/compute`, {
+      method: "POST",
+      headers: { ...API_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({ ya: SAMPLE_YA, ...facts }),
+      next: { revalidate: 3600 },
+    });
+    return res.ok ? ((await res.json()) as ComputeResponse) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function starterAnswers(): Promise<Starter[]> {
   return Promise.all(
     STARTERS.map(async ({ key, question, facts }) => {
-      try {
-        const res = await fetch(`${API_BASE}/v1/compute`, {
-          method: "POST",
-          headers: { ...API_HEADERS, "Content-Type": "application/json" },
-          body: JSON.stringify({ ya: SAMPLE_YA, ...facts }),
-          next: { revalidate: 3600 },
-        });
-        if (!res.ok) return { key, question, facts, answer: null, detail: null, computation: null };
-        const c = (await res.json()) as ComputeResponse;
-        const balance = Number(c.balance_payable);
-        if (c.compliance && !c.compliance.must_file) {
-          return { key, question, facts, answer: "No return required", detail: "Your employer's APIT covers the tax", computation: c };
-        }
-        const apit = c.steps.find((s) => s.rule_key === "credit.apit" && !s.is_zero);
-        return {
-          key,
-          question,
-          facts,
-          answer: balance > 0 ? `LKR ${Math.round(balance).toLocaleString("en-GB")} to pay` : "Nothing to pay",
-          detail: apit
-            ? `After LKR ${Math.round(Number(apit.value)).toLocaleString("en-GB")} of APIT from the salary`
-            : `Tax for the year, worked out in ${c.steps.length} steps`,
-          computation: c,
-        };
-      } catch {
-        return { key, question, facts, answer: null, detail: null, computation: null };
+      // Live when the API answers; otherwise the engine's own answer to the
+      // same facts, saved in starter-answers.json on the date it carries.
+      const c = (await liveStarter(facts)) ?? (STARTERS_SAVED.answers[key] as unknown as ComputeResponse);
+      const balance = Number(c.balance_payable);
+      if (c.compliance && !c.compliance.must_file) {
+        return { key, question, facts, answer: "No return required", detail: "Your employer's APIT covers the tax", computation: c };
       }
+      const apit = c.steps.find((s) => s.rule_key === "credit.apit" && !s.is_zero);
+      return {
+        key,
+        question,
+        facts,
+        answer: balance > 0 ? `LKR ${Math.round(balance).toLocaleString("en-GB")} to pay` : "Nothing to pay",
+        detail: apit
+          ? `After LKR ${Math.round(Number(apit.value)).toLocaleString("en-GB")} of APIT from the salary`
+          : `Tax for the year, worked out in ${c.steps.length} steps`,
+        computation: c,
+      };
     }),
   );
 }
