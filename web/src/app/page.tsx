@@ -1,11 +1,15 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { ArrowDown, Check } from "lucide-react";
 import { askFromHome } from "@/app/actions";
 import { HeroDemo, type HeroLine } from "@/components/home/HeroDemo";
 import { HomeNav } from "@/components/home/HomeNav";
+import { HomeFooter } from "@/components/home/HomeFooter";
 import { Reveal } from "@/components/home/Reveal";
 import { UseList } from "@/components/home/UseList";
+import { BrandScene } from "@/components/home/BrandScene";
+import { AnswerStory } from "@/components/home/AnswerStory";
+import { HomeMotion } from "@/components/home/HomeMotion";
+import "./home.css";
 import { formatDate, type ComputeResponse } from "@/lib/api";
 import { isKnownVisitor } from "@/lib/guest";
 import { HERO_QUESTION, currentSnapshot, heroAnswer, planSummary, starterAnswers, type Starter, type StarterKey } from "@/lib/sample";
@@ -13,11 +17,9 @@ import { HERO_QUESTION, currentSnapshot, heroAnswer, planSummary, starterAnswers
 /**
  * The homepage, the first screen for everyone (see proxy.ts).
  *
- * Nothing on it is an illustration. The hero video was rendered from a real
- * answer (see /video), and every figure in the paper cards below is computed
- * by the engine when the page renders, from the rules in force. Each section
- * has a scenario of its own. If the API cannot be reached the figures are
- * left out, never made up.
+ * The ribbon is decorative brand artwork. The animated answer and every
+ * figure in the paper cards are computed by the engine when the page renders.
+ * If the API cannot be reached the figures are left out, never made up.
  */
 
 const USES = [
@@ -76,15 +78,6 @@ function Cite({ children }: { children: React.ReactNode }) {
   return <span className="statute inline-block rounded-md bg-ink-900/[0.05] px-2 py-0.5 text-[13.5px] italic text-ink-700">{children}</span>;
 }
 
-function Stamp({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-[14px] text-good-700 shadow-[0_10px_30px_-14px_rgba(1,33,81,0.4)] ring-1 ring-good-300">
-      <span className="flex size-6 items-center justify-center rounded-full bg-good-600 text-white"><Check className="size-3.5" strokeWidth={3} /></span>
-      {children}
-    </span>
-  );
-}
-
 function Line({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-t border-line-faint py-2 text-[14px]">
@@ -120,7 +113,6 @@ function SalaryCards({ c }: { c: ComputeResponse }) {
         </div>
         {c.compliance?.citation_label && <div className="mt-3"><Cite>{c.compliance.citation_label}</Cite></div>}
       </Paper>
-      <div className="mt-5 sm:absolute sm:bottom-2 sm:mt-0 sm:left-10"><Stamp>Covered by your employer</Stamp></div>
     </div>
   );
 }
@@ -146,7 +138,6 @@ function AbroadCards({ c }: { c: ComputeResponse }) {
         </div>
         {capped?.citation_label && <div className="mt-3"><Cite>{capped.citation_label}</Cite></div>}
       </Paper>
-      <div className="mt-5 sm:absolute sm:bottom-2 sm:mt-0 sm:left-8"><Stamp>Every band capped for you</Stamp></div>
     </div>
   );
 }
@@ -175,7 +166,6 @@ function SideCards({ c }: { c: ComputeResponse }) {
           </div>
         )}
       </Paper>
-      <div className="mt-5 sm:absolute sm:bottom-2 sm:mt-0 sm:left-10"><Stamp>Salary and fees together</Stamp></div>
     </div>
   );
 }
@@ -217,37 +207,25 @@ export default async function HomePage() {
   const individual = plans?.find((p) => p.key === "individual");
 
   return (
-    <div className="min-h-screen bg-paper text-ink-900">
+    <HomeMotion>
+      <div id="home-top" />
       <HomeNav known={known} />
-
-      {/* ------------------------------------------------ hero, framed */}
-      <section className="mx-auto -mt-14 max-w-[1240px] px-3 pt-14 sm:px-5">
-        <div className="grid border-x border-b border-ink-900/10 lg:grid-cols-2">
-          <div className="flex flex-col px-6 pb-8 pt-10 sm:px-10 lg:pt-14">
-            <h1 className="mt-6 max-w-[12ch] text-[52px] font-semibold leading-[0.98] tracking-[-0.05em] sm:text-[74px] lg:mt-20">
-              Your income tax, worked out and cited.
-            </h1>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link href="/chat" className="inline-flex h-12 items-center rounded-full bg-ink-900 px-6 text-[15px] font-medium text-white transition-colors hover:bg-ink-700">
-                Ask a question
-              </Link>
-              <Link href="/pricing" className="inline-flex h-12 items-center rounded-full px-5 text-[15px] font-medium text-ink-900 ring-1 ring-ink-900/15 transition-colors hover:bg-white">
-                See plans
-              </Link>
+      <main id="main-content">
+      <section className="home-hero home-shell">
+          <div className="home-hero-copy">
+            <h1 className="home-enter">Your income tax.<br />Worked out.<br /><span className="home-cited">Cited.<svg viewBox="0 0 260 18" fill="none" aria-hidden="true"><path d="M3 13C70 1 164 2 255 8" stroke="currentColor" strokeWidth="5" strokeLinecap="round" /></svg></span></h1>
+            <p className="home-hero-description home-enter">A clearer picture of what you owe, and why. Sri Lankan personal income tax, with the law behind every figure.</p>
+            <div className="home-hero-actions home-enter">
+              <Link href="/chat" className="home-primary-link">Ask a question</Link>
+              <a href="#how-it-works" className="home-text-link">See how it works</a>
             </div>
-            <div className="mt-14 border-t border-ink-900/10 pt-6 lg:mt-auto">
-              <p className="max-w-[46ch] text-[17px] leading-[1.6] text-ink-700">
-                Sri Lankan personal income tax in plain words. Every figure comes
-                from the rules in force for your year, with the section of the Act beside it.
-              </p>
-              <a href="#uses" aria-label="Scroll to what Citetax does" className="mt-5 inline-flex size-9 items-center justify-center rounded-full bg-ink-900/[0.06] text-ink-700 hover:bg-ink-900/10">
-                <ArrowDown className="size-4" />
-              </a>
-            </div>
+            <p className="home-hero-note home-enter">Free to start. No account needed.</p>
           </div>
+          <BrandScene />
+      </section>
 
-          <div className="flex flex-col justify-center border-t border-ink-900/10 p-5 sm:p-8 lg:border-l lg:border-t-0">
-            {hero && heroLines.length > 0 && (
+      <AnswerStory>
+            {hero && heroLines.length > 0 ? (
               <HeroDemo
                 question={HERO_QUESTION}
                 ya={hero.ya}
@@ -255,62 +233,65 @@ export default async function HomePage() {
                 balance={hero.balance_payable}
                 rules={new Set(hero.steps.map((s) => s.rule_key)).size}
               />
-            )}
-            {/* The note in the margin: the law's own voice, in serif italic. */}
-            <div className="mt-3 flex items-start gap-2">
-              <svg aria-hidden className="mt-1 h-7 w-7 flex-none text-ink-400" viewBox="0 0 28 28" fill="none">
-                <path d="M24 24 C 12 22, 6 16, 5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                <path d="M1.5 8.5 L 5 3.5 L 9 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <div>
-                <span className="statute block text-[18px] italic leading-snug text-ink-700">each figure, with the section of the Act it comes from</span>
-                <span className="mt-1 block text-[13px] text-ink-400">A real answer for a doctor with a hospital salary and channelling fees, worked out by the engine as this page loaded.</span>
+            ) : (
+              <div className="answer-demo-unavailable">
+                <p>{HERO_QUESTION}</p>
+                <span>The live example is temporarily unavailable. You can still start with your own question.</span>
+                <Link href="/chat" className="home-primary-link">Ask Citetax</Link>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
+            )}
+            {hero && heroLines.length > 0 && <p className="answer-demo-note">A real calculation for a doctor with a hospital salary and channelling fees. Figures come from the rules in force when this page loads.</p>}
+      </AnswerStory>
 
       {/* ---------------------------------------- what people ask about */}
-      <section id="uses" className="mx-auto grid max-w-[1180px] gap-10 px-5 py-24 sm:px-8 lg:grid-cols-12 lg:py-32">
+      <section id="uses" className="home-shell home-uses grid gap-10 py-24 lg:grid-cols-12 lg:py-32">
+        <div className="lg:col-span-4 lg:sticky lg:top-40 lg:self-start">
         <h2 className="text-[26px] font-medium leading-[1.2] tracking-[-0.02em] lg:col-span-4 lg:sticky lg:top-40 lg:self-start">
           Salaried workers, freelancers and practices ask Citetax about:
         </h2>
+        </div>
         <div className="lg:col-span-8">
           <UseList items={USES} />
         </div>
       </section>
 
       {/* ------------------------------------------- three scenarios */}
-      {(["salary", "abroad", "side"] as StarterKey[]).map((key) => {
+      {(["salary", "abroad", "side"] as StarterKey[]).map((key, index) => {
         const s = byKey[key];
         const f = FEATURES[key];
         return (
-          <section key={key} className="mx-auto max-w-[1180px] px-5 sm:px-8">
-            <div className="grid items-center gap-12 border-t border-ink-900/10 py-20 lg:grid-cols-2 lg:py-24">
-              <div>
+          <section key={key} className="home-shell home-scenario" data-scenario={key}>
+            <div className="home-scenario-layout grid items-center gap-12 border-t border-ink-900/10 py-20 lg:grid-cols-2 lg:py-24">
+              <Reveal>
                 <h2 className="text-[36px] font-semibold leading-[1.08] tracking-[-0.04em] sm:text-[44px]">{f.title}</h2>
                 <p className="mt-4 max-w-[48ch] text-[17px] leading-[1.6] text-ink-500">{f.body}</p>
-                <ul className="mt-6 flex flex-col gap-2.5">
+                <ul className="mt-6 flex list-disc flex-col gap-2.5 pl-4 marker:text-ink-400">
                   {f.points.map((p) => (
-                    <li key={p} className="flex items-center gap-2.5 text-[15px] text-ink-700">
-                      <Check className="size-4 text-good-600" /> {p}
+                    <li key={p} className="pl-1 text-[15px] text-ink-700">
+                      {p}
                     </li>
                   ))}
                 </ul>
                 {s && (
                   <div className="mt-8">
-                    <p className="max-w-[52ch] text-[14.5px] italic leading-[1.55] text-ink-500">&ldquo;{s.question}&rdquo;</p>
+                    <p className="max-w-[52ch] text-[15px] leading-[1.6] text-ink-500">{s.question}</p>
                     <div className="mt-4 flex flex-wrap items-center gap-4">
                       <AskForm question={s.question} label="Ask this question" />
                       {s.answer && <span className="tnum text-[15px] font-medium text-brand-700">{s.answer}</span>}
                     </div>
                   </div>
                 )}
-              </div>
-              {s?.computation && (
-                <Reveal>
+              </Reveal>
+              {s?.computation ? (
+                <Reveal className="home-scenario-art">
                   <f.Cards c={s.computation} />
+                </Reveal>
+              ) : (
+                <Reveal className="home-scenario-art">
+                  <Paper className="relative mx-auto max-w-[460px] !p-8">
+                    <p className="text-[24px] leading-snug tracking-[-0.025em]">{s?.question ?? USES[index].question}</p>
+                    <div className="mt-6"><AskForm question={s?.question ?? USES[index].question} label="Explore this question" /></div>
+                  </Paper>
                 </Reveal>
               )}
             </div>
@@ -319,8 +300,8 @@ export default async function HomePage() {
       })}
 
       {/* ----------------------------------------------- pricing band */}
-      <section className="mt-12 bg-night text-white [background-image:radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:22px_22px]">
-        <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:py-24">
+      <section className="mt-12 bg-night text-white">
+        <div className="home-shell grid items-center gap-10 py-20 lg:grid-cols-2 lg:py-24">
           <div>
             <div className="text-[18px] text-white/75">Start free. Individual is</div>
             <div className="mt-2 flex items-baseline gap-3">
@@ -348,7 +329,7 @@ export default async function HomePage() {
       </section>
 
       {/* ------------------------------------------------------ trust */}
-      <section className="mx-auto grid max-w-[1180px] gap-12 px-5 py-24 sm:px-8 lg:grid-cols-12 lg:py-28">
+      <section className="home-shell grid gap-12 py-24 lg:grid-cols-12 lg:py-28">
         <div className="lg:col-span-4">
           <h2 className="text-[34px] font-semibold leading-[1.1] tracking-[-0.04em]">Built so you can check every answer.</h2>
           <p className="mt-4 max-w-[36ch] text-[16px] leading-[1.6] text-ink-500">What leaves Citetax, who changes the law in it, and how an answer can be checked.</p>
@@ -364,9 +345,9 @@ export default async function HomePage() {
       </section>
 
       {/* -------------------------------------------------- final ask */}
-      <section className="mx-auto max-w-[1180px] px-5 pb-24 sm:px-8">
+      <section className="home-shell pb-24">
         <div className="grid gap-10 rounded-3xl bg-white p-8 ring-1 ring-ink-900/10 sm:p-12 lg:grid-cols-2">
-          <h2 className="text-[38px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[48px]">Ask your first question.</h2>
+          <h2 className="text-[38px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[48px]">Ask your<br /><span className="text-brand-600">first question.</span></h2>
           <form action={askFromHome}>
             <label htmlFor="home-question" className="text-[14px] font-medium text-ink-900">Your question</label>
             <textarea
@@ -388,20 +369,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <footer className="border-t border-ink-900/10">
-        <div className="mx-auto flex max-w-[1180px] flex-col gap-3 px-5 py-8 text-[13.5px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <span>
-            Personal income tax for 2025/2026 and 2026/2027.
-            {snapshot ? ` Rules as of ${snapshot.label}.` : ""} Not tax advice.
-          </span>
-          <span className="flex gap-5">
-            <Link href="/pricing" className="hover:text-ink-900">Pricing</Link>
-            <Link href="/deadlines" className="hover:text-ink-900">Deadlines</Link>
-            <Link href="/compare" className="hover:text-ink-900">What changed</Link>
-            <Link href="/signin" className="hover:text-ink-900">Sign in</Link>
-          </span>
-        </div>
-      </footer>
-    </div>
+      </main>
+      <HomeFooter known={known} snapshotLabel={snapshot?.label} />
+    </HomeMotion>
   );
 }

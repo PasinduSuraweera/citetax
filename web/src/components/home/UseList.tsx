@@ -8,17 +8,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { askFromHome } from "@/app/actions";
+import { useHomeMotion } from "./HomeMotion";
 
 export function UseList({ items }: { items: Array<{ label: string; question: string }> }) {
   const refs = useRef<Array<HTMLLIElement | null>>([]);
   const [active, setActive] = useState(0);
-  const [still, setStill] = useState(false);
+  const still = useHomeMotion();
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    // A browser preference, unknown during the server render.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setStill(media.matches);
+    if (still) return;
     const pick = () => {
       const mid = window.innerHeight / 2;
       let best = 0;
@@ -41,13 +39,13 @@ export function UseList({ items }: { items: Array<{ label: string; question: str
       window.removeEventListener("scroll", pick);
       window.removeEventListener("resize", pick);
     };
-  }, []);
+  }, [still]);
 
   return (
     <ul className="flex flex-col">
       {items.map((item, i) => {
         const distance = Math.abs(i - active);
-        const tone = still || distance === 0 ? "text-ink-900" : distance === 1 ? "text-ink-300" : "text-ink-200";
+        const tone = still || distance === 0 ? "text-ink-900" : distance === 1 ? "text-ink-500" : "text-ink-400";
         return (
           <li key={item.label} ref={(el) => { refs.current[i] = el; }}>
             {/* Asked as a guest when not signed in, like the question box. */}
@@ -55,9 +53,9 @@ export function UseList({ items }: { items: Array<{ label: string; question: str
               <input type="hidden" name="question" value={item.question} />
               <button
                 type="submit"
-                className={`block py-1 text-left text-[34px] font-medium leading-[1.25] tracking-[-0.035em] transition-colors duration-300 sm:text-[46px] ${tone} hover:text-brand-700`}
+                className={`group flex w-full items-center justify-between gap-4 border-b border-ink-900/10 py-4 text-left text-[26px] font-medium leading-[1.25] tracking-[-0.035em] transition-colors duration-300 sm:text-[40px] ${tone} hover:text-brand-700 focus-visible:text-brand-700`}
               >
-                {item.label}
+                <span>{item.label}</span>
               </button>
             </form>
           </li>
