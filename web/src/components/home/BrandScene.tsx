@@ -46,17 +46,17 @@ export function BrandScene() {
       <div className="brand-badges">
         <div className="brand-badge brand-badge-income">
           <BadgeSurface />
-          <Image className="brand-badge-icon" src="/brand/badges/income.png" alt="" width={42} height={42} draggable={false} />
+          <Image className="brand-badge-icon" src="/brand/badges/income.png" alt="" width={56} height={56} draggable={false} />
           <span>Income &amp; reliefs</span>
         </div>
         <div className="brand-badge brand-badge-source">
           <BadgeSurface />
-          <Image className="brand-badge-icon" src="/brand/badges/source.png" alt="" width={42} height={42} draggable={false} />
+          <Image className="brand-badge-icon" src="/brand/badges/source.png" alt="" width={56} height={56} draggable={false} />
           <span>Sources cited</span>
         </div>
         <div className="brand-badge brand-badge-tax">
           <BadgeSurface />
-          <Image className="brand-badge-icon" src="/brand/badges/calculator.png" alt="" width={42} height={42} draggable={false} />
+          <Image className="brand-badge-icon" src="/brand/badges/calculator.png" alt="" width={56} height={56} draggable={false} />
           <span>Tax calculated</span>
         </div>
       </div>

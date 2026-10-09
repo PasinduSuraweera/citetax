@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useSyncExternalStore } from "react";
-import { MotionConfig, motion, useScroll } from "motion/react";
+import { MotionConfig } from "motion/react";
 
 const MotionContext = createContext(true);
 const query = "(prefers-reduced-motion: reduce)";
@@ -17,13 +17,11 @@ export function useHomeMotion() {
 
 export function HomeMotion({ children }: { children: React.ReactNode }) {
   const still = useSyncExternalStore(subscribe, () => window.matchMedia(query).matches, () => true);
-  const { scrollYProgress } = useScroll();
 
   return (
     <MotionContext.Provider value={still}>
       <MotionConfig reducedMotion={still ? "always" : "never"}>
         <div className="home-experience" data-still={still}>
-          {!still && <motion.div className="home-progress" style={{ scaleX: scrollYProgress }} aria-hidden />}
           {children}
         </div>
       </MotionConfig>
