@@ -10,22 +10,9 @@
  * motion the finished answer is shown, still.
  */
 
-import { AnimatePresence, motion } from "motion/react";
-import { Check } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore } from "react";
-
-// The reduced motion preference, read so the server render (no preference
-// known) and the first browser render agree, then updated: no hydration
-// mismatch, unlike reading it during render.
-const QUERY = "(prefers-reduced-motion: reduce)";
-function subscribe(cb: () => void) {
-  const m = window.matchMedia(QUERY);
-  m.addEventListener("change", cb);
-  return () => m.removeEventListener("change", cb);
-}
-function useStill(): boolean {
-  return useSyncExternalStore(subscribe, () => window.matchMedia(QUERY).matches, () => false);
-}
+import { AnimatePresence, motion, useInView } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { useHomeMotion } from "./HomeMotion";
 
 export interface HeroLine {
   label: string;
@@ -44,13 +31,16 @@ interface Props {
 
 const TYPE_MS = 26;
 const CYCLE_HOLD = 4200;
+const ROW_MS = 820;
 
 function money(v: string): string {
   return Math.round(Number(v)).toLocaleString("en-GB");
 }
 
 export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
-  const still = useStill();
+  const still = useHomeMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const visible = useInView(ref, { amount: 0.3 });
   const [cycle, setCycle] = useState(0);
   const [t, setT] = useState(0);
 
@@ -63,13 +53,13 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
     "Every figure traced",
   ];
   const checkAt = (i: number) => sentAt + 350 + i * 420;
-  const rowAt = (i: number) => checkAt(2) + 200 + i * 360;
-  const balanceAt = rowAt(lines.length - 1) + 450;
+  const rowAt = (i: number) => checkAt(2) + 200 + i * ROW_MS;
+  const balanceAt = rowAt(lines.length - 1) + ROW_MS;
   const verifiedAt = Math.max(balanceAt + 500, checkAt(3));
   const end = verifiedAt + CYCLE_HOLD;
 
   useEffect(() => {
-    if (still) return;
+    if (still || !visible) return;
     let raf = 0;
     const start = performance.now();
     const loop = (now: number) => {
@@ -83,7 +73,7 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [cycle, end, still]);
+  }, [cycle, end, still, visible]);
 
   const now = still ? end : t;
   const typed = Math.min(question.length, Math.floor(now / TYPE_MS));
@@ -91,18 +81,18 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
   const spring = { type: "spring" as const, stiffness: 260, damping: 26 };
 
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       {/* A slow glow behind the panel: the one decorative motion. */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -inset-6 rounded-[40px] bg-[radial-gradient(60%_60%_at_70%_20%,rgba(34,211,224,0.28),transparent_70%),radial-gradient(50%_50%_at_20%_90%,rgba(7,102,214,0.35),transparent_70%)] blur-2xl"
-        animate={still ? undefined : { opacity: [0.6, 1, 0.6] }}
+        animate={still || !visible ? { opacity: 0.6 } : { opacity: [0.6, 1, 0.6] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
       <AnimatePresence mode="wait">
         <motion.div
           key={cycle}
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.45 }}
@@ -116,19 +106,10 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
               {question.slice(0, typed)}
               {!sent && <span className="ml-px inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse bg-brand-600" />}
             </p>
-            <motion.span
-              className="flex size-9 flex-none items-center justify-center rounded-full"
-              animate={{ backgroundColor: sent ? "#0766d6" : "#eff2f7", scale: sent && now < sentAt + 250 ? 1.12 : 1 }}
-              transition={{ duration: 0.25 }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={sent ? "#fff" : "#8791a7"} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 19V5M5 12l7-7 7 7" />
-              </svg>
-            </motion.span>
           </div>
 
           {/* The checks an answer passes */}
-          <ul className="mt-3 flex flex-wrap gap-1.5">
+          <ul className="my-4 grid gap-x-4 gap-y-2 px-1 sm:grid-cols-2">
             {checks.map((c, i) => {
               const on = now >= checkAt(i);
               return (
@@ -137,16 +118,8 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
                   initial={false}
                   animate={{ opacity: on ? 1 : 0, y: on ? 0 : 6 }}
                   transition={spring}
-                  className="flex items-center gap-1.5 rounded-full bg-white/[0.08] py-1 pl-1 pr-2.5 text-[12.5px] text-white/80 ring-1 ring-white/10"
+                  className="text-[12.5px] text-white/80"
                 >
-                  <motion.span
-                    initial={false}
-                    animate={{ scale: on ? 1 : 0.4 }}
-                    transition={{ ...spring, delay: 0.08 }}
-                    className="flex size-4 items-center justify-center rounded-full bg-sidebar-primary text-ink-900"
-                  >
-                    <Check className="size-2.5" strokeWidth={3.5} />
-                  </motion.span>
                   {c}
                 </motion.li>
               );
@@ -161,7 +134,7 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
             </div>
             {lines.map((l, i) => {
               const on = now >= rowAt(i);
-              const fresh = on && now < rowAt(i) + 700;
+              const fresh = on && now < rowAt(i) + ROW_MS;
               return (
                 <motion.div
                   key={l.label}
@@ -176,7 +149,7 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
                       {l.cite && (
                         <motion.span
                           initial={false}
-                          animate={{ opacity: on ? 1 : 0, scale: on ? 1 : 1.35, rotate: on ? 0 : -4 }}
+                          animate={{ opacity: on ? 1 : 0, scale: on ? 1 : 1.04 }}
                           transition={{ type: "spring", stiffness: 320, damping: 14, delay: on ? 0.12 : 0 }}
                           className="inline-block origin-left whitespace-nowrap rounded-md bg-ink-900/[0.05] px-1.5 font-serif text-[13px] italic leading-[1.6] text-ink-700"
                         >
@@ -223,14 +196,6 @@ export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
             transition={{ duration: 0.3 }}
             className="mt-3 flex items-center gap-2.5 px-1 text-[13.5px] text-white/85"
           >
-            <motion.span
-              initial={false}
-              animate={{ scale: now >= verifiedAt ? 1 : 0, rotate: now >= verifiedAt ? 0 : -45 }}
-              transition={{ type: "spring", stiffness: 360, damping: 13 }}
-              className="flex size-6 items-center justify-center rounded-full bg-gold-500 text-ink-900"
-            >
-              <Check className="size-3.5" strokeWidth={3.2} />
-            </motion.span>
             Verified. Every line cites a rule in force for {ya}.
           </motion.div>
         </motion.div>
