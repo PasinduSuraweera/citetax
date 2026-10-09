@@ -12,6 +12,7 @@ import { HomeMotion } from "@/components/home/HomeMotion";
 import "./home.css";
 import { formatDate, type ComputeResponse } from "@/lib/api";
 import { isKnownVisitor } from "@/lib/guest";
+import HERO_SAVED from "@/lib/hero-answer.json";
 import { HERO_QUESTION, currentSnapshot, heroAnswer, planSummary, starterAnswers, type Starter, type StarterKey } from "@/lib/sample";
 
 /**
@@ -197,11 +198,16 @@ export default async function HomePage() {
   const [starters, snapshot, plans, jar] = await Promise.all([
     starterAnswers(), currentSnapshot(), planSummary(), cookies(),
   ]);
-  const hero = await heroAnswer();
+  // Live from the engine when the API answers; otherwise the engine's own
+  // output for the same question, saved on the date it carries.
+  const live = await heroAnswer();
+  const hero = live
+    ? { ya: live.ya, balance_payable: live.balance_payable, steps: live.steps.map((s) => ({ ...s, assumed: s.detail?.assumed === true })) }
+    : HERO_SAVED;
   // The lines that carry a figure; the chat shows every line.
-  const heroLines: HeroLine[] = (hero?.steps ?? [])
+  const heroLines: HeroLine[] = hero.steps
     .filter((s) => !s.is_zero)
-    .map((s) => ({ label: s.label, value: s.value, cite: s.citation_label, assumed: s.detail?.assumed === true }));
+    .map((s) => ({ label: s.label, value: s.value, cite: s.citation_label, assumed: s.assumed }));
   const known = isKnownVisitor(jar.getAll().map((c) => c.name));
   const byKey = Object.fromEntries(starters.map((s) => [s.key, s])) as Record<StarterKey, Starter>;
   const individual = plans?.find((p) => p.key === "individual");
@@ -225,22 +231,17 @@ export default async function HomePage() {
       </section>
 
       <AnswerStory>
-            {hero && heroLines.length > 0 ? (
-              <HeroDemo
-                question={HERO_QUESTION}
-                ya={hero.ya}
-                lines={heroLines}
-                balance={hero.balance_payable}
-                rules={new Set(hero.steps.map((s) => s.rule_key)).size}
-              />
-            ) : (
-              <div className="answer-demo-unavailable">
-                <p>{HERO_QUESTION}</p>
-                <span>The live example is temporarily unavailable. You can still start with your own question.</span>
-                <Link href="/chat" className="home-primary-link">Ask Citetax</Link>
-              </div>
-            )}
-            {hero && heroLines.length > 0 && <p className="answer-demo-note">A real calculation for a doctor with a hospital salary and channelling fees. Figures come from the rules in force when this page loads.</p>}
+            <HeroDemo
+              question={HERO_QUESTION}
+              ya={hero.ya}
+              lines={heroLines}
+              balance={hero.balance_payable}
+              rules={new Set(hero.steps.map((s) => s.rule_key)).size}
+            />
+            <p className="answer-demo-note">
+              A real calculation for a doctor with a hospital salary and channelling fees.{" "}
+              {live ? "Figures come from the rules in force when this page loads." : `Figures from the rules in force on ${formatDate(HERO_SAVED.computed_on)}.`}
+            </p>
       </AnswerStory>
 
       {/* ---------------------------------------- what people ask about */}

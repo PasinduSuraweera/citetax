@@ -118,7 +118,9 @@ export async function planSummary(): Promise<Array<{ key: string; name: string; 
 
 /** The hero's scenario, used nowhere else: a doctor with a hospital salary
  *  and private channelling fees. Computed by the engine at render, so the
- *  animation always shows the answer the chat would give today. */
+ *  animation always shows the answer the chat would give today. When the API
+ *  cannot be reached, the page uses hero-answer.json: the engine's output for
+ *  the same question, saved on the date it carries. */
 export const HERO_QUESTION =
   "Hospital salary of LKR 350,000 a month, plus LKR 2,400,000 a year from private channelling. What do I owe for 2026/2027?";
 

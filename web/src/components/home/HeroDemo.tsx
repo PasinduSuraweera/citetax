@@ -1,15 +1,6 @@
 "use client";
 
-/**
- * The home page hero: a question becomes a cited answer, played live in the
- * page with Motion. Not a recording: the figures are the engine's own answer,
- * computed when the page rendered, so they follow the law as it changes.
- *
- * One clock drives the whole sequence; every row's space is reserved from the
- * start, so nothing on the page moves as the answer fills in. With reduced
- * motion the finished answer is shown, still.
- */
-
+import Image from "next/image";
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useHomeMotion } from "./HomeMotion";
@@ -29,177 +20,188 @@ interface Props {
   rules: number;
 }
 
-const TYPE_MS = 26;
-const CYCLE_HOLD = 4200;
-const ROW_MS = 820;
+const QUESTION_MS = 4800;
+const ROW_MS = 1150;
+const ANSWER_HOLD_MS = 5000;
+/** After a viewer picks a scene or a row, wait this long, then loop again. */
+const RESUME_MS = 8000;
+const CHAPTERS = ["Your question", "The calculation", "Your answer"];
+const ease = [0.22, 1, 0.36, 1] as const;
 
-function money(v: string): string {
-  return Math.round(Number(v)).toLocaleString("en-GB");
+function money(value: string) {
+  return Math.round(Number(value)).toLocaleString("en-GB");
 }
 
+/** A looping walkthrough using the engine's actual figures and citations. */
 export function HeroDemo({ question, ya, lines, balance, rules }: Props) {
   const still = useHomeMotion();
   const ref = useRef<HTMLDivElement>(null);
-  const visible = useInView(ref, { amount: 0.3 });
-  const [cycle, setCycle] = useState(0);
-  const [t, setT] = useState(0);
-
-  const typedEnd = question.length * TYPE_MS;
-  const sentAt = typedEnd + 250;
-  const checks = [
-    "Personal details removed",
-    `${rules} rules in force for ${ya}`,
-    "Worked out in plain code",
-    "Every figure traced",
-  ];
-  const checkAt = (i: number) => sentAt + 350 + i * 420;
-  const rowAt = (i: number) => checkAt(2) + 200 + i * ROW_MS;
-  const balanceAt = rowAt(lines.length - 1) + ROW_MS;
-  const verifiedAt = Math.max(balanceAt + 500, checkAt(3));
-  const end = verifiedAt + CYCLE_HOLD;
-
+  const ledger = useRef<HTMLDivElement>(null);
+  const clock = useRef(0);
+  const visible = useInView(ref, { amount: 0.35 });
+  const [elapsed, setElapsed] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [inspectedRow, setInspectedRow] = useState(0);
+  const answerAt = QUESTION_MS + lines.length * ROW_MS + 800;
+  const end = answerAt + ANSWER_HOLD_MS;
+  const scene = selected ?? (still ? 2 : elapsed < QUESTION_MS ? 0 : elapsed < answerAt ? 1 : 2);
+  const activeRow = selected === 1
+    ? inspectedRow
+    : Math.min(lines.length - 1, Math.max(0, Math.floor((elapsed - QUESTION_MS) / ROW_MS)));
+  const currentLine = lines[activeRow];
+  const typed = selected === 0 || still ? question.length : Math.floor(elapsed / 22);
+  // Keep time only while the preview is on screen and the tab is visible,
+  // and start again from the question after the answer has been held.
   useEffect(() => {
-    if (still || !visible) return;
-    let raf = 0;
-    const start = performance.now();
-    const loop = (now: number) => {
-      const e = now - start;
-      if (e >= end) {
-        setCycle((c) => c + 1);
-        return;
-      }
-      setT(e);
-      raf = requestAnimationFrame(loop);
+    if (still || !visible || !playing) return;
+    let previous = performance.now();
+    const timer = window.setInterval(() => {
+      const now = performance.now();
+      const delta = now - previous;
+      previous = now;
+      if (document.hidden) return;
+      clock.current += delta;
+      if (clock.current >= end) clock.current = 0;
+      setElapsed(clock.current);
+    }, 50);
+    const resetTick = () => { previous = performance.now(); };
+    document.addEventListener("visibilitychange", resetTick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resetTick);
     };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [cycle, end, still, visible]);
+  }, [end, playing, still, visible]);
 
-  const now = still ? end : t;
-  const typed = Math.min(question.length, Math.floor(now / TYPE_MS));
-  const sent = now >= sentAt;
-  const spring = { type: "spring" as const, stiffness: 260, damping: 26 };
+  // Follow the active figure within the ledger; never scroll the page itself.
+  useEffect(() => {
+    if (scene !== 1 || selected !== null) return;
+    const timer = window.setTimeout(() => {
+      const panel = ledger.current;
+      const row = panel?.children[activeRow] as HTMLElement | undefined;
+      if (panel && row) {
+        panel.scrollTo({ top: Math.max(0, row.offsetTop - panel.clientHeight / 2 + row.clientHeight / 2), behavior: still ? "instant" : "smooth" });
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [activeRow, scene, selected, still]);
+
+  // A viewer's choice holds for a while, then the loop starts over.
+  useEffect(() => {
+    if (selected === null || still) return;
+    const timer = window.setTimeout(() => {
+      clock.current = 0;
+      setElapsed(0);
+      setSelected(null);
+      setPlaying(true);
+    }, RESUME_MS);
+    return () => window.clearTimeout(timer);
+  }, [selected, inspectedRow, still]);
 
   return (
-    <div ref={ref} className="relative">
-      {/* A slow glow behind the panel: the one decorative motion. */}
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute -inset-6 rounded-[40px] bg-[radial-gradient(60%_60%_at_70%_20%,rgba(34,211,224,0.28),transparent_70%),radial-gradient(50%_50%_at_20%_90%,rgba(7,102,214,0.35),transparent_70%)] blur-2xl"
-        animate={still || !visible ? { opacity: 0.6 } : { opacity: [0.6, 1, 0.6] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={cycle}
-          initial={false}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.45 }}
-          className="relative rounded-3xl bg-night p-4 shadow-[0_40px_80px_-40px_rgba(1,33,81,0.8)] ring-1 ring-white/10 sm:p-5"
-          role="img"
-          aria-label={`An answer being worked out: ${question} Balance payable LKR ${money(balance)}, every line cited.`}
-        >
-          {/* The question, typed */}
-          <div className="flex items-start gap-3 rounded-2xl bg-white p-3.5 sm:p-4">
-            <p className="min-h-[3em] flex-1 text-[14.5px] leading-[1.5] text-ink-900 sm:text-[15.5px]">
-              {question.slice(0, typed)}
-              {!sent && <span className="ml-px inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse bg-brand-600" />}
-            </p>
-          </div>
+    <div ref={ref} className="tax-film" aria-label="An example tax calculation">
+      <header className="tax-film-header">
+        <Image src="/brand/logo-lockup.png" alt="Citetax" width={102} height={32} />
+        <span>Year of assessment {ya}</span>
+      </header>
 
-          {/* The checks an answer passes */}
-          <ul className="my-4 grid gap-x-4 gap-y-2 px-1 sm:grid-cols-2">
-            {checks.map((c, i) => {
-              const on = now >= checkAt(i);
-              return (
-                <motion.li
-                  key={c}
-                  initial={false}
-                  animate={{ opacity: on ? 1 : 0, y: on ? 0 : 6 }}
-                  transition={spring}
-                  className="text-[12.5px] text-white/80"
-                >
-                  {c}
-                </motion.li>
-              );
-            })}
-          </ul>
-
-          {/* The ledger */}
-          <div className="mt-3 rounded-2xl bg-white px-4 py-2 sm:px-5">
-            <div className="flex justify-between border-b border-line py-2 text-[12px] text-ink-400">
-              <span>Year of assessment {ya}</span>
-              <span>LKR</span>
-            </div>
-            {lines.map((l, i) => {
-              const on = now >= rowAt(i);
-              const fresh = on && now < rowAt(i) + ROW_MS;
-              return (
-                <motion.div
-                  key={l.label}
-                  initial={false}
-                  animate={{ opacity: on ? 1 : 0, y: on ? 0 : 8, backgroundColor: fresh ? "rgba(7,102,214,0.06)" : "rgba(7,102,214,0)" }}
-                  transition={{ ...spring, backgroundColor: { duration: 0.6 } }}
-                  className="-mx-2 flex items-center justify-between gap-4 rounded-lg border-b border-line-faint px-2 py-2.5 last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-medium text-ink-900 sm:text-[14.5px]">{l.label}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      {l.cite && (
-                        <motion.span
-                          initial={false}
-                          animate={{ opacity: on ? 1 : 0, scale: on ? 1 : 1.04 }}
-                          transition={{ type: "spring", stiffness: 320, damping: 14, delay: on ? 0.12 : 0 }}
-                          className="inline-block origin-left whitespace-nowrap rounded-md bg-ink-900/[0.05] px-1.5 font-serif text-[13px] italic leading-[1.6] text-ink-700"
-                        >
-                          {l.cite}
-                        </motion.span>
-                      )}
-                      {l.assumed && <span className="text-[11.5px] text-[#7e5d1b]">assumed from the salary</span>}
-                    </div>
+      <div className="tax-film-stage" aria-live="off">
+        <AnimatePresence initial={false} mode="wait">
+          <motion.div
+            key={scene}
+            className={`tax-film-scene tax-film-scene-${scene}`}
+            initial={still ? false : { opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: still ? 0 : -12, scale: still ? 1 : 1.015 }}
+            transition={{ duration: still ? 0 : 0.45, ease }}
+          >
+            {scene === 0 && (
+              <>
+                <div className="tax-film-intro">
+                  <p className="tax-film-eyebrow">Start with your income</p>
+                  <h3>A question.<br />In your own words.</h3>
+                </div>
+                <div className="tax-film-question">
+                  <p aria-label={question}>
+                    <span className="tax-film-question-reserve" aria-hidden="true">{question}</span>
+                    <span className="tax-film-question-text" aria-hidden="true">
+                      {question.slice(0, typed)}
+                      {typed < question.length && <span className="tax-film-caret" />}
+                    </span>
+                  </p>
+                  <div className="tax-film-question-bottom">
+                    <span>Salary + private practice</span>
+                    <motion.span className="tax-film-send" animate={{ backgroundColor: typed >= question.length ? "#0766d6" : "#012151" }} aria-hidden="true">
+                      <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M12 19V5m-6 6 6-6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </motion.span>
                   </div>
-                  <motion.span
-                    initial={false}
-                    animate={{ opacity: on ? 1 : 0, x: on ? 0 : 12 }}
-                    transition={{ ...spring, delay: on ? 0.05 : 0 }}
-                    className="tnum whitespace-nowrap text-[15px] font-semibold text-ink-900 sm:text-[16px]"
-                  >
-                    {money(l.value)}
-                  </motion.span>
-                </motion.div>
-              );
-            })}
-          </div>
+                </div>
+                <p className="tax-film-intro-note">Follow this question through to a cited answer.</p>
+              </>
+            )}
 
-          {/* The balance, then the check */}
-          <motion.div
-            initial={false}
-            animate={{ opacity: now >= balanceAt ? 1 : 0, y: now >= balanceAt ? 0 : 12 }}
-            transition={spring}
-            className="mt-3 flex items-baseline justify-between rounded-2xl bg-ink-900 px-4 py-3.5 text-white sm:px-5"
-          >
-            <span className="text-[15px] font-semibold">Balance payable</span>
-            <motion.span
-              initial={false}
-              animate={{ scale: now >= balanceAt ? 1 : 0.9 }}
-              transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.1 }}
-              className="tnum text-[26px] font-semibold tracking-[-0.02em] sm:text-[30px]"
-            >
-              <span className="mr-2 text-[15px] font-medium text-sidebar-primary">LKR</span>
-              {money(balance)}
-            </motion.span>
+            {scene === 1 && (
+              <>
+                <div className="tax-film-calculation-heading"><h3>Working it out.</h3><span>LKR</span></div>
+                <div ref={ledger} className="tax-film-ledger" tabIndex={0} role="region" aria-label="Calculation breakdown">
+                  {lines.map((line, i) => {
+                    const shown = selected === 1 || still || i <= activeRow;
+                    return (
+                      <motion.button type="button" key={`${line.label}-${i}`} className="tax-film-row" data-active={i === activeRow} aria-pressed={i === activeRow}
+                        onClick={() => { setInspectedRow(i); setSelected(1); setPlaying(false); }}
+                        initial={false} animate={{ opacity: shown ? 1 : 0.24 }} transition={{ duration: 0.35 }}>
+                        <span><span>{line.label}</span>{line.assumed && <small>Assumed from the salary</small>}</span>
+                        <motion.strong initial={false} animate={{ opacity: shown ? 1 : 0, x: shown ? 0 : 8 }} transition={{ duration: 0.4 }}>{money(line.value)}</motion.strong>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                <div className="tax-film-source">
+                  <span>Behind this figure</span>
+                  <AnimatePresence initial={false} mode="wait">
+                    <motion.div key={activeRow} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.15 }}>
+                      <strong>{currentLine?.label}</strong>
+                      <cite>{currentLine?.cite ?? "Calculated from the preceding figures"}</cite>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </>
+            )}
+
+            {scene === 2 && (
+              <>
+                <div className="tax-film-result">
+                  <p>Balance payable</p>
+                  <motion.div className="tax-film-total" initial={still ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: still ? 0 : 0.15, ease }}>
+                    <span>LKR</span><strong>{money(balance)}</strong>
+                  </motion.div>
+                  <span className="tax-film-result-year">For {ya}</span>
+                </div>
+                <div className="tax-film-summary" tabIndex={0} role="region" aria-label="The answer with its sources">
+                  {lines.map((line, i) => (
+                    <div key={`${line.label}-${i}`}>
+                      <span>{line.label}{line.cite && <cite>{line.cite}</cite>}{line.assumed && <small>Assumed from the salary</small>}</span>
+                      <strong>{money(line.value)}</strong>
+                    </div>
+                  ))}
+                </div>
+                <p className="tax-film-result-note">{rules} rules applied. Sources beside the figures.</p>
+              </>
+            )}
           </motion.div>
-          <motion.div
-            initial={false}
-            animate={{ opacity: now >= verifiedAt ? 1 : 0 }}
-            transition={{ duration: 0.3 }}
-            className="mt-3 flex items-center gap-2.5 px-1 text-[13.5px] text-white/85"
-          >
-            Verified. Every line cites a rule in force for {ya}.
-          </motion.div>
-        </motion.div>
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
+
+      <footer className="tax-film-controls">
+        <div className="tax-film-chapters" role="group" aria-label="Walkthrough scenes">
+          {CHAPTERS.map((chapter, i) => (
+            <button type="button" key={chapter} aria-pressed={scene === i} onClick={() => { setSelected(i); setInspectedRow(0); setPlaying(false); }}>
+              <span className="tax-film-chapter-track" aria-hidden="true"><span style={{ transform: `scaleX(${scene > i ? 1 : scene < i ? 0 : selected !== null || still ? 1 : i === 0 ? elapsed / QUESTION_MS : i === 1 ? (elapsed - QUESTION_MS) / (answerAt - QUESTION_MS) : (elapsed - answerAt) / (end - answerAt)})` }} /></span>
+              {chapter}
+            </button>
+          ))}
+        </div>
+      </footer>
     </div>
   );
 }
