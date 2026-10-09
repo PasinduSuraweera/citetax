@@ -1,0 +1,3 @@
+# Built on Linux by Cloud Build from the working copy: keep Unix line endings.
+api/Dockerfile text eol=lf
+api/.dockerignore text eol=lf
