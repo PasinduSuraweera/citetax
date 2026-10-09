@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # --- Behaviour ---
     max_free_text_to_llm: int = 600  # truncation cap, spec §9.1 compensating controls
     cors_origins: str = "http://localhost:3000"
+    # Shared secret for Cloud Scheduler's call to /internal/agent/run. Empty
+    # means the endpoint refuses everything.
+    cron_token: str = ""
 
     @property
     def bootstrap_admin_list(self) -> list[str]:
