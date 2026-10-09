@@ -10,7 +10,7 @@
  */
 
 import { useSyncExternalStore } from "react";
-import { API_BASE } from "./api";
+import { API_BASE, API_HEADERS } from "./api";
 
 export type YA = string;
 
@@ -48,7 +48,7 @@ function start() {
   started = true;
   const stored = readStored();
   if (stored) set({ selected: stored });
-  fetch(`${API_BASE}/v1/years`, { cache: "no-store" })
+  fetch(`${API_BASE}/v1/years`, { headers: API_HEADERS, cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
     .then((data: { supported: YA[]; current: YA } | null) => {
       if (!data?.supported?.length) return;

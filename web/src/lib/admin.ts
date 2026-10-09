@@ -1,7 +1,7 @@
 /** Client for the admin API. Roles are enforced server side; this only shapes
  *  what the UI offers. */
 
-import { API_BASE, ApiError, getToken, type PlanKey } from "./api";
+import { API_BASE, API_HEADERS, ApiError, getToken, type PlanKey } from "./api";
 
 export type Role =
   | "free" | "individual" | "practice"
@@ -230,6 +230,7 @@ export interface AuditEvent {
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken();
   const headers: Record<string, string> = {
+    ...API_HEADERS,
     ...(init?.headers as Record<string, string>),
   };
   if (!(init?.body instanceof FormData)) {

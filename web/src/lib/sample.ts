@@ -6,7 +6,7 @@
  * reached, and the pages then leave the example out.
  */
 
-import { API_BASE, type ComputeResponse, type Snapshot } from "./api";
+import { API_BASE, API_HEADERS, type ComputeResponse, type Snapshot } from "./api";
 
 export const SAMPLE_MONTHLY = "250000";
 export const SAMPLE_YA = "2026/2027";
@@ -15,7 +15,7 @@ export async function sampleLedger(): Promise<ComputeResponse | null> {
   try {
     const res = await fetch(`${API_BASE}/v1/compute`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...API_HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ ya: SAMPLE_YA, employment_income: String(Number(SAMPLE_MONTHLY) * 12) }),
       next: { revalidate: 3600 },
     });
@@ -27,7 +27,7 @@ export async function sampleLedger(): Promise<ComputeResponse | null> {
 
 export async function currentSnapshot(): Promise<Snapshot | null> {
   try {
-    const res = await fetch(`${API_BASE}/v1/snapshot/current`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_BASE}/v1/snapshot/current`, { headers: API_HEADERS, next: { revalidate: 3600 } });
     return res.ok ? ((await res.json()) as Snapshot) : null;
   } catch {
     return null;
@@ -79,7 +79,7 @@ export async function starterAnswers(): Promise<Starter[]> {
       try {
         const res = await fetch(`${API_BASE}/v1/compute`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { ...API_HEADERS, "Content-Type": "application/json" },
           body: JSON.stringify({ ya: SAMPLE_YA, ...facts }),
           next: { revalidate: 3600 },
         });
@@ -109,7 +109,7 @@ export async function starterAnswers(): Promise<Starter[]> {
 
 export async function planSummary(): Promise<Array<{ key: string; name: string; price_lkr: number; price_unit: string; monthly_questions: number | null }> | null> {
   try {
-    const res = await fetch(`${API_BASE}/v1/plans`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API_BASE}/v1/plans`, { headers: API_HEADERS, next: { revalidate: 300 } });
     return res.ok ? ((await res.json()).plans as never) : null;
   } catch {
     return null;
@@ -126,7 +126,7 @@ export async function heroAnswer(): Promise<ComputeResponse | null> {
   try {
     const res = await fetch(`${API_BASE}/v1/compute`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...API_HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ ya: SAMPLE_YA, employment_income: "4200000", business_income: "2400000" }),
       next: { revalidate: 3600 },
     });
