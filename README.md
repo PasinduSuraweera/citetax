@@ -109,8 +109,7 @@ Citetax began as a project for SLIIT IT3041, Information Retrieval and Web Analy
 
 ## For developers
 
-Citetax is a Next.js web app and a FastAPI service on Postgres, with Groq and Google Vertex AI for language and search. Setup and keys are in [SETUP.md](SETUP.md).
-
+Citetax is a Next.js web app and a FastAPI service on Postgres, with Groq and Google Vertex AI for language and search.
 ### Architecture
 
 ```mermaid

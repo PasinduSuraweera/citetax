@@ -117,3 +117,46 @@ Browser ──> Vercel (web) ──> ngrok ──> your laptop (API, port 8000) 
 6. Set up Vercel as in section 2, with `NEXT_PUBLIC_API_BASE=https://citetax-xyz.ngrok-free.app`, and add the Google redirect URI as in section 3.
 
 The web app sends an `ngrok-skip-browser-warning` header with every API call, so ngrok's warning page never gets in the way. The free ngrok plan has monthly request and data limits, which is plenty for testing but not for real traffic.
+
+### Running the API from a teammate's laptop
+
+The live site is `https://citetax-lovat.vercel.app`, and it calls the API at `https://pastor-unfocused-eleven.ngrok-free.dev`. Anyone on the team can serve that address from their own laptop, with nothing to change on Vercel or Google.
+
+**You need from Pasindu**, sent privately and never committed:
+- the `api/.env` file, which holds the database URL and API keys, already allows the Vercel site, and has the `AUTH_SECRET` that matches Vercel's;
+- the ngrok authtoken. The domain belongs to Pasindu's ngrok account, so the tunnel needs that account's token.
+
+**Once**, with Python 3.12 installed:
+
+```powershell
+git clone https://github.com/PasinduSuraweera/citetax.git
+cd citetax\api
+py -3.12 -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python -m spacy download en_core_web_sm
+# copy the .env you were sent into this folder (citetax\api\.env)
+```
+
+Install ngrok with `winget install ngrok.ngrok`, or download it from [ngrok.com/download](https://ngrok.com/download), then:
+
+```powershell
+ngrok config add-authtoken THE_TOKEN_YOU_WERE_SENT
+```
+
+**Each time you serve it**, from `citetax\api`, in two terminals:
+
+```powershell
+.venv\Scripts\python -m uvicorn app.main:app --port 8000
+```
+
+```powershell
+ngrok http --domain=pastor-unfocused-eleven.ngrok-free.dev 8000
+```
+
+Check `https://pastor-unfocused-eleven.ngrok-free.dev/health`, then the site.
+
+**Good to know**
+- **One laptop at a time.** A second tunnel on the same domain is refused, and a second API would run the corpus agent twice against the shared database. Stop both terminals before someone else takes over.
+- **Keep it awake.** Set Windows sleep to Never while plugged in. If the laptop sleeps or shuts down, the homepage still loads with its saved examples, but chat and sign-in stop until both commands are run again.
+- **Nothing to remap.** Restarting keeps the same address. Only a different ngrok domain would mean changing `NEXT_PUBLIC_API_BASE` on Vercel and redeploying.
+- **Pull before you serve.** Run `git pull` in `citetax` first, so the API matches the site.
