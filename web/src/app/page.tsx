@@ -20,7 +20,8 @@ import { HERO_QUESTION, currentSnapshot, heroAnswer, planSummary, starterAnswers
  *
  * The ribbon is decorative brand artwork. The animated answer and every
  * figure in the paper cards are computed by the engine when the page renders.
- * If the API cannot be reached the figures are left out, never made up.
+ * If the API cannot be reached, the engine's saved answers to the same
+ * questions are shown, never figures typed in.
  */
 
 const USES = [
