@@ -26,7 +26,7 @@ import { ProseWithSources, SourcesList } from "./Sources";
 import { INTENT_LABEL } from "./TurnSummary";
 import { UserAvatar } from "./UserAvatar";
 
-type Tab = "computation" | "comparison" | "sources" | "citations" | "trace" | "explanation";
+type Tab = "computation" | "comparison" | "sources" | "citations" | "trace" | "explanation" | "savings";
 
 interface Props {
   question: string;
@@ -196,6 +196,7 @@ export function AnswerView({ question, answer, onClarifyAnswer, onAsk }: Props) 
   if (hasPassages) tabs.push(["sources", `Sources ${answer.passages!.length}`]);
   tabs.push(["citations", `Rules ${answer.citations?.length ?? 0}`]);
   tabs.push(["trace", "How it was answered"]);
+  if ((c?.savings ?? []).length > 0) tabs.push(["savings", "Ways to pay less"]);
 
   const checks = ["No model in the arithmetic", "Year matched", "Personal details removed"];
   if (answer.verify?.checked_numbers) checks.unshift(`${answer.verify.checked_numbers} figures traced`);
@@ -261,24 +262,22 @@ export function AnswerView({ question, answer, onClarifyAnswer, onAsk }: Props) 
               onFlag={handleFlag}
               citationIndex={citationIndex}
             />
-            {(c.savings ?? []).length > 0 && (
-              <div className="mt-5">
-                <Label>Ways to pay less</Label>
-                <ul className="mt-2 flex flex-col">
-                  {c.savings!.map((s) => (
-                    <li key={s.kind} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line-faint py-2.5 text-[14px] leading-[1.55] text-ink-700">
-                      <span className="max-w-[62ch]">{s.text}</span>
-                      {s.citation_label && (
-                        <button type="button" onClick={() => handleRuleClick(s.rule_key)} className="statute text-[13px] italic text-brand-700 underline-offset-4 hover:underline">
-                          {s.citation_label}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </>
+        )}
+
+        {tab === "savings" && c?.savings && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {c.savings.map((s) => (
+              <div key={s.kind} className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4">
+                <p className="text-[14.5px] leading-[1.55] text-ink-700">{s.text}</p>
+                {s.citation_label && (
+                  <button type="button" onClick={() => handleRuleClick(s.rule_key)} className="statute mt-auto w-fit text-left text-[13px] italic text-brand-700 underline-offset-4 hover:underline">
+                    {s.citation_label}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         )}
 
         {tab === "comparison" && answer.compare && <CompareTable compare={answer.compare} />}
