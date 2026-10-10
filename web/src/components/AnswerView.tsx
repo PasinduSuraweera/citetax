@@ -261,6 +261,23 @@ export function AnswerView({ question, answer, onClarifyAnswer, onAsk }: Props) 
               onFlag={handleFlag}
               citationIndex={citationIndex}
             />
+            {(c.savings ?? []).length > 0 && (
+              <div className="mt-5">
+                <Label>Ways to pay less</Label>
+                <ul className="mt-2 flex flex-col">
+                  {c.savings!.map((s) => (
+                    <li key={s.kind} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line-faint py-2.5 text-[14px] leading-[1.55] text-ink-700">
+                      <span className="max-w-[62ch]">{s.text}</span>
+                      {s.citation_label && (
+                        <button type="button" onClick={() => handleRuleClick(s.rule_key)} className="statute text-[13px] italic text-brand-700 underline-offset-4 hover:underline">
+                          {s.citation_label}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
 

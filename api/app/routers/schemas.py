@@ -120,6 +120,7 @@ def serialise_answer(result: AnswerResult) -> dict[str, Any]:
             "is_refund": c.is_refund,
             "step_count": len(c.steps),
             "notes": c.notes,
+            "savings": [s.to_json() for s in result.savings],
         }
 
     if result.compliance:

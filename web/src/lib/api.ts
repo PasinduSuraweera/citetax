@@ -155,6 +155,9 @@ export interface AnswerResponse {
     /** Facts the engine could not apply, such as business expenses before
      *  the rule allowing them is published. Absent on older answers. */
     notes?: string[];
+    /** Ways to pay less that apply to these facts, each worked out by the
+     *  engine. Absent on older answers. */
+    savings?: Array<{ kind: string; text: string; rule_key: string; citation_label: string | null }>;
   };
   compliance?: Compliance;
   compare?: {

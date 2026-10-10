@@ -30,6 +30,7 @@ from typing import Any, Callable
 from sqlalchemy.engine import Connection
 
 from app.core import years
+from app.compute import savings as savings_mod
 from app.compute.engine import OPTIONAL_RULE_KEYS, REQUIRED_RULE_KEYS, compute
 from app.compute.types import Computation, TaxFacts
 from app.conversations.context import ConversationContext
@@ -84,6 +85,7 @@ class AnswerResult:
     route_source: str = "regex"
     ya: str | None = None
     computation: Computation | None = None
+    savings: list[savings_mod.Saving] = field(default_factory=list)
     compliance: comply.Compliance | None = None
     rules: ResolvedRuleSet | None = None
     lookup: list[RuleVersion] = field(default_factory=list)
@@ -314,6 +316,7 @@ def _run_compute(conn, result, r, facts, snap_id, mark, budget) -> None:
     t0 = time.perf_counter()
     computation = compute(facts, rules)
     result.computation = computation
+    result.savings = savings_mod.analyse(facts, rules, computation)
     mark("Compute", "ok", f"{len(computation.steps)} steps, pure Python", t0)
 
     t0 = time.perf_counter()
